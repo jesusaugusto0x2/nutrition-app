@@ -81,14 +81,20 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/serve-static": "^5.0.5",
+    "@nutri/schemas": "workspace:*",
     "drizzle-orm": "0.45.4",
+    "nestjs-zod": "^5.5.0",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@nestjs/testing": "^11.0.0",
+    "@types/express": "^5.0.6",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "0.31.11",
     "tsx": "^4.23.15"

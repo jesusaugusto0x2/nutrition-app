@@ -1,8 +1,14 @@
-import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
 
-export type Database = NodePgDatabase<typeof schema>;
+/**
+ * Driver-agnostic database type. Production uses node-postgres; repository
+ * tests use PGlite (in-process Postgres). Repositories depend on this type
+ * only.
+ */
+export type Database = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export interface DatabaseConnection {
   db: Database;

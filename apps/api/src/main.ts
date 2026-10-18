@@ -1,21 +1,32 @@
-/**
- * This is not a production server yet!
- * This is only a minimal backend to get started.
- */
-
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app/app.module';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { AppModule } from './app.module';
+import { APP_CONFIG, type AppConfig } from './config/app-config';
+
+export const API_PREFIX = 'api';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const globalPrefix = 'api';
-  app.setGlobalPrefix(globalPrefix);
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  // Local development reads the root .env (Nx runs the app from the
+  // workspace root). Deployed environments inject variables directly.
+  const envFile = resolve(process.cwd(), '.env');
+  if (process.env.NODE_ENV !== 'production' && existsSync(envFile)) {
+    process.loadEnvFile(envFile);
+  }
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.disable('x-powered-by');
+  app.setGlobalPrefix(API_PREFIX);
+  app.enableShutdownHooks();
+
+  const config = app.get<AppConfig>(APP_CONFIG);
+  await app.listen(config.PORT);
   Logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
+    `API listening on http://localhost:${config.PORT}/${API_PREFIX} (${config.NODE_ENV})`,
+    'Bootstrap',
   );
 }
 
-bootstrap();
+void bootstrap();
