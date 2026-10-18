@@ -1,0 +1,25 @@
+# Local development database. Production uses Neon (managed PostgreSQL).
+name: nutri
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nutri
+      POSTGRES_PASSWORD: nutri
+      POSTGRES_DB: nutri
+    ports:
+      - '5432:5432'
+    volumes:
+      # Postgres 18+ images keep PGDATA under /var/lib/postgresql/<major>/,
+      # so the volume is mounted on the parent directory.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nutri -d nutri']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
