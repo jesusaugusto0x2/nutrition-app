@@ -1,0 +1,8 @@
+{
+  "//": "Single source for Nest decorator settings. Both the production build (tsc via webpack, tsconfig.app.json) and Vitest (Oxc, tsconfig.spec.json) extend this file so DI metadata is emitted identically.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}

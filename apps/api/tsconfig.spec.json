@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.decorators.json",
   "compilerOptions": {
     "outDir": "./out-tsc/vitest",
     "types": [
@@ -8,9 +8,7 @@
       "vite/client",
       "node",
       "vitest"
-    ],
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    ]
   },
   "include": [
     "vite.config.ts",

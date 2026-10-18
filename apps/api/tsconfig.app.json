@@ -1,12 +1,10 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.decorators.json",
   "compilerOptions": {
     "outDir": "dist",
     "types": ["node"],
     "rootDir": "src",
-    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
   "exclude": [
