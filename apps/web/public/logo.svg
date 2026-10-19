@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Placeholder logo: replace with the final brand mark. -->
+  <rect width="512" height="512" rx="96" fill="#16a34a"/>
+  <path d="M256 112c-88 40-128 112-128 184 0 56 40 104 104 104 24 0 40-8 56-24 16 16 32 24 56 24 64 0 104-48 104-104 0-72-40-144-128-184z" fill="#ffffff" opacity="0.95"/>
+  <path d="M256 168v232" stroke="#16a34a" stroke-width="20" stroke-linecap="round"/>
+</svg>
