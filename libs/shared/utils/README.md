@@ -1,11 +1,10 @@
-# utils
+# @nutri/utils
 
-This library was generated with [Nx](https://nx.dev).
+Pure domain calculations shared by the API and the web app:
+`calculateBmi`, `calculateAge`, `diffConsultations` and date/rounding
+helpers. Framework-free; may depend on `@nutri/schemas`, never the reverse.
 
-## Building
-
-Run `nx build utils` to build the library.
-
-## Running unit tests
-
-Run `nx test utils` to execute the unit tests via [Vitest](https://vitest.dev/).
+```bash
+pnpm nx test utils
+pnpm nx build utils
+```

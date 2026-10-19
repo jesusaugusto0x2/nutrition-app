@@ -1,1 +1,84 @@
-# nutrition-app
+# Nutri
+
+Mobile-first web app for nutritionists to manage patients, their nutrition
+history and weight/measurement tracking per consultation. Multi-clinic, with
+per-clinic data isolation. The UI is in Spanish.
+
+- `apps/api`: NestJS API (serves the web app in production)
+- `apps/web`: React + Vite SPA/PWA
+- `libs/shared/schemas`: shared Zod schemas (`@nutri/schemas`)
+- `libs/shared/utils`: shared pure calculations (`@nutri/utils`)
+
+See [docs/architecture.md](docs/architecture.md) for the design and
+[CLAUDE.md](CLAUDE.md) for development rules.
+
+## Requirements
+
+- Node.js 24+
+- pnpm 11 (`npm install --global pnpm@11`)
+- Docker with Docker Compose (local PostgreSQL)
+
+## Run locally
+
+```bash
+# 1. Install dependencies (also installs the git hooks)
+pnpm install
+
+# 2. Create your local environment file
+cp .env.example .env
+
+# 3. Start PostgreSQL
+docker compose up -d
+
+# 4. Create the schema and load fictional data
+pnpm db:migrate
+pnpm db:seed
+
+# 5. Start the API and the web app
+pnpm dev
+```
+
+Open http://localhost:4200. The web dev server proxies `/api` to the API on
+http://localhost:3000 (health check: http://localhost:3000/api/health).
+
+There is no authentication yet: in development every clinic route acts on
+the seed clinic (see "TEMPORARY" in `apps/api/src/common/guards`).
+
+## Scripts
+
+| Script             | What it does                             |
+| ------------------ | ---------------------------------------- |
+| `pnpm dev`         | API and web app in watch mode            |
+| `pnpm build`       | Build every project                      |
+| `pnpm lint`        | ESLint, including Nx module boundaries   |
+| `pnpm typecheck`   | TypeScript type checking                 |
+| `pnpm test`        | Vitest in every project                  |
+| `pnpm format`      | Prettier on the whole repository         |
+| `pnpm db:generate` | Generate a migration from schema changes |
+| `pnpm db:migrate`  | Apply pending migrations                 |
+| `pnpm db:seed`     | Reset local data to the fictional seed   |
+| `pnpm db:studio`   | Open Drizzle Studio                      |
+
+Run a target for one project with Nx, e.g. `pnpm nx test api`.
+
+## Production image
+
+```bash
+docker build -t nutri .
+docker run -p 3000:3000 \
+  -e DATABASE_URL=postgres://user:password@host:5432/db \
+  nutri
+```
+
+The container runs only Nest: the API under `/api` and the web app on every
+other route. Migrations are not run by the image yet (see
+[Known technical debt](docs/architecture.md#known-technical-debt)).
+
+## Troubleshooting
+
+- **Clinic routes return 503 "Development clinic not found"**: run
+  `pnpm db:seed`.
+- **Nx reports "The workspace is out of sync"**: run `pnpm nx sync` (needed
+  after adding a dependency between workspace projects).
+- **Tests ignore a tsconfig change**: run `pnpm exec vitest --clearCache`
+  (Vitest caches transformed modules on disk).
