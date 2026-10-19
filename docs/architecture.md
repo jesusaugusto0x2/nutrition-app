@@ -45,3 +45,14 @@ resolved.
   workspace libraries resolve through pnpm workspace packages and the
   `@nutri/source` custom condition, so the upgrade needs no tsconfig rewrite.
 - **Resolve when:** `typescript-eslint` supports TypeScript 7.
+
+### PGlite shipped in the production image
+
+- **Status:** pending (cosmetic). The runtime image includes
+  `@electric-sql/pglite` (~35 MB) although only repository tests use it.
+- **Why:** the lockfile resolves `drizzle-orm` with PGlite as a peer (it is
+  a devDependency of the API), and `pnpm install --prod` installs that
+  resolved peer set. No runtime code imports it.
+- **Resolve when:** image size matters (e.g. cold starts). Options: move the
+  PGlite test helper into a separate test-only package, or prune the peer in
+  the `prod-deps` Docker stage and verify the API still starts.

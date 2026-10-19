@@ -1,0 +1,16 @@
+# Keep the build context small and never send secrets or local state.
+.git
+.husky/_
+.nx
+.vscode
+.idea
+node_modules
+**/node_modules
+**/dist
+**/out-tsc
+**/test-output
+coverage
+.env
+.env.*
+!.env.example
+*.log

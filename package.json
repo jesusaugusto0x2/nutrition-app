@@ -8,7 +8,17 @@
     "node": ">=24"
   },
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev": "nx run-many -t serve -p api web",
+    "build": "nx run-many -t build",
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "nx run-many -t test",
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter @nutri/api exec drizzle-kit generate",
+    "db:migrate": "pnpm --filter @nutri/api exec drizzle-kit migrate",
+    "db:seed": "pnpm --filter @nutri/api exec tsx src/database/seed/seed.ts",
+    "db:studio": "pnpm --filter @nutri/api exec drizzle-kit studio"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
