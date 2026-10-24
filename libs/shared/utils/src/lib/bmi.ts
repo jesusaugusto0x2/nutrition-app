@@ -17,3 +17,26 @@ function assertPositive(value: number, name: string): void {
     throw new RangeError(`${name} must be a finite positive number`);
   }
 }
+
+/**
+ * WHO adult BMI categories. Not valid for minors, whose BMI is read by
+ * percentile for age and sex (see `isMinor`).
+ */
+export type BmiCategory =
+  | 'underweight'
+  | 'normal'
+  | 'overweight'
+  | 'obesity1'
+  | 'obesity2'
+  | 'obesity3';
+
+/** Adult BMI category: < 18.5, < 25, < 30, < 35, < 40, 40 or more. */
+export function classifyBmi(bmi: number): BmiCategory {
+  assertPositive(bmi, 'bmi');
+  if (bmi < 18.5) return 'underweight';
+  if (bmi < 25) return 'normal';
+  if (bmi < 30) return 'overweight';
+  if (bmi < 35) return 'obesity1';
+  if (bmi < 40) return 'obesity2';
+  return 'obesity3';
+}

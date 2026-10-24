@@ -1,4 +1,5 @@
 import {
+  changeDirection,
   formatChange,
   formatDate,
   formatDecimal,
@@ -7,6 +8,7 @@ import {
   formatQuantityChange,
   formatQuantityWithUnit,
   formatShortDate,
+  formatSignedQuantity,
 } from './format';
 
 describe('formatDate', () => {
@@ -97,5 +99,25 @@ describe('formatQuantityChange', () => {
   it('formats gains with a plus sign', () => {
     expect(formatQuantityChange(0.5, 'length')).toBe('+0,5 cm');
     expect(formatQuantityChange(0.8, 'weight')).toBe('+0,8 kg');
+  });
+});
+
+describe('changeDirection', () => {
+  it('reads losses and gains', () => {
+    expect(changeDirection(-1.7, 'weight')).toBe('down');
+    expect(changeDirection(0.8, 'length')).toBe('up');
+  });
+
+  it('treats changes that display as zero as no change', () => {
+    expect(changeDirection(-0.04, 'weight')).toBe('none');
+    expect(changeDirection(0.004, 'height')).toBe('none');
+    expect(changeDirection(0.01, 'height')).toBe('up');
+  });
+});
+
+describe('formatSignedQuantity', () => {
+  it('formats the signed difference without unit', () => {
+    expect(formatSignedQuantity(-2.3, 'weight')).toBe('\u22122,3');
+    expect(formatSignedQuantity(1, 'length')).toBe('+1');
   });
 });

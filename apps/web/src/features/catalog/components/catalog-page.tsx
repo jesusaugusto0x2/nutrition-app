@@ -1,5 +1,6 @@
 import { catalog } from '../samples';
 import { ActionsCatalog } from './actions-catalog';
+import { DataCatalog } from './data-catalog';
 import { FormsCatalog } from './forms-catalog';
 
 /** Dev-only page showing every spec component with its variants. */
@@ -17,6 +18,9 @@ export function CatalogPage() {
       </Family>
       <Family title={catalog.families.forms}>
         <FormsCatalog />
+      </Family>
+      <Family title={catalog.families.data}>
+        <DataCatalog />
       </Family>
     </main>
   );

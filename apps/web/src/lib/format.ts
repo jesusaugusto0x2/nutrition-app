@@ -70,8 +70,34 @@ export function formatQuantityChange(
   value: number,
   quantity: Quantity,
 ): string {
-  const digits = fractionDigitsFor(value, quantity);
-  return `${formatChange(value, digits)} ${unitOf(quantity)}`;
+  return `${formatSignedQuantity(value, quantity)} ${unitOf(quantity)}`;
+}
+
+/** Signed difference without unit, for cells whose header names it. */
+export function formatSignedQuantity(
+  value: number,
+  quantity: Quantity,
+): string {
+  return formatChange(value, fractionDigitsFor(value, quantity));
+}
+
+/** Direction of a change as it reads once rounded for display. */
+export type ChangeDirection = 'down' | 'up' | 'none';
+
+/**
+ * `down`, `up` or `none` at the precision the change is shown with, so a
+ * tiny delta that displays as zero is never drawn as a gain or loss.
+ */
+export function changeDirection(
+  value: number,
+  quantity: Quantity,
+): ChangeDirection {
+  const factor = 10 ** (quantity === 'height' ? 2 : 1);
+  const rounded = Math.round(value * factor);
+  if (rounded === 0) {
+    return 'none';
+  }
+  return rounded < 0 ? 'down' : 'up';
 }
 
 /** Display unit of a quantity. */
