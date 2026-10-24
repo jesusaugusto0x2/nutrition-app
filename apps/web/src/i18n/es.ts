@@ -5,7 +5,8 @@
  */
 export const es = {
   app: {
-    name: 'Nutri',
+    name: 'Mi consulta',
+    tagline: 'Registro de pacientes',
   },
   common: {
     loading: 'Cargando…',
@@ -29,7 +30,57 @@ export const es = {
     datePlaceholder: 'dd/mm/aaaa',
   },
   nav: {
+    label: 'Principal',
+    home: 'Inicio',
     patients: 'Pacientes',
+    comingSoon: 'Próximamente',
+  },
+  comingSoon: {
+    title: 'Próximamente',
+    intro:
+      'Funciones que se sumarán más adelante. Por ahora no están disponibles.',
+    badge: 'Próximamente',
+    features: {
+      agenda: {
+        menu: 'Agenda de citas',
+        title: 'Agenda de citas',
+        description: 'Programar consultas y ver el día de un vistazo.',
+      },
+      mealPlan: {
+        menu: 'Plan alimenticio',
+        title: 'Plan alimenticio',
+        description: 'Armar y guardar el plan de cada paciente.',
+      },
+      pdfReport: {
+        menu: 'Reporte PDF',
+        title: 'Reporte PDF para el paciente',
+        description:
+          'Un resumen de su evolución, listo para imprimir o enviar.',
+      },
+      whatsapp: {
+        menu: 'Recordatorios WhatsApp',
+        title: 'Recordatorios por WhatsApp',
+        description: 'Avisos de la próxima cita al teléfono del paciente.',
+      },
+    },
+  },
+  profileTabs: {
+    label: 'Secciones de la ficha',
+    summary: 'Resumen',
+    history: 'Historia nutricional',
+    measurements: 'Control de medidas',
+    notes: 'Notas',
+  },
+  pagination: {
+    label: (items: string) => `Páginas de ${items}`,
+    newer: 'Más recientes',
+    older: 'Más antiguas',
+    page: (page: number) => `Página ${page}`,
+    showing: (from: number, to: number, total: number, items: string) =>
+      `Mostrando ${from}–${to} de ${total} ${items}`,
+  },
+  notices: {
+    undo: 'Deshacer',
   },
   units: {
     kilograms: 'kg',
@@ -94,6 +145,12 @@ export const es = {
     save: 'Guardar',
     cancel: 'Cancelar',
     records: 'Registros',
+    /** Plural noun for pagination: «Mostrando 1–3 de 4 consultas». */
+    items: 'consultas',
+    saved: 'Consulta guardada',
+    viewMeasurements: 'Ver control de medidas',
+    weightRequired: 'Escriba al menos el peso para poder guardar.',
+    saveConsultation: 'Guardar consulta',
   },
   trend: {
     down: (amount: string) => `Bajó ${amount}`,

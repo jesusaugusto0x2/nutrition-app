@@ -5,7 +5,8 @@ convention changes, update this file in the same change.
 
 ## 1. Project overview
 
-Nutri is a mobile-first web app (also used on desktop) for nutritionists to
+Nutri (shown to users as «Mi consulta») is a mobile-first web app (also used
+on desktop) for nutritionists to
 register patients, their nutrition history and weight/measurement tracking
 per consultation. It is multi-clinic: each nutritionist works inside a clinic
 and data is isolated per clinic. A read-only portal for patients (or guardians

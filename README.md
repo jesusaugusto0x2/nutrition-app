@@ -1,4 +1,4 @@
-# Nutri
+# Nutri (Mi consulta)
 
 Mobile-first web app for nutritionists to manage patients, their nutrition
 history and weight/measurement tracking per consultation. Multi-clinic, with

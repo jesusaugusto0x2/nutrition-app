@@ -34,9 +34,9 @@ export default defineConfig(() => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Nutri',
-        short_name: 'Nutri',
-        description: 'Gestión de pacientes para nutricionistas',
+        name: 'Mi consulta',
+        short_name: 'Mi consulta',
+        description: 'Registro de pacientes para nutricionistas',
         lang: 'es',
         start_url: '/',
         display: 'standalone',
