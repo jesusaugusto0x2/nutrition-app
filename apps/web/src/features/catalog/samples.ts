@@ -8,6 +8,7 @@ export const catalog = {
   title: 'Catálogo de componentes',
   intro:
     'Componentes de la especificación «Mi consulta» con sus variantes y estados. Solo existe en desarrollo.',
+  indexTitle: 'Índice',
   families: {
     actions: 'Acciones',
     forms: 'Formularios',

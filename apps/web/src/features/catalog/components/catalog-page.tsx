@@ -1,5 +1,6 @@
 import { catalog } from '../samples';
 import { ActionsCatalog } from './actions-catalog';
+import { CatalogIndex } from './catalog-index';
 import { DataCatalog } from './data-catalog';
 import { FormsCatalog } from './forms-catalog';
 import { MessagesCatalog } from './messages-catalog';
@@ -15,6 +16,7 @@ export function CatalogPage() {
         </h1>
         <p className="text-muted-foreground">{catalog.intro}</p>
       </header>
+      <CatalogIndex />
       <Family title={catalog.families.navigation}>
         <NavigationCatalog />
       </Family>

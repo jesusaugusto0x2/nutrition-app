@@ -54,7 +54,7 @@ function UnitInput({
   const unitId = useId();
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative w-full min-w-0">
       <Input
         inputMode="decimal"
         autoComplete="off"

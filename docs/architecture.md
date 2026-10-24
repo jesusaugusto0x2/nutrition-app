@@ -142,6 +142,18 @@ differences) used by both sides.
   is light-only and self-hosts Atkinson Hyperlegible Next (UI) and Newsreader
   (headings) through Fontsource, so no font request leaves the app. Users are
   not technical: every control is at least 44 px tall.
+- **Component library:** the 36 spec components are split by what they
+  know. `components/ui` holds generic ones (shadcn restyled plus our own:
+  `FormField`, `UnitInput`, `YesNoField`, `EvolutionChart`, `Pagination`,
+  notices…); `components/navigation` the app shell (brand, sidebar, bottom
+  bar, back link), which knows routes; `features/consultations` and
+  `features/patients` the domain ones (BMI badge, records table, patient
+  header and rows). Pure logic behind them (parsing, formatting, chart
+  scale, record diffs, BMI category) lives in plain functions with unit
+  tests. `/dev/components` (development only) shows every component with
+  its variants and states.
+- **Layout:** `_clinic` shows the sidebar from `md`, wrapping above the
+  content when both do not fit (~800 px), and the bottom bar on phones.
 
 ## Testing
 

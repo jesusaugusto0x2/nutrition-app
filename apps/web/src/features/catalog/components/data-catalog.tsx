@@ -138,7 +138,7 @@ function PatientRowSection() {
       <div className="grid gap-5 md:grid-cols-2">
         <CatalogRow
           label={samples.rowVariants.list}
-          className="flex-col items-stretch"
+          className="grid items-stretch"
         >
           {sampleSummaries.map((summary) => (
             <PatientRow
@@ -151,19 +151,19 @@ function PatientRowSection() {
         <div className="flex flex-col gap-5">
           <CatalogRow
             label={samples.rowVariants.recent}
-            className="flex-col items-stretch"
+            className="grid items-stretch"
           >
             <PatientRow summary={first} variant="recent" />
           </CatalogRow>
           <CatalogRow
             label={samples.rowVariants.today}
-            className="flex-col items-stretch"
+            className="grid items-stretch"
           >
             <PatientRow summary={first} variant="today" time="09:15" />
           </CatalogRow>
           <CatalogRow
             label={samples.rowVariants.search}
-            className="flex-col items-stretch"
+            className="grid items-stretch"
           >
             <div className="rounded-card-sm border bg-surface">
               {sampleSummaries.slice(0, 2).map((summary) => (

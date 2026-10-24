@@ -20,8 +20,8 @@ const indicatorVariants = cva(
         none: 'border-transparent bg-neutral-soft text-body text-muted-foreground',
       },
       size: {
-        md: 'w-[150px]',
-        lg: 'w-[170px]',
+        md: 'w-[132px] md:w-[150px]',
+        lg: 'w-[132px] md:w-[170px]',
       },
     },
   },

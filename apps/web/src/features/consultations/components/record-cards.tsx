@@ -92,21 +92,18 @@ function ReadingCard({ row, onEdit }: { row: RecordRow; onEdit: () => void }) {
           {t.consultations.edit}
         </Button>
       </div>
-      <dl className="grid grid-cols-3 gap-2">
+      <dl className="grid grid-cols-3 gap-x-2 gap-y-3">
         {row.cells.map(({ column, value, change }) => (
-          <div
-            key={column.key}
-            className="flex flex-col rounded-field bg-background px-3 py-2.5 leading-tight"
-          >
-            <dt className="text-sm text-muted-foreground">
+          <div key={column.key} className="flex flex-col leading-tight">
+            <dt className="text-[13px] text-muted-foreground">
               {columnHeader(column)}
             </dt>
-            <dd className="m-0 text-lg font-bold">
+            <dd className="m-0 text-[19px] font-bold">
               {value === null
                 ? t.common.notAvailable
                 : formatQuantity(value, column.quantity)}
             </dd>
-            <dd className="m-0 text-sm">
+            <dd className="m-0 text-[13px] whitespace-nowrap">
               {change !== null ? (
                 <ChangeText change={change} quantity={column.quantity} />
               ) : (
@@ -229,10 +226,10 @@ export function TotalChangeCard({
       <dl className="grid grid-cols-3 gap-x-2 gap-y-1.5">
         {totalChanges(consultations).map(({ column, change }) => (
           <div key={column.key} className="flex flex-col leading-tight">
-            <dt className="text-sm text-muted-foreground">
+            <dt className="text-[13px] text-muted-foreground">
               {columnHeader(column)}
             </dt>
-            <dd className="m-0">
+            <dd className="m-0 text-[17px]">
               {change === null ? (
                 t.common.notAvailable
               ) : (
