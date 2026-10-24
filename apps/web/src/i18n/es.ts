@@ -17,6 +17,16 @@ export const es = {
     notFoundTitle: 'Página no encontrada',
     notFoundDescription: 'La página que buscas no existe.',
     goHome: 'Ir al inicio',
+    yes: 'Sí',
+    no: 'No',
+    remove: 'Quitar',
+  },
+  forms: {
+    unanswered: 'Sin responder',
+    computedHint: 'se calcula sola',
+    showPassword: 'Mostrar',
+    hidePassword: 'Ocultar',
+    datePlaceholder: 'dd/mm/aaaa',
   },
   nav: {
     patients: 'Pacientes',

@@ -22,7 +22,23 @@ export default [
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
-    // Override or add rules here
-    rules: {},
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'cn',
+              message:
+                "Import cn from '@/lib/utils': it knows the design tokens.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/utils.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
 ];

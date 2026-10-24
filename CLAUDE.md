@@ -116,7 +116,13 @@ Tooling notes:
   classes such as `bg-primary-soft`, `text-muted-foreground`,
   `rounded-card`). No raw hex values or ad-hoc colors in components; a new
   value is added as a token first. Light-only; controls are at least 44 px
-  tall (`min-h-touch`).
+  tall (`min-h-touch`). Import `cn` from `@/lib/utils` (it knows the
+  tokens; lint forbids the bare `cn` package). After `shadcn add`, restyle
+  the component to the spec and fix its `cn` import.
+- Wrap form controls in `FormField` (label, help and error wired by id);
+  read typed numbers and dates with `lib/parse.ts`, never by hand.
+- Every spec component is shown at `/dev/components` (development only,
+  `features/catalog`); add new components there with their variants.
 
 ## 6. Multi-tenancy and security (non-negotiable)
 
