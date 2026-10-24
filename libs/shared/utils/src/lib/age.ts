@@ -23,3 +23,14 @@ export function calculateAge(
     (reference.month === birth.month && reference.day >= birth.day);
   return reference.year - birth.year - (hadBirthdayThisYear ? 0 : 1);
 }
+
+/** Age at which BMI is read with adult categories instead of percentiles. */
+export const ADULT_AGE = 18;
+
+/** Whether the patient is a minor on `referenceDate` (default: today). */
+export function isMinor(
+  birthDate: string,
+  referenceDate: string = todayIsoDate(),
+): boolean {
+  return calculateAge(birthDate, referenceDate) < ADULT_AGE;
+}

@@ -1,19 +1,46 @@
-import * as React from 'react';
 import { Input as InputPrimitive } from '@base-ui/react/input';
-import { cn } from 'cn';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 
-function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
+/**
+ * Base of every text field (spec 11 and Formularios): white field, 2 px
+ * border, visible label elsewhere. Emails use `type="text"` with
+ * `inputMode="email"` so the browser does not validate them; dates use
+ * `inputMode="numeric"` with the `dd/mm/aaaa` placeholder.
+ */
+const inputVariants = cva(
+  [
+    'w-full min-w-0 rounded-field border-2 border-input bg-surface px-4 text-lg text-foreground transition-colors',
+    'aria-invalid:border-error-border',
+    'disabled:cursor-not-allowed disabled:bg-background disabled:text-disabled-foreground',
+  ],
+  {
+    variants: {
+      size: {
+        /** 56 px on phones, 52 px on desktop. */
+        md: 'h-14 md:h-13',
+        /** Login fields. */
+        lg: 'h-[58px]',
+        /** Editing a cell in a table: no visible label, needs aria-label. */
+        table: 'h-12 border-primary px-3',
+      },
+    },
+    defaultVariants: { size: 'md' },
+  },
+);
+
+type InputProps = Omit<InputPrimitive.Props, 'size'> &
+  VariantProps<typeof inputVariants>;
+
+function Input({ className, size, type = 'text', ...props }: InputProps) {
   return (
     <InputPrimitive
-      type={type}
       data-slot="input"
-      className={cn(
-        'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40',
-        className,
-      )}
+      type={type}
+      className={cn(inputVariants({ size }), className)}
       {...props}
     />
   );
 }
 
-export { Input };
+export { Input, inputVariants, type InputProps };

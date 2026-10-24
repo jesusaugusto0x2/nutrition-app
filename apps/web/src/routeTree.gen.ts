@@ -15,6 +15,7 @@ import { Route as ClinicRouteImport } from './routes/_clinic'
 import { Route as PortalRouteImport } from './routes/_portal'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as PortalPortalRouteImport } from './routes/_portal/portal'
+import { Route as DevComponentsRouteImport } from './routes/dev/components'
 import { Route as ClinicPatientsIndexRouteImport } from './routes/_clinic/patients/index'
 import { Route as ClinicPatientsPatientIdRouteImport } from './routes/_clinic/patients/$patientId'
 
@@ -45,6 +46,11 @@ const PortalPortalRoute = PortalPortalRouteImport.update({
   path: '/portal',
   getParentRoute: () => PortalRoute,
 } as any)
+const DevComponentsRoute = DevComponentsRouteImport.update({
+  id: '/dev/components',
+  path: '/dev/components',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClinicPatientsIndexRoute = ClinicPatientsIndexRouteImport.update({
   id: '/patients/',
   path: '/patients/',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof AuthLoginRoute
   '/portal': typeof PortalPortalRoute
+  '/dev/components': typeof DevComponentsRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
   '/patients/': typeof ClinicPatientsIndexRoute
 }
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof AuthLoginRoute
   '/portal': typeof PortalPortalRoute
+  '/dev/components': typeof DevComponentsRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
   '/patients': typeof ClinicPatientsIndexRoute
 }
@@ -78,14 +86,27 @@ export interface FileRoutesById {
   '/_portal': typeof PortalRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_portal/portal': typeof PortalPortalRoute
+  '/dev/components': typeof DevComponentsRoute
   '/_clinic/patients/$patientId': typeof ClinicPatientsPatientIdRoute
   '/_clinic/patients/': typeof ClinicPatientsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/portal' | '/patients/$patientId' | '/patients/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/portal'
+    | '/dev/components'
+    | '/patients/$patientId'
+    | '/patients/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/portal' | '/patients/$patientId' | '/patients'
+  to:
+    | '/'
+    | '/login'
+    | '/portal'
+    | '/dev/components'
+    | '/patients/$patientId'
+    | '/patients'
   id:
     | '__root__'
     | '/'
@@ -94,6 +115,7 @@ export interface FileRouteTypes {
     | '/_portal'
     | '/_auth/login'
     | '/_portal/portal'
+    | '/dev/components'
     | '/_clinic/patients/$patientId'
     | '/_clinic/patients/'
   fileRoutesById: FileRoutesById
@@ -103,6 +125,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   ClinicRoute: typeof ClinicRouteWithChildren
   PortalRoute: typeof PortalRouteWithChildren
+  DevComponentsRoute: typeof DevComponentsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -148,6 +171,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal'
       preLoaderRoute: typeof PortalPortalRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/dev/components': {
+      id: '/dev/components'
+      path: '/dev/components'
+      fullPath: '/dev/components'
+      preLoaderRoute: typeof DevComponentsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_clinic/patients/': {
       id: '/_clinic/patients/'
@@ -205,6 +235,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   ClinicRoute: ClinicRouteWithChildren,
   PortalRoute: PortalRouteWithChildren,
+  DevComponentsRoute: DevComponentsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

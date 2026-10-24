@@ -5,7 +5,8 @@ convention changes, update this file in the same change.
 
 ## 1. Project overview
 
-Nutri is a mobile-first web app (also used on desktop) for nutritionists to
+Nutri (shown to users as «Mi consulta») is a mobile-first web app (also used
+on desktop) for nutritionists to
 register patients, their nutrition history and weight/measurement tracking
 per consultation. It is multi-clinic: each nutritionist works inside a clinic
 and data is isolated per clinic. A read-only portal for patients (or guardians
@@ -112,6 +113,17 @@ Tooling notes:
   features and loads data.
 - Forms: shadcn `Field` components + React Hook Form `Controller` +
   `zodResolver` with schemas from `@nutri/schemas`.
+- **Styling:** only the design tokens in `styles/globals.css` (Tailwind
+  classes such as `bg-primary-soft`, `text-muted-foreground`,
+  `rounded-card`). No raw hex values or ad-hoc colors in components; a new
+  value is added as a token first. Light-only; controls are at least 44 px
+  tall (`min-h-touch`). Import `cn` from `@/lib/utils` (it knows the
+  tokens; lint forbids the bare `cn` package). After `shadcn add`, restyle
+  the component to the spec and fix its `cn` import.
+- Wrap form controls in `FormField` (label, help and error wired by id);
+  read typed numbers and dates with `lib/parse.ts`, never by hand.
+- Every spec component is shown at `/dev/components` (development only,
+  `features/catalog`); add new components there with their variants.
 
 ## 6. Multi-tenancy and security (non-negotiable)
 

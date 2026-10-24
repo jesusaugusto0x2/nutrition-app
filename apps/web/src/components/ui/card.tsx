@@ -1,30 +1,46 @@
 import * as React from 'react';
-import { cn } from 'cn';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+
+/**
+ * Spec 19: base container of every section. `featured` marks the field
+ * being filled (weight in a new consultation) or a record being edited;
+ * `soft` holds measurement cells; `dashed` is for empty and coming-soon
+ * states.
+ */
+const cardVariants = cva('flex flex-col gap-4 rounded-card p-5 md:p-6', {
+  variants: {
+    variant: {
+      default: 'border bg-surface',
+      featured: 'border-2 border-primary bg-surface',
+      soft: 'rounded-card-sm bg-background',
+      dashed: 'border border-dashed border-input bg-surface',
+    },
+  },
+  defaultVariants: { variant: 'default' },
+});
 
 function Card({
   className,
-  size = 'default',
+  variant,
   ...props
-}: React.ComponentProps<'div'> & { size?: 'default' | 'sm' }) {
+}: React.ComponentProps<'div'> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
-      data-size={size}
-      className={cn(
-        'group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl',
-        className,
-      )}
+      className={cn(cardVariants({ variant }), className)}
       {...props}
     />
   );
 }
 
+/** Title on the left, optional text action (`CardAction`) on the right. */
 function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-header"
       className={cn(
-        'group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)',
+        'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1',
         className,
       )}
       {...props}
@@ -32,24 +48,25 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
+function CardTitle({
+  className,
+  as: Heading = 'h2',
+  ...props
+}: React.ComponentProps<'h2'> & { as?: 'h2' | 'h3' | 'h4' | 'div' }) {
   return (
-    <div
+    <Heading
       data-slot="card-title"
-      className={cn(
-        'font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm',
-        className,
-      )}
+      className={cn('m-0 text-section font-bold', className)}
       {...props}
     />
   );
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
+function CardDescription({ className, ...props }: React.ComponentProps<'p'>) {
   return (
-    <div
+    <p
       data-slot="card-description"
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn('text-meta text-muted-foreground', className)}
       {...props}
     />
   );
@@ -59,10 +76,7 @@ function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-action"
-      className={cn(
-        'col-start-2 row-span-2 row-start-1 self-start justify-self-end',
-        className,
-      )}
+      className={cn('font-bold', className)}
       {...props}
     />
   );
@@ -72,7 +86,7 @@ function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-content"
-      className={cn('px-(--card-spacing)', className)}
+      className={cn('flex flex-col gap-3', className)}
       {...props}
     />
   );
@@ -82,10 +96,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-footer"
-      className={cn(
-        'flex items-center rounded-b-xl border-t bg-muted/50 p-(--card-spacing)',
-        className,
-      )}
+      className={cn('flex flex-wrap items-center gap-3', className)}
       {...props}
     />
   );
@@ -99,4 +110,5 @@ export {
   CardAction,
   CardDescription,
   CardContent,
+  cardVariants,
 };

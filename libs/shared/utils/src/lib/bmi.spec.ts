@@ -1,4 +1,4 @@
-import { calculateBmi } from './bmi.js';
+import { calculateBmi, classifyBmi } from './bmi.js';
 
 describe('calculateBmi', () => {
   it('divides weight by height squared, rounded to one decimal', () => {
@@ -21,5 +21,24 @@ describe('calculateBmi', () => {
     [70, Number.POSITIVE_INFINITY],
   ])('rejects invalid input (%s kg, %s m)', (weightKg, heightM) => {
     expect(() => calculateBmi(weightKg, heightM)).toThrow(RangeError);
+  });
+});
+
+describe('classifyBmi', () => {
+  it.each([
+    [18.4, 'underweight'],
+    [18.5, 'normal'],
+    [24.9, 'normal'],
+    [25, 'overweight'],
+    [29.9, 'overweight'],
+    [30, 'obesity1'],
+    [35, 'obesity2'],
+    [40, 'obesity3'],
+  ] as const)('classifies %s as %s', (bmi, category) => {
+    expect(classifyBmi(bmi)).toBe(category);
+  });
+
+  it('rejects invalid values', () => {
+    expect(() => classifyBmi(0)).toThrow(RangeError);
   });
 });

@@ -133,7 +133,27 @@ differences) used by both sides.
   English keys (`t.patients.listTitle`). No i18n library yet; adding a
   language means adding a file typed as `Messages`.
 - **Formatting:** dates as `dd/mm/aaaa` and decimal commas, only through
-  `src/lib/format.ts`.
+  `src/lib/format.ts`. Each quantity has a fixed precision (kg 1 decimal,
+  m 2, cm none when whole, BMI 1) and negatives use the typographic minus.
+- **Design system:** the source of truth is the "Mi consulta" component spec
+  and its 16-screen prototype (both in claude.ai). Its tokens (colors, radii,
+  type scale) live in `src/styles/globals.css`; shadcn's semantic variables
+  are aliased to them so generated components inherit the palette. The app
+  is light-only and self-hosts Atkinson Hyperlegible Next (UI) and Newsreader
+  (headings) through Fontsource, so no font request leaves the app. Users are
+  not technical: every control is at least 44 px tall.
+- **Component library:** the 36 spec components are split by what they
+  know. `components/ui` holds generic ones (shadcn restyled plus our own:
+  `FormField`, `UnitInput`, `YesNoField`, `EvolutionChart`, `Pagination`,
+  notices…); `components/navigation` the app shell (brand, sidebar, bottom
+  bar, back link), which knows routes; `features/consultations` and
+  `features/patients` the domain ones (BMI badge, records table, patient
+  header and rows). Pure logic behind them (parsing, formatting, chart
+  scale, record diffs, BMI category) lives in plain functions with unit
+  tests. `/dev/components` (development only) shows every component with
+  its variants and states.
+- **Layout:** `_clinic` shows the sidebar from `md`, wrapping above the
+  content when both do not fit (~800 px), and the bottom bar on phones.
 
 ## Testing
 

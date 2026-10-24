@@ -1,4 +1,4 @@
-import { calculateAge } from './age.js';
+import { calculateAge, isMinor } from './age.js';
 
 describe('calculateAge', () => {
   it('counts completed years', () => {
@@ -35,4 +35,11 @@ describe('calculateAge', () => {
       expect(() => calculateAge(birthDate, '2026-01-01')).toThrow(RangeError);
     },
   );
+});
+
+describe('isMinor', () => {
+  it('is true until the 18th birthday', () => {
+    expect(isMinor('2008-10-19', '2026-10-18')).toBe(true);
+    expect(isMinor('2008-10-18', '2026-10-18')).toBe(false);
+  });
 });
