@@ -40,8 +40,8 @@ export default defineConfig(() => ({
         lang: 'es',
         start_url: '/',
         display: 'standalone',
-        theme_color: '#16a34a',
-        background_color: '#ffffff',
+        theme_color: '#1d6b5c',
+        background_color: '#f3f6f4',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

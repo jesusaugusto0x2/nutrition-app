@@ -25,6 +25,7 @@ export const es = {
     kilograms: 'kg',
     meters: 'm',
     centimeters: 'cm',
+    bmi: 'kg/m²',
   },
   patients: {
     listTitle: 'Pacientes',

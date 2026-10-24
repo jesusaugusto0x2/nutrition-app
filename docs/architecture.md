@@ -133,7 +133,15 @@ differences) used by both sides.
   English keys (`t.patients.listTitle`). No i18n library yet; adding a
   language means adding a file typed as `Messages`.
 - **Formatting:** dates as `dd/mm/aaaa` and decimal commas, only through
-  `src/lib/format.ts`.
+  `src/lib/format.ts`. Each quantity has a fixed precision (kg 1 decimal,
+  m 2, cm none when whole, BMI 1) and negatives use the typographic minus.
+- **Design system:** the source of truth is the "Mi consulta" component spec
+  and its 16-screen prototype (both in claude.ai). Its tokens (colors, radii,
+  type scale) live in `src/styles/globals.css`; shadcn's semantic variables
+  are aliased to them so generated components inherit the palette. The app
+  is light-only and self-hosts Atkinson Hyperlegible Next (UI) and Newsreader
+  (headings) through Fontsource, so no font request leaves the app. Users are
+  not technical: every control is at least 44 px tall.
 
 ## Testing
 

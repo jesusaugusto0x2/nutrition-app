@@ -112,6 +112,11 @@ Tooling notes:
   features and loads data.
 - Forms: shadcn `Field` components + React Hook Form `Controller` +
   `zodResolver` with schemas from `@nutri/schemas`.
+- **Styling:** only the design tokens in `styles/globals.css` (Tailwind
+  classes such as `bg-primary-soft`, `text-muted-foreground`,
+  `rounded-card`). No raw hex values or ad-hoc colors in components; a new
+  value is added as a token first. Light-only; controls are at least 44 px
+  tall (`min-h-touch`).
 
 ## 6. Multi-tenancy and security (non-negotiable)
 
