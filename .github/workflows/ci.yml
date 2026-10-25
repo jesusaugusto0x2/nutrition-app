@@ -55,6 +55,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The local commit-msg hook can be skipped, so every commit the pull
+      # request adds is checked again. Merge commits are ignored by the
+      # conventional config.
+      - name: Commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+      - name: TypeScript project references
+        run: pnpm nx sync:check
+
+      # Neither command connects to the database, but drizzle.config.ts
+      # requires DATABASE_URL, so a placeholder is enough.
+      - name: Drizzle schema and migrations
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/unused
+        run: |
+          pnpm --filter @nutri/api exec drizzle-kit check
+          pnpm --filter @nutri/api exec drizzle-kit generate
+          if [ -n "$(git status --porcelain -- apps/api/src/database/migrations)" ]; then
+            git status --porcelain -- apps/api/src/database/migrations
+            echo "::error::The Drizzle schema changed without a migration. Run 'pnpm db:generate' and commit the new migration."
+            exit 1
+          fi
+
       # Saved once per commit; a new commit restores the latest cache saved
       # for the same lockfile. Nx only reuses artifacts it has metadata for,
       # so the workspace-data DB is cached together with the artifacts.
@@ -81,3 +108,23 @@ jobs:
 
       - name: Build
         run: pnpm nx "$NX_RUN" -t build
+
+      # The build regenerates committed files (routeTree.gen.ts), so any
+      # change here means a generated file was not committed.
+      - name: Generated files are committed
+        run: |
+          changes="$(git status --porcelain)"
+          if [ -z "$changes" ]; then
+            exit 0
+          fi
+          echo "$changes"
+          echo "$changes" | while read -r _ file; do
+            case "$file" in
+              apps/web/src/routeTree.gen.ts)
+                hint="Run 'pnpm nx build web' (or 'pnpm dev') to regenerate it and commit the result." ;;
+              *)
+                hint="A build step changed or created it: regenerate it locally and commit it, or ignore it in .gitignore." ;;
+            esac
+            echo "::error file=$file::$file is out of date. $hint"
+          done
+          exit 1
