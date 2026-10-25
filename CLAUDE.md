@@ -206,6 +206,7 @@ Tooling notes:
 ## 11. Definition of done
 
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` are green.
+  CI (`.github/workflows/ci.yml`) runs them on every pull request to `main`.
 - No TODO without context (say what, why and when).
 - Isolation-sensitive changes include a test proving isolation.
 - CLAUDE.md or docs updated if a convention changed; deviations that leave
