@@ -18,37 +18,66 @@ env:
   HUSKY: 0
   NX_DAEMON: false
   NX_NO_CLOUD: true
+  # Nx 23 keeps its cache under ~/.nx by default; an explicit directory keeps
+  # it (and its metadata DB, .nx/workspace-data) inside the checkout.
+  NX_CACHE_DIRECTORY: .nx/cache
+  # Keeps the saved Nx cache well under the repository cache quota.
+  NX_MAX_CACHE_SIZE: 1GB
+  # Pull requests run only the projects they affect (Nx diffs against the
+  # merge base with the target branch); pushes to main run every project.
+  NX_RUN: ${{ github.event_name == 'pull_request' && 'affected' || 'run-many' }}
+  NX_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
 
 jobs:
   checks:
     name: Lint, typecheck, test and build
     runs-on: ubuntu-latest
     steps:
+      # `nx affected` needs the base branch history; the tree filter keeps
+      # the full-history clone small.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: tree:0
 
       # Version comes from `packageManager` in package.json.
       - name: Install pnpm
         uses: pnpm/action-setup@v6
 
+      # Caches the pnpm store, keyed by the lockfile hash.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Saved once per commit; a new commit restores the latest cache saved
+      # for the same lockfile. Nx only reuses artifacts it has metadata for,
+      # so the workspace-data DB is cached together with the artifacts.
+      - name: Restore Nx cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            .nx/cache
+            .nx/workspace-data
+          key: ${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}-
+
       - name: Lint
-        run: pnpm lint
+        run: pnpm nx "$NX_RUN" -t lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm nx "$NX_RUN" -t typecheck
 
       # Vitest disables watch mode when CI=true (set by GitHub Actions), so
       # the `testMode: "watch"` target runs once and exits.
       - name: Test
-        run: pnpm test
+        run: pnpm nx "$NX_RUN" -t test
 
       - name: Build
-        run: pnpm build
+        run: pnpm nx "$NX_RUN" -t build
