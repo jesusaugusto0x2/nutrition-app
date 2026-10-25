@@ -155,6 +155,10 @@ Tooling notes:
 - Metric units only (kg, m, cm). Timestamps are `timestamptz` in UTC;
   calendar dates are `date` (`YYYY-MM-DD`).
 - Every table has uuid `id`, `created_at` and `updated_at`.
+- Emails are normalized with `normalizeEmail` / `emailSchema` from
+  `@nutri/schemas` before every write and lookup; a CHECK constraint rejects
+  unnormalized emails.
+- Auth tables store only hashes of tokens and passwords, never raw values.
 
 ## 8. Testing
 
