@@ -82,7 +82,8 @@ patients(id, clinic_id)`, so the database itself rejects a consultation in
   `@ClinicAccess()`; handlers receive the clinic through `@CurrentClinic()`.
   Until authentication exists, a **TEMPORARY** `DevelopmentClinicGuard`
   assigns the seed clinic, only when `NODE_ENV=development`; in any other
-  environment clinic routes return 401. Real auth replaces only that guard.
+  environment clinic routes return 401. Real auth replaces only that guard
+  (see [Authentication (planned)](#authentication-planned)).
 - The patient portal will live under `/api/portal`: read-only and exposing
   only shareable fields, through the clinical modules' exported services.
 - Clinical records are soft-deleted (`deleted_at`); never physically deleted.
@@ -90,6 +91,127 @@ patients(id, clinic_id)`, so the database itself rejects a consultation in
   `apps/api/src/database/schema/index.ts`); it needs real auth first.
 - The PWA service worker never handles `/api`: health data is not cached on
   devices.
+
+## Authentication (planned)
+
+**Status:** designed, not implemented. These are the decisions agreed in the
+Authentication epic (#8); the work is split into tickets #9–#26. Until they
+land, the `DevelopmentClinicGuard` described above is still in place. This
+section is completed as each ticket lands (#27); values marked "decided in
+its ticket" are proposals to be confirmed in that ticket's PR.
+
+### Goals and account kinds
+
+- Users sign in with email and password or with Google. There are two kinds
+  of account: **staff** (nutritionists and their team) and **portal** users
+  (patients and guardians).
+- **The account kind is derived from data; there is no "account type"
+  column.** A user with a `memberships` row is staff and lands on
+  `/patients`; a user with a `patient_access` row is a portal user and lands
+  on `/portal`; a user with neither (a new Google sign-in) goes to onboarding
+  to create their clinic.
+- **Open sign-up is for nutritionists only.** Sign-up creates the user,
+  their clinic and an `owner` membership. Patients and guardians never
+  self-register: they join by invitation from the patient's profile (Portal
+  epic), so nobody can claim another person's clinical data.
+
+### Library: Passport, sessions are our own code
+
+- **Passport** through `@nestjs/passport`, using strategies only
+  (`session: false`). Session handling is our own small module, not
+  `express-session` or Passport's session support.
+- **Better Auth was evaluated and rejected.** The npm advisory database lists
+  25 advisories for `better-auth` (2 critical), several in exactly the flows
+  we need (OAuth account auto-linking to an unverified email, OAuth `state`
+  validation, rate-limiter bypass), many published in 2026.
+
+### Server-side sessions, cookie in the browser (no JWT)
+
+- **Sessions are rows in PostgreSQL; the browser holds an opaque cookie.**
+  No bearer tokens or JWT ever reach the browser.
+- **Why not JWT:** the IETF "OAuth 2.0 for Browser-Based Apps" guidance ranks
+  a backend-for-frontend with `HttpOnly` cookies as the most secure pattern
+  for sensitive apps. Nest already serves the SPA and the API from the same
+  origin, so we are a BFF. A token readable by JavaScript can be stolen by
+  any injected script, and this is health data. Server-side sessions can
+  also be revoked instantly by deleting the row.
+- **Token:** 32 random bytes (`crypto.randomBytes`), base64url-encoded,
+  returned to the client once. The database stores only its SHA-256 hash
+  (`sessions.token_hash`) and looks sessions up by hash, so a database leak
+  does not leak usable sessions.
+- **Cookie:** `HttpOnly`, `Secure` (production), `SameSite=Lax`, `Path=/`, no
+  `Domain`; named `__Host-session` in production and a plain name in
+  development over http. `Lax` rather than `Strict` because with `Strict`,
+  opening the app from a link in WhatsApp or an email would look signed out.
+- **Expiry:** an absolute lifetime and an idle timeout (proposal: 30 days
+  absolute, 7 days idle; decided in its ticket). `last_used_at` is refreshed
+  at most every few minutes to avoid a write on every request.
+- Password reset revokes every session of the user.
+
+### Passwords: argon2id
+
+Passwords are hashed with **argon2id**. `users.password_hash` is nullable:
+Google-only users have no password. Neither plain passwords nor raw tokens
+are stored in any column, and the shared `authUserSchema` never includes
+the hash.
+
+### Google: OpenID Connect
+
+- **Authorization Code flow with PKCE, `state` and `nonce`, entirely
+  server-side.** `state`, `nonce` and the PKCE verifier live in a
+  short-lived `HttpOnly` cookie; the callback validates the ID token (`iss`,
+  `aud`, `exp`, `nonce`) and requires `email_verified === true`.
+- **Library:** `openid-client` (OpenID-certified) is preferred over
+  `passport-google-oauth20`, which has not been published since 2023.
+- **Account linking** (where Better Auth had an account-takeover bug):
+  1. A linked `auth_accounts` row (`google`, `sub`) → sign in. After the
+     first link, users are always matched by `sub`, never by email.
+  2. A user with the same email and a verified email → link and sign in.
+  3. A user with the same email but **unverified** → treated as a possible
+     pre-registration attack: clear its password, revoke its sessions, mark
+     the email verified, link and sign in.
+  4. Otherwise → create a verified user without a password and send them to
+     onboarding.
+- Google routes answer 404 when `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+  are not configured (optional in development).
+
+### CSRF
+
+Cookies are attached by the browser automatically, and `SameSite=Lax` does
+not block every cross-site write. As defense in depth, every unsafe method
+(`POST`, `PUT`, `PATCH`, `DELETE`) under `/api` is rejected when
+`Sec-Fetch-Site` is `cross-site`, and otherwise its `Origin` (fallback
+`Referer`) must match `APP_ORIGIN`, following the OWASP CSRF Prevention Cheat
+Sheet. No endpoint changes state on `GET` (the Google callback is protected
+by `state`). CORS stays disabled: the SPA and the API share one origin.
+
+### Rate limiting
+
+Authentication endpoints (sign-in per IP and per email, sign-up, forgot
+password, resend and verify email, reset password, Google start) are
+throttled with `@nestjs/throttler`; exact limits are decided in its ticket.
+**Throttle, never lock accounts:** a lockout lets an attacker block a real
+user. The client IP is read behind Railway's proxy with an exact `trust
+proxy` hop count, and IPv6 addresses are grouped by /64 prefix (an IPv6
+bypass of this kind was a Better Auth advisory). Storage is in memory, which
+is fine for a single container.
+
+### Email
+
+Verification, password reset and (later) portal invitations send email
+through a `MailModule` using `nodemailer` over SMTP, so development and
+production share one transport. In development, Mailpit (in Docker Compose)
+catches every email, so nothing leaves the machine. The production provider
+is chosen in its ticket. Recipient addresses and email bodies are never
+logged.
+
+### Auth data and soft delete
+
+The auth tables (`sessions`, `auth_accounts`, `auth_tokens`) and the
+credential columns on `users` are not clinic-scoped (a user can belong to
+several clinics) and are not clinical records. Expired sessions and used or
+expired one-time tokens may therefore be **physically deleted**, an
+exception to the soft-delete rule. IP addresses are not stored.
 
 ## Data
 
