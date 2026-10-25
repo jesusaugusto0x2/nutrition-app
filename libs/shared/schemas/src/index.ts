@@ -1,4 +1,5 @@
 export * from './lib/api-error.js';
+export * from './lib/auth.js';
 export * from './lib/common.js';
 export * from './lib/consultations.js';
 export * from './lib/health.js';

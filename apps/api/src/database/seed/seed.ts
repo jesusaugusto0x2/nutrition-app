@@ -160,7 +160,7 @@ function daysAgo(days: number): string {
 async function seed(db: Database): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.execute(
-      sql`TRUNCATE consultations, patient_access, patients, memberships, clinics, users`,
+      sql`TRUNCATE sessions, auth_accounts, auth_tokens, consultations, patient_access, patients, memberships, clinics, users`,
     );
 
     await tx.insert(clinics).values({
@@ -171,6 +171,10 @@ async function seed(db: Database): Promise<void> {
       id: SEED_OWNER_USER_ID,
       email: 'owner@example.com',
       name: 'Ana Gabriela Torres',
+      emailVerifiedAt: new Date(),
+      // No password until password hashing lands (#8); the development
+      // clinic guard does not need one.
+      passwordHash: null,
     });
     await tx.insert(memberships).values({
       userId: SEED_OWNER_USER_ID,

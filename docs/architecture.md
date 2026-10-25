@@ -148,6 +148,19 @@ its ticket" are proposals to be confirmed in that ticket's PR.
   at most every few minutes to avoid a write on every request.
 - Password reset revokes every session of the user.
 
+### Emails: normalized once, enforced by the database
+
+- `users.email` is stored **normalized** (trimmed, lowercase) and keeps its
+  plain `UNIQUE` constraint. Every write and lookup goes through
+  `normalizeEmail` (or `emailSchema`, which applies it) from
+  `@nutri/schemas`.
+- A `CHECK` constraint (`users_email_normalized_check`,
+  `email = lower(btrim(email))`) rejects any email that skipped the helper,
+  so a letter-case variant can never become a second account.
+- **Why not a unique index on `lower(email)`:** it would allow mixed-case
+  rows and force every lookup to wrap the column in `lower()` to use the
+  index. With normalized data, `email = $1` uses the existing index.
+
 ### Passwords: argon2id
 
 Passwords are hashed with **argon2id**. `users.password_hash` is nullable:
