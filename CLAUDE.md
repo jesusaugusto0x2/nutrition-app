@@ -215,6 +215,11 @@ Tooling notes:
   them. It caches the pnpm store and the Nx cache (`.nx/cache` plus its
   metadata DB in `.nx/workspace-data`); editing the workflow
   invalidates every Nx task (it is in `sharedGlobals`).
+- CI also fails when generated files drift from their sources: every PR
+  commit must pass commitlint, `pnpm nx sync:check` must pass, the Drizzle
+  schema must match the committed migrations (`drizzle-kit check` and an
+  empty `drizzle-kit generate`), and the build must leave `git status`
+  clean (commit the regenerated `routeTree.gen.ts`).
 - No TODO without context (say what, why and when).
 - Isolation-sensitive changes include a test proving isolation.
 - CLAUDE.md or docs updated if a convention changed; deviations that leave
