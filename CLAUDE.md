@@ -206,7 +206,10 @@ Tooling notes:
 ## 11. Definition of done
 
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` are green.
-  CI (`.github/workflows/ci.yml`) runs them on every pull request to `main`.
+  CI (`.github/workflows/ci.yml`) runs them on every pull request to `main`
+  for the affected projects only, and on every push to `main` for all of
+  them. It caches the pnpm store and `.nx/cache`; editing the workflow
+  invalidates every Nx task (it is in `sharedGlobals`).
 - No TODO without context (say what, why and when).
 - Isolation-sensitive changes include a test proving isolation.
 - CLAUDE.md or docs updated if a convention changed; deviations that leave
