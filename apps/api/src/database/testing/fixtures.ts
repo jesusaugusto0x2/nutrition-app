@@ -1,11 +1,29 @@
 import type { Database } from '../client';
-import { clinics, consultations, patients } from '../schema';
+import { clinics, consultations, patients, users } from '../schema';
 
 // Minimal fictional records for repository tests. Test-only.
 
 export async function insertClinic(db: Database, name = 'Test clinic') {
   const [clinic] = await db.insert(clinics).values({ name }).returning();
   return clinic;
+}
+
+let userCount = 0;
+
+export async function insertUser(
+  db: Database,
+  overrides: Partial<typeof users.$inferInsert> = {},
+) {
+  userCount += 1;
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: `user${userCount}@example.com`,
+      name: 'Test User',
+      ...overrides,
+    })
+    .returning();
+  return user;
 }
 
 export async function insertPatient(

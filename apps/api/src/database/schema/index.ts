@@ -3,6 +3,7 @@
 // filter by clinic_id. Plan: enable RLS on every table with a clinic_id,
 // set the current clinic per transaction (e.g. `set_config('app.clinic_id',
 // ...)`) and add policies matching clinic_id; requires real auth first.
+export * from './auth';
 export * from './clinics';
 export * from './consultations';
 export * from './memberships';
