@@ -18,7 +18,10 @@ env:
   HUSKY: 0
   NX_DAEMON: false
   NX_NO_CLOUD: true
-  # Keeps the saved .nx/cache well under the repository cache quota.
+  # Nx 23 keeps its cache under ~/.nx by default; an explicit directory keeps
+  # it (and its metadata DB, .nx/workspace-data) inside the checkout.
+  NX_CACHE_DIRECTORY: .nx/cache
+  # Keeps the saved Nx cache well under the repository cache quota.
   NX_MAX_CACHE_SIZE: 1GB
   # Pull requests run only the projects they affect (Nx diffs against the
   # merge base with the target branch); pushes to main run every project.
@@ -53,11 +56,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Saved once per commit; a new commit restores the latest cache saved
-      # for the same lockfile.
+      # for the same lockfile. Nx only reuses artifacts it has metadata for,
+      # so the workspace-data DB is cached together with the artifacts.
       - name: Restore Nx cache
         uses: actions/cache@v6
         with:
-          path: .nx/cache
+          path: |
+            .nx/cache
+            .nx/workspace-data
           key: ${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}-

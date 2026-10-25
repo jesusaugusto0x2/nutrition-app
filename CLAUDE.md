@@ -208,7 +208,8 @@ Tooling notes:
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` are green.
   CI (`.github/workflows/ci.yml`) runs them on every pull request to `main`
   for the affected projects only, and on every push to `main` for all of
-  them. It caches the pnpm store and `.nx/cache`; editing the workflow
+  them. It caches the pnpm store and the Nx cache (`.nx/cache` plus its
+  metadata DB in `.nx/workspace-data`); editing the workflow
   invalidates every Nx task (it is in `sharedGlobals`).
 - No TODO without context (say what, why and when).
 - Isolation-sensitive changes include a test proving isolation.
