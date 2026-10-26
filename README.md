@@ -89,5 +89,12 @@ DATABASE_URL=postgres://nutri:nutri@host.docker.internal:5432/nutri \
   `pnpm db:seed`.
 - **Nx reports "The workspace is out of sync"**: run `pnpm nx sync` (needed
   after adding a dependency between workspace projects).
+- **CI fails on "Commit messages"**: a commit in the pull request does not
+  follow Conventional Commits with a scope; reword it (`git rebase -i`) and
+  force-push the branch.
+- **CI fails on "Drizzle schema and migrations"**: run `pnpm db:generate`
+  and commit the new migration.
+- **CI fails on "Generated files are committed"**: run `pnpm build` and
+  commit the files it changed (usually `apps/web/src/routeTree.gen.ts`).
 - **Tests ignore a tsconfig change**: run `pnpm exec vitest --clearCache`
   (Vitest caches transformed modules on disk).
