@@ -309,6 +309,16 @@ A single container on Railway (see the `Dockerfile`): the image builds both
 apps, keeps only the API's production dependencies (Nx `prune`) and runs Nest
 as the `node` user. Database: Neon. Not yet set up.
 
+CI builds this image on every pull request and push to `main` (Buildx with
+the GitHub Actions layer cache, never pushed) and smoke-tests it against a
+PostgreSQL service container with `scripts/smoke-test-image.sh`: it waits for
+the image's own `HEALTHCHECK`, then checks `GET /api/health`, that `/` and
+deep links return the SPA, that unknown `/api` routes return a JSON 404
+instead of `index.html`, and that the process runs as `node`. The image
+stages can break without `pnpm build` failing (a dependency missing from the
+pruned lockfile, a native module on Alpine), so this job ignores Nx
+`affected`.
+
 ## Known technical debt
 
 Every deviation from the plan that leaves work pending is recorded here with

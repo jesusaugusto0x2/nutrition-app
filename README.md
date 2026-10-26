@@ -74,6 +74,15 @@ The container runs only Nest: the API under `/api` and the web app on every
 other route. Migrations are not run by the image yet (see
 [Known technical debt](docs/architecture.md#known-technical-debt)).
 
+CI builds the image and smoke-tests it on every pull request. To run the same
+smoke test locally against the Docker Compose database:
+
+```bash
+docker build -t nutri .
+DATABASE_URL=postgres://nutri:nutri@host.docker.internal:5432/nutri \
+  scripts/smoke-test-image.sh nutri
+```
+
 ## Troubleshooting
 
 - **Clinic routes return 503 "Development clinic not found"**: run
