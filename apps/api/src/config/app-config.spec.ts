@@ -14,6 +14,7 @@ describe('loadConfig', () => {
       SMTP_URL: 'smtp://localhost:1025',
       MAIL_FROM: 'Mi consulta <no-reply@localhost>',
       APP_ORIGIN: 'http://localhost:4200',
+      CLIENT_IP_SOURCE: 'socket',
     });
   });
 
@@ -52,6 +53,7 @@ describe('loadConfig', () => {
       SMTP_URL: 'smtps://resend:secret-api-key@smtp.resend.com:465',
       MAIL_FROM: 'Mi consulta <no-reply@example.com>',
       APP_ORIGIN: 'https://app.example.com',
+      CLIENT_IP_SOURCE: 'x-real-ip',
     };
 
     it('accepts a complete environment without applying defaults', () => {
@@ -60,17 +62,21 @@ describe('loadConfig', () => {
         SMTP_URL: productionEnv.SMTP_URL,
         MAIL_FROM: productionEnv.MAIL_FROM,
         APP_ORIGIN: productionEnv.APP_ORIGIN,
+        CLIENT_IP_SOURCE: 'x-real-ip',
       });
     });
 
-    it.each(['WEB_DIST_DIR', 'SMTP_URL', 'MAIL_FROM', 'APP_ORIGIN'])(
-      'requires %s',
-      (key) => {
-        expect(() =>
-          loadConfig({ ...productionEnv, [key]: undefined }),
-        ).toThrow(new RegExp(`${key}: Required in production`));
-      },
-    );
+    it.each([
+      'WEB_DIST_DIR',
+      'SMTP_URL',
+      'MAIL_FROM',
+      'APP_ORIGIN',
+      'CLIENT_IP_SOURCE',
+    ])('requires %s', (key) => {
+      expect(() => loadConfig({ ...productionEnv, [key]: undefined })).toThrow(
+        new RegExp(`${key}: Required in production`),
+      );
+    });
   });
 
   it('rejects an SMTP_URL that is not smtp or smtps without echoing it', () => {
@@ -82,6 +88,12 @@ describe('loadConfig', () => {
     }
     expect(message).toMatch(/SMTP_URL/);
     expect(message).not.toMatch(/secret-key/);
+  });
+
+  it('rejects an unknown CLIENT_IP_SOURCE', () => {
+    expect(() =>
+      loadConfig({ ...validEnv, CLIENT_IP_SOURCE: 'x-forwarded-for' }),
+    ).toThrow(/CLIENT_IP_SOURCE/);
   });
 
   it('rejects an APP_ORIGIN with a path or trailing slash', () => {

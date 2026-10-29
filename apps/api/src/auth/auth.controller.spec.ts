@@ -23,6 +23,11 @@ import { FakeMailTransport } from '../mail/testing/fake-mail-transport';
 import { AuthModule } from './auth.module';
 import { PASSWORD_HASH_OPTIONS } from './passwords/password-hash-options';
 import { PasswordHasher } from './passwords/password-hasher';
+import {
+  FORGOT_PASSWORD_RATE_LIMITS,
+  RESET_PASSWORD_RATE_LIMITS,
+  SIGN_IN_RATE_LIMITS,
+} from './rate-limit/rate-limit';
 import { PRODUCTION_SESSION_COOKIE } from './sessions/session-cookie';
 import { SessionsService } from './sessions/sessions.service';
 import { hashOpaqueToken } from './tokens/opaque-token';
@@ -57,6 +62,7 @@ class TestInfrastructureModule {
             NODE_ENV: 'production',
             APP_ORIGIN: 'https://app.example.com',
             MAIL_FROM: 'Mi consulta <no-reply@example.com>',
+            CLIENT_IP_SOURCE: 'x-real-ip',
           },
         },
       ],
@@ -118,20 +124,51 @@ describe('AuthController', () => {
     await connection.close();
   });
 
-  function post(path: string, body?: unknown, cookie?: string) {
+  // A new client IP per request unless a test picks one, so tests do not
+  // share a per-IP rate-limit counter.
+  let lastIp = 0;
+  function nextIp(): string {
+    lastIp += 1;
+    return `10.${(lastIp >> 16) & 255}.${(lastIp >> 8) & 255}.${lastIp & 255}`;
+  }
+
+  function post(
+    path: string,
+    body?: unknown,
+    cookie?: string,
+    ip: string = nextIp(),
+  ) {
     return fetch(`${baseUrl}/api/auth/${path}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'user-agent': 'Test agent',
+        'x-real-ip': ip,
         ...(cookie && { cookie: `${PRODUCTION_SESSION_COOKIE}=${cookie}` }),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }
 
-  function signIn(email: string, password: string, cookie?: string) {
-    return post('sign-in', { email, password }, cookie);
+  function signIn(
+    email: string,
+    password: string,
+    cookie?: string,
+    ip?: string,
+  ) {
+    return post('sign-in', { email, password }, cookie, ip);
+  }
+
+  /** Sends `count` sign-ins one after another; returns their statuses. */
+  async function signInTimes(
+    count: number,
+    attempt: (index: number) => Promise<Response>,
+  ): Promise<number[]> {
+    const statuses: number[] = [];
+    for (let index = 0; index < count; index++) {
+      statuses.push((await attempt(index)).status);
+    }
+    return statuses;
   }
 
   /** The error body without its timestamp, which differs per response. */
@@ -257,6 +294,123 @@ describe('AuthController', () => {
       await expect(
         argon2.verify(row.passwordHash ?? '', PASSWORD),
       ).resolves.toBe(true);
+    });
+
+    describe('rate limiting', () => {
+      const { ip, email } = SIGN_IN_RATE_LIMITS;
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('answers 429 TOO_MANY_REQUESTS with Retry-After once an email exceeds its limit', async () => {
+        await insertUser(connection.db, {
+          email: 'limited@example.com',
+          passwordHash,
+        });
+
+        const statuses = await signInTimes(email.limit, () =>
+          signIn('limited@example.com', 'not the password'),
+        );
+        const response = await signIn('limited@example.com', PASSWORD);
+
+        expect(statuses).toEqual(new Array(email.limit).fill(401));
+        expect(response.status).toBe(429);
+        await expect(errorBody(response)).resolves.toEqual({
+          statusCode: 429,
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many requests',
+          path: '/api/auth/sign-in',
+        });
+        const retryAfter = Number(response.headers.get('retry-after'));
+        expect(retryAfter).toBeGreaterThan(0);
+        expect(retryAfter).toBeLessThanOrEqual(email.ttl / 1000);
+        expect(response.headers.getSetCookie()).toEqual([]);
+      });
+
+      it('limits an email even when every attempt comes from a different IP', async () => {
+        const statuses = await signInTimes(email.limit + 1, () =>
+          // A new IP per request (the default).
+          signIn('spread@example.com', PASSWORD),
+        );
+
+        expect(statuses.at(-1)).toBe(429);
+        expect(statuses.slice(0, -1)).not.toContain(429);
+      });
+
+      it('shares one email counter between differently typed forms of the email', async () => {
+        const forms = [
+          'Case@Example.com',
+          ' case@example.com',
+          'CASE@EXAMPLE.COM ',
+        ];
+
+        const statuses = await signInTimes(email.limit + 1, (index) =>
+          signIn(forms[index % forms.length], PASSWORD),
+        );
+
+        expect(statuses.at(-1)).toBe(429);
+      });
+
+      it('limits an IP that tries many different emails', async () => {
+        const statuses = await signInTimes(ip.limit + 1, (index) =>
+          signIn(
+            `spray-${index}@example.com`,
+            PASSWORD,
+            undefined,
+            '192.0.2.1',
+          ),
+        );
+
+        expect(statuses.slice(0, -1)).not.toContain(429);
+        expect(statuses.at(-1)).toBe(429);
+        // Another IP is not affected.
+        const other = await signIn(
+          'spray-other@example.com',
+          PASSWORD,
+          undefined,
+          '192.0.2.2',
+        );
+        expect(other.status).toBe(401);
+      });
+
+      it('shares one counter between IPv6 addresses of the same /64', async () => {
+        const statuses = await signInTimes(ip.limit + 1, (index) =>
+          signIn(
+            `v6-${index}@example.com`,
+            PASSWORD,
+            undefined,
+            `2001:db8:1:2:${index.toString(16)}::${(index + 1).toString(16)}`,
+          ),
+        );
+        const otherPrefix = await signIn(
+          'v6-other@example.com',
+          PASSWORD,
+          undefined,
+          '2001:db8:1:3::1',
+        );
+
+        expect(statuses.at(-1)).toBe(429);
+        expect(otherPrefix.status).toBe(401);
+      });
+
+      it('lets the email sign in again after the window', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        await insertUser(connection.db, {
+          email: 'window@example.com',
+          passwordHash,
+        });
+        await signInTimes(email.limit, () =>
+          signIn('window@example.com', 'not the password'),
+        );
+        const blocked = await signIn('window@example.com', PASSWORD);
+
+        vi.setSystemTime(Date.now() + email.ttl + 1000);
+        const response = await signIn('window@example.com', PASSWORD);
+
+        expect(blocked.status).toBe(429);
+        expect(response.status).toBe(200);
+      });
     });
   });
 
@@ -483,6 +637,40 @@ describe('AuthController', () => {
       expect(output).not.toContain(token);
       expect(output).not.toContain(NEW_PASSWORD);
       expect(output).not.toContain('reset-leak@example.com');
+    });
+
+    it('limits reset requests per email, whatever IP they come from', async () => {
+      const { email } = FORGOT_PASSWORD_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= email.limit; index++) {
+        // A new IP per request (the default).
+        const response = await post('forgot-password', {
+          email: 'flooded@example.com',
+        });
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(new Array(email.limit).fill(202));
+      expect(statuses.at(-1)).toBe(429);
+    });
+
+    it('limits reset attempts per IP', async () => {
+      const { ip } = RESET_PASSWORD_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= ip.limit; index++) {
+        const response = await post(
+          'reset-password',
+          { token: 'A'.repeat(43), password: NEW_PASSWORD },
+          undefined,
+          '192.0.2.50',
+        );
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).not.toContain(429);
+      expect(statuses.at(-1)).toBe(429);
     });
   });
 

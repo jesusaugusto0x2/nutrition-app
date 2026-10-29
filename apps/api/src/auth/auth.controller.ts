@@ -19,6 +19,13 @@ import {
 } from './dto/auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
 import { PasswordResetService } from './passwords/password-reset.service';
+import { AuthThrottlerGuard } from './rate-limit/auth-throttler.guard';
+import {
+  FORGOT_PASSWORD_RATE_LIMITS,
+  RateLimit,
+  RESET_PASSWORD_RATE_LIMITS,
+  SIGN_IN_RATE_LIMITS,
+} from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
 
 /** Request after `LocalAuthGuard` accepted the credentials. */
@@ -38,7 +45,8 @@ export class AuthController {
   /** Body: `signInSchema`, validated by `LocalAuthGuard`. */
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(LocalAuthGuard)
+  @RateLimit(SIGN_IN_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard, LocalAuthGuard)
   @ZodSerializerDto(AuthUserDto)
   async signIn(
     @Req() request: SignedInRequest,
@@ -70,6 +78,8 @@ export class AuthController {
    */
   @Post('forgot-password')
   @HttpCode(HttpStatus.ACCEPTED)
+  @RateLimit(FORGOT_PASSWORD_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard)
   forgotPassword(@Body() body: ForgotPasswordDto): void {
     this.passwordReset.requestReset(body.email);
   }
@@ -80,6 +90,8 @@ export class AuthController {
    */
   @Post('reset-password')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RateLimit(RESET_PASSWORD_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard)
   async resetPassword(
     @Body() body: ResetPasswordDto,
     @Res({ passthrough: true }) response: Response,

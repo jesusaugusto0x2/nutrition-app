@@ -261,9 +261,8 @@ the hash.
   (`auth/tokens/opaque-token.ts`: 32 random bytes, base64url, stored as
   SHA-256). `AuthTokensRepository.replace` is generic over the token purpose
   so email verification (#17) reuses it.
-- **Until rate limiting lands (#20)** `forgot-password` can be used to send
-  many reset emails to one address; the emails are harmless (the link only
-  lets the inbox owner act) but noisy.
+- Rate limited (#20): `forgot-password` 3 per email and 10 per IP,
+  `reset-password` 10 per IP, per 15 minutes (see Rate limiting).
 
 ### Google: OpenID Connect
 
@@ -295,16 +294,47 @@ not block every cross-site write. As defense in depth, every unsafe method
 Sheet. No endpoint changes state on `GET` (the Google callback is protected
 by `state`). CORS stays disabled: the SPA and the API share one origin.
 
-### Rate limiting
+### Rate limiting (implemented, #20)
 
-Authentication endpoints (sign-in per IP and per email, sign-up, forgot
-password, resend and verify email, reset password, Google start) are
-throttled with `@nestjs/throttler`; exact limits are decided in its ticket.
-**Throttle, never lock accounts:** a lockout lets an attacker block a real
-user. The client IP is read behind Railway's proxy with an exact `trust
-proxy` hop count, and IPv6 addresses are grouped by /64 prefix (an IPv6
-bypass of this kind was a Better Auth advisory). Storage is in memory, which
-is fine for a single container.
+- **`@nestjs/throttler`, only on authentication routes.** `AuthThrottlerGuard`
+  is not global (clinic routes are not throttled). A route opts in with
+  `@RateLimit(limits)` plus `@UseGuards(AuthThrottlerGuard, ...)`, listing the
+  throttler first so a throttled request never reaches password hashing.
+  Counters are per route. Code: `apps/api/src/auth/rate-limit/`.
+- **Two counters:** `ip` (per client network) and `email` (per normalized
+  target email, so spreading guesses over many IPs does not help). Routes
+  without an email in the body skip the `email` counter.
+- **Limits (per 15 minutes; successful requests count too):** sign-in 20
+  per IP and 5 per email; forgot password 10 per IP and 3 per email; reset
+  password 10 per IP. The endpoints still to come add `@RateLimit` in their
+  own tickets, with these proposed limits: sign-up 5 per IP; resend
+  verification 3 per email and 10 per IP; verify email 10 per IP; Google
+  start 20 per IP.
+- **Throttle, never lock accounts:** a lockout lets an attacker block a real
+  user. A blocked client waits until its window ends; the account itself is
+  never disabled.
+- **429 response:** `AllExceptionsFilter` returns the usual error shape with
+  code `TOO_MANY_REQUESTS` and a single `Retry-After` header (seconds). No
+  `X-RateLimit-*` headers are sent.
+- **Client IP (`CLIENT_IP_SOURCE`, required in production).** The ticket
+  planned an exact Express `trust proxy` hop count, but Railway says its hop
+  count is not fixed and publishes no proxy ranges. Its docs name
+  `X-Real-IP` as the client IP, and its edge overwrites caller-supplied
+  `X-Real-IP` and `X-Forwarded-For` on every public request. So `trust proxy`
+  stays off and `CLIENT_IP_SOURCE=x-real-ip` reads that header on Railway;
+  `socket` (the development default) uses the TCP peer. A missing or invalid
+  header falls back to the socket (the proxy), which only makes limits
+  stricter. Requests over Railway's private network skip the edge, so
+  nothing internal may call the auth endpoints with a forged header. Sources:
+  [Railway public networking specs](https://docs.railway.com/networking/public-networking/specs-and-limits)
+  and
+  [Railway staff on the client-IP trust contract](https://station.railway.com/questions/need-authoritative-client-ip-proxy-tru-090eac86).
+- **IPv6 is grouped by /64 prefix** (the library's `normalizeIp`), so
+  rotating the last 64 bits does not reset the counter; IPv4-mapped IPv6 is
+  counted as the IPv4 address. An IPv6 bypass of this kind was a Better Auth
+  advisory (GHSA-p6v2-xcpg-h6xw).
+- **Storage is in memory**, fine for one container (see Known technical
+  debt).
 
 ### Email (implemented, #15)
 
@@ -507,6 +537,18 @@ resolved.
 - **Resolve when:** image size matters (e.g. cold starts). Options: move the
   PGlite test helper into a separate test-only package, or prune the peer in
   the `prod-deps` Docker stage and verify the API still starts.
+
+### Rate-limit counters in memory
+
+- **Status:** accepted for now.
+- **Why:** `@nestjs/throttler` keeps its counters in the API process
+  (`ThrottlerStorageService`). With one container that is enough; counters
+  reset on every restart or deploy.
+- **Blocked by:** nothing; it only matters with more than one API instance,
+  where each instance would count on its own (multiplying every limit).
+- **Resolve when:** running more than one container. Pass a shared
+  `storage` (e.g. a Redis-backed `ThrottlerStorage`) in
+  `createThrottlerOptions`.
 
 ### Compromised password blocklist
 

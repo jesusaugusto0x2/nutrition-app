@@ -13,6 +13,8 @@ const DEVELOPMENT_DEFAULTS = {
   MAIL_FROM: 'Mi consulta <no-reply@localhost>',
   // The Vite dev server, which proxies /api.
   APP_ORIGIN: 'http://localhost:4200',
+  // No proxy in front of the API: the client is the socket's peer.
+  CLIENT_IP_SOURCE: 'socket',
 } as const;
 
 const REQUIRED_IN_PRODUCTION = [
@@ -20,6 +22,7 @@ const REQUIRED_IN_PRODUCTION = [
   'SMTP_URL',
   'MAIL_FROM',
   'APP_ORIGIN',
+  'CLIENT_IP_SOURCE',
 ] as const;
 
 const envSchema = z
@@ -46,6 +49,11 @@ const envSchema = z
         message: 'Must be an origin without a path or trailing slash',
       })
       .optional(),
+    // Where the client IP for rate limiting comes from. `x-real-ip` behind
+    // Railway's edge, which overwrites that header on every public request
+    // (its hop count is not fixed, so `trust proxy` cannot be used);
+    // `socket` when nothing sits in front of the API.
+    CLIENT_IP_SOURCE: z.enum(['socket', 'x-real-ip']).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') {
@@ -66,6 +74,8 @@ const envSchema = z
     SMTP_URL: env.SMTP_URL ?? DEVELOPMENT_DEFAULTS.SMTP_URL,
     MAIL_FROM: env.MAIL_FROM ?? DEVELOPMENT_DEFAULTS.MAIL_FROM,
     APP_ORIGIN: env.APP_ORIGIN ?? DEVELOPMENT_DEFAULTS.APP_ORIGIN,
+    CLIENT_IP_SOURCE:
+      env.CLIENT_IP_SOURCE ?? DEVELOPMENT_DEFAULTS.CLIENT_IP_SOURCE,
   }));
 
 export type AppConfig = z.infer<typeof envSchema>;

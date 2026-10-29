@@ -9,8 +9,9 @@
 # The database must be reachable from the container: for one published on
 # the host (Docker Compose, a CI service container) use host.docker.internal.
 # SMOKE_PORT (default 3100) is the host port the container is published on.
-# SMTP_URL, MAIL_FROM and APP_ORIGIN are required in production; nothing is
-# emailed during the smoke test, so they default to placeholders.
+# SMTP_URL, MAIL_FROM, APP_ORIGIN and CLIENT_IP_SOURCE are required in
+# production; nothing is emailed during the smoke test, so they default to
+# placeholders.
 set -euo pipefail
 
 image="${1:?Usage: $0 <image>}"
@@ -19,6 +20,7 @@ port="${SMOKE_PORT:-3100}"
 export SMTP_URL="${SMTP_URL:-smtp://smtp.invalid:587}"
 export MAIL_FROM="${MAIL_FROM:-Mi consulta <no-reply@example.com>}"
 export APP_ORIGIN="${APP_ORIGIN:-http://127.0.0.1:${port}}"
+export CLIENT_IP_SOURCE="${CLIENT_IP_SOURCE:-socket}"
 container="nutri-smoke-$$"
 base_url="http://127.0.0.1:${port}"
 body="$(mktemp)"
@@ -55,6 +57,7 @@ docker run --detach --name "$container" \
   --env SMTP_URL \
   --env MAIL_FROM \
   --env APP_ORIGIN \
+  --env CLIENT_IP_SOURCE \
   --health-start-interval 1s \
   "$image" >/dev/null
 

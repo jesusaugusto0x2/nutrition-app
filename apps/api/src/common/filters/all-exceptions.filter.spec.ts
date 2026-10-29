@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
+import { ThrottlerException } from '@nestjs/throttler';
 import { createPatientSchema } from '@nutri/schemas';
 import { ZodValidationException } from 'nestjs-zod';
 import { AllExceptionsFilter } from './all-exceptions.filter';
@@ -74,6 +75,15 @@ describe('AllExceptionsFilter', () => {
       code: 'INVALID_CREDENTIALS',
       message: 'Invalid email or password',
     });
+  });
+
+  it('maps a 429 to TOO_MANY_REQUESTS', () => {
+    const { run } = setup();
+
+    const { body, status } = run(new ThrottlerException());
+
+    expect(status).toBe(429);
+    expect(body).toMatchObject({ statusCode: 429, code: 'TOO_MANY_REQUESTS' });
   });
 
   it('ignores an unknown code and falls back to the status code', () => {
