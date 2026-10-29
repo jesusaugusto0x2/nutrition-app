@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 import { createPatientSchema } from '@nutri/schemas';
@@ -56,6 +57,31 @@ describe('AllExceptionsFilter', () => {
       path: '/api/clinic/patients/123',
       timestamp: expect.any(String),
     });
+  });
+
+  it('keeps an explicit error code given by the exception', () => {
+    const { run } = setup();
+
+    const { body, status } = run(
+      new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+      }),
+    );
+
+    expect(status).toBe(401);
+    expect(body).toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+      message: 'Invalid email or password',
+    });
+  });
+
+  it('ignores an unknown code and falls back to the status code', () => {
+    const { run } = setup();
+
+    const { body } = run(new UnauthorizedException({ code: 'MADE_UP' }));
+
+    expect(body.code).toBe('UNAUTHORIZED');
   });
 
   it('returns validation issues as details', () => {

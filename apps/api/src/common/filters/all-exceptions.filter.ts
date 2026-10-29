@@ -7,7 +7,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
-import type { ApiError, ApiErrorCode, ApiErrorDetail } from '@nutri/schemas';
+import {
+  type ApiError,
+  type ApiErrorCode,
+  type ApiErrorDetail,
+  apiErrorCodeSchema,
+} from '@nutri/schemas';
 import type { Request } from 'express';
 import { ZodSerializationException, ZodValidationException } from 'nestjs-zod';
 import { ZodError } from 'zod';
@@ -84,7 +89,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
       return {
         statusCode,
-        code: CODE_BY_STATUS[statusCode] ?? 'HTTP_ERROR',
+        code:
+          explicitCode(exception) ?? CODE_BY_STATUS[statusCode] ?? 'HTTP_ERROR',
         message: exception.message,
       };
     }
@@ -131,6 +137,17 @@ function internalError(): ErrorBody {
     code: 'INTERNAL_ERROR',
     message: 'Internal server error',
   };
+}
+
+/**
+ * A more specific code than the status implies, given as
+ * `new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message })`.
+ */
+function explicitCode(exception: HttpException): ApiErrorCode | undefined {
+  const result = apiErrorCodeSchema.safeParse(
+    getStringProperty(exception.getResponse(), 'code'),
+  );
+  return result.success ? result.data : undefined;
 }
 
 function toDetails(error: unknown): ApiErrorDetail[] | undefined {
