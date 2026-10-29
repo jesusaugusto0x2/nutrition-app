@@ -214,7 +214,10 @@ Tooling notes:
   for the affected projects only, and on every push to `main` for all of
   them. It caches the pnpm store and the Nx cache (`.nx/cache` plus its
   metadata DB in `.nx/workspace-data`); editing the workflow
-  invalidates every Nx task (it is in `sharedGlobals`).
+  invalidates every Nx task (it is in `sharedGlobals`). A second job builds
+  the production image on every run and smoke-tests it with
+  `scripts/smoke-test-image.sh` (health, SPA, JSON 404, `node` user); after
+  changing the `Dockerfile` or runtime dependencies, run it locally (README).
 - CI also fails when generated files drift from their sources: every PR
   commit must pass commitlint, `pnpm nx sync:check` must pass, the Drizzle
   schema must match the committed migrations (`drizzle-kit check` and an

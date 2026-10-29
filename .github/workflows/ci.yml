@@ -128,3 +128,50 @@ jobs:
             echo "::error file=$file::$file is out of date. $hint"
           done
           exit 1
+
+  # The image stages (api:prune, prod-deps, runtime) can break without
+  # `pnpm build` failing, so the image is built and started on every run,
+  # not only when Nx sees an affected project.
+  image:
+    name: Build and smoke-test the Docker image
+    runs-on: ubuntu-latest
+    # Ports are published on the runner, which the app container reaches
+    # through host.docker.internal (see scripts/smoke-test-image.sh).
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: nutri
+          POSTGRES_PASSWORD: nutri
+          POSTGRES_DB: nutri
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutri -d nutri"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # `load` puts the image in the runner's Docker for the smoke test.
+      # Layers are cached in the GitHub Actions cache (`mode=max` includes
+      # the build stages); a failed cache export does not fail the job.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: nutri:ci
+          cache-from: type=gha,scope=nutri-image
+          cache-to: type=gha,scope=nutri-image,mode=max,ignore-error=true
+
+      - name: Smoke test
+        env:
+          DATABASE_URL: postgres://nutri:nutri@host.docker.internal:5432/nutri
+        run: scripts/smoke-test-image.sh nutri:ci
