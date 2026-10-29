@@ -27,7 +27,7 @@ pnpm install
 # 2. Create your local environment file
 cp .env.example .env
 
-# 3. Start PostgreSQL
+# 3. Start PostgreSQL and Mailpit (development email inbox)
 docker compose up -d
 
 # 4. Create the schema and load fictional data
@@ -40,6 +40,10 @@ pnpm dev
 
 Open http://localhost:4200. The web dev server proxies `/api` to the API on
 http://localhost:3000 (health check: http://localhost:3000/api/health).
+
+Every email the API sends in development lands in Mailpit at
+http://localhost:8025; nothing leaves your machine. `pnpm mail:test` sends
+one email of each template there to preview them.
 
 There is no authentication yet: in development every clinic route acts on
 the seed clinic (see "TEMPORARY" in `apps/api/src/common/guards`).
@@ -58,6 +62,7 @@ the seed clinic (see "TEMPORARY" in `apps/api/src/common/guards`).
 | `pnpm db:migrate`  | Apply pending migrations                 |
 | `pnpm db:seed`     | Reset local data to the fictional seed   |
 | `pnpm db:studio`   | Open Drizzle Studio                      |
+| `pnpm mail:test`   | Send every email template to Mailpit     |
 
 Run a target for one project with Nx, e.g. `pnpm nx test api`.
 
@@ -67,6 +72,9 @@ Run a target for one project with Nx, e.g. `pnpm nx test api`.
 docker build -t nutri .
 docker run -p 3000:3000 \
   -e DATABASE_URL=postgres://user:password@host:5432/db \
+  -e SMTP_URL=smtps://resend:API_KEY@smtp.resend.com:465 \
+  -e 'MAIL_FROM=Mi consulta <no-reply@example.com>' \
+  -e APP_ORIGIN=https://app.example.com \
   nutri
 ```
 

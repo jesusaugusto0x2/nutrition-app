@@ -220,14 +220,51 @@ proxy` hop count, and IPv6 addresses are grouped by /64 prefix (an IPv6
 bypass of this kind was a Better Auth advisory). Storage is in memory, which
 is fine for a single container.
 
-### Email
+### Email (implemented, #15)
 
-Verification, password reset and (later) portal invitations send email
-through a `MailModule` using `nodemailer` over SMTP, so development and
-production share one transport. In development, Mailpit (in Docker Compose)
-catches every email, so nothing leaves the machine. The production provider
-is chosen in its ticket. Recipient addresses and email bodies are never
-logged.
+- **One transport everywhere:** `MailModule` (`apps/api/src/mail/`) sends
+  through `nodemailer` over SMTP, so development and production run the same
+  code. `MailService.send(template, to, data)` renders the template and hands
+  it to the injected `MAIL_TRANSPORT`; tests inject `FakeMailTransport`
+  (`mail/testing`), which records messages instead of sending them.
+- **Development:** Mailpit (Docker Compose) catches every email on
+  `smtp://localhost:1025`, the default `SMTP_URL` outside production, with
+  its inbox at http://localhost:8025. Nothing leaves the machine.
+  `pnpm mail:test` sends one email of each template there.
+- **Configuration** (`config/app-config.ts`): `SMTP_URL` (`smtps://` or
+  `smtp://`, credentials included), `MAIL_FROM` and `APP_ORIGIN` (the
+  public origin used to build links). Required in production, where the API
+  refuses to boot without them and names the missing variable but never its
+  value; development defaults point at Mailpit and the Vite dev server. In
+  production an `smtp://` URL must upgrade with STARTTLS (`requireTLS`).
+- **Templates:** `email-verification` and `password-reset` (links built from
+  `APP_ORIGIN` with the token as a query parameter) and `password-changed`.
+  Each one has a plain-text and a simple HTML part with inline styles
+  (email clients ignore stylesheets), whose colors mirror the web tokens.
+  Every interpolated value is HTML-escaped. Callers pass tokens, not URLs.
+- **Spanish texts live in `mail/mail-messages.ts`,** an exception to the
+  rule that user-facing Spanish lives in `apps/web/src/i18n/es.ts`: the API
+  renders emails and must not depend on the web app.
+- **Never logged:** recipient addresses and bodies. nodemailer's logger is
+  off, and a failed delivery throws `MailDeliveryError` carrying only the
+  template name and nodemailer's error code (such as `EAUTH`), because SMTP
+  error messages can echo the recipient. Callers decide whether a failure
+  fails their request.
+- **Provider: Resend** (`smtps://resend:<API key>@smtp.resend.com:465`).
+  Compared on 2026-10-28 from each provider's pricing page:
+
+  | Provider   | Free tier                          | First paid tier          | Notes                                                            |
+  | ---------- | ---------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+  | Resend     | 3,000/month, 100/day, SMTP on free | $20/month for 50,000     | Simple domain setup; sending region selectable                   |
+  | Postmark   | 100/month                          | $15/month for 10,000     | Best-known deliverability; separate transactional streams        |
+  | Amazon SES | Only via new-account AWS credits   | $0.10 per 1,000 (no fee) | Cheapest at volume; needs an AWS account and leaving the sandbox |
+
+  Our volume is small (sign-ups, resets, invitations), so Resend's free tier
+  covers the first clinics with no cost and no AWS account. The 100/day cap
+  is the limit to watch; past it, Resend Pro or Postmark Basic. **Switching
+  providers is a configuration change** (`SMTP_URL`, `MAIL_FROM`): no code
+  depends on Resend. Domain DNS records (SPF, DKIM, DMARC) belong to the
+  deployment epic.
 
 ### Auth data and soft delete
 

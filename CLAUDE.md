@@ -23,6 +23,8 @@ Design rationale: [docs/architecture.md](docs/architecture.md).
 - The only exception: **user-facing UI text is Spanish**, defined in
   `apps/web/src/i18n/es.ts` with English keys (`t.patients.listTitle`).
   Never hardcode visible strings in components; add a key instead.
+  Emails are the one exception: the API renders them, so their Spanish text
+  lives in `apps/api/src/mail/mail-messages.ts`.
 - Dates and numbers shown to users go through `apps/web/src/lib/format.ts`
   (`dd/mm/aaaa`, decimal comma). Never format by hand in components.
 
@@ -52,7 +54,7 @@ Tests: Vitest. Exact versions and why some are not the latest major:
 "Known technical debt" in docs/architecture.md.
 
 ```bash
-docker compose up -d            # local PostgreSQL
+docker compose up -d            # local PostgreSQL + Mailpit (:8025)
 pnpm dev                        # API (:3000) + web (:4200, proxies /api)
 pnpm lint | pnpm typecheck | pnpm test | pnpm build
 pnpm nx test api                # one target, one project
@@ -60,6 +62,7 @@ pnpm db:generate                # migration from schema changes
 pnpm db:migrate                 # apply migrations
 pnpm db:seed                    # reset local fictional data
 pnpm db:studio
+pnpm mail:test                  # send every email template to Mailpit
 pnpm nx sync                    # after adding a workspace dependency
 ```
 
@@ -72,6 +75,7 @@ apps/api/src/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
   auth/           sessions/ (token, cookie); sign-in endpoints pending (#8)
+  mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
   app/            providers, query client, router
@@ -138,7 +142,7 @@ Tooling notes:
   leave the API.
 - Clinical records use soft delete (`deleted_at`); never delete physically.
 - Never log patient data or secrets (no bodies, no DB error messages, no
-  env values).
+  env values, no email recipients or email content).
 - Every change that touches clinic isolation ships with a test proving it.
 - `DevelopmentClinicGuard` is TEMPORARY (development only) until real auth.
 - The service worker must never cache or handle `/api`.
