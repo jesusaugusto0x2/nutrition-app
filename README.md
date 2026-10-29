@@ -41,8 +41,16 @@ pnpm dev
 Open http://localhost:4200. The web dev server proxies `/api` to the API on
 http://localhost:3000 (health check: http://localhost:3000/api/health).
 
-There is no authentication yet: in development every clinic route acts on
-the seed clinic (see "TEMPORARY" in `apps/api/src/common/guards`).
+Clinic routes do not require a session yet: in development every clinic
+route acts on the seed clinic (see "TEMPORARY" in
+`apps/api/src/common/guards`). Sign-in already works
+(`POST /api/auth/sign-in`) with these seed users (development only; the seed
+refuses to run in production):
+
+| User                 | Password             | Kind                                         |
+| -------------------- | -------------------- | -------------------------------------------- |
+| `owner@example.com`  | `nutri-dev-password` | Staff: owner of the seed clinic              |
+| `portal@example.com` | `nutri-dev-password` | Portal: guardian of the patient Valentina R. |
 
 ## Scripts
 

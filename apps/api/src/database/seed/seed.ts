@@ -1,18 +1,29 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as argon2 from 'argon2';
 import { sql } from 'drizzle-orm';
+import { PASSWORD_HASH_OPTIONS } from '../../auth/passwords/password-hash-options';
 import { createDatabase, type Database } from '../client';
 import {
   clinics,
   consultations,
   memberships,
+  patientAccess,
   patients,
   users,
 } from '../schema';
-import { SEED_CLINIC_ID, SEED_OWNER_USER_ID } from './seed-ids';
+import {
+  SEED_CLINIC_ID,
+  SEED_OWNER_USER_ID,
+  SEED_PORTAL_USER_ID,
+} from './seed-ids';
 
 // Fictional development data only. Dates are relative to the day the seed
 // runs so ages and consultation history stay realistic.
+
+// Development-only password of both seed users (documented in the README).
+// The seed refuses to run in production.
+const SEED_PASSWORD = 'nutri-dev-password';
 
 interface MeasurementTrend {
   start: number;
@@ -34,6 +45,8 @@ interface PatientProfile {
   armCm: MeasurementTrend;
   legCm: MeasurementTrend;
   notes: string[];
+  /** The seed portal user is this patient's guardian. */
+  portalGuardian?: true;
 }
 
 const PATIENTS: PatientProfile[] = [
@@ -85,6 +98,7 @@ const PATIENTS: PatientProfile[] = [
     armCm: { start: 22, deltaPerVisit: 0.2 },
     legCm: { start: 46, deltaPerVisit: 0.3 },
     notes: ['Acompañada por su madre.', 'Crecimiento acorde a la edad.'],
+    portalGuardian: true,
   },
   {
     firstName: 'José Gregorio',
@@ -158,6 +172,8 @@ function daysAgo(days: number): string {
 }
 
 async function seed(db: Database): Promise<void> {
+  const passwordHash = await argon2.hash(SEED_PASSWORD, PASSWORD_HASH_OPTIONS);
+
   await db.transaction(async (tx) => {
     await tx.execute(
       sql`TRUNCATE sessions, auth_accounts, auth_tokens, consultations, patient_access, patients, memberships, clinics, users`,
@@ -172,9 +188,15 @@ async function seed(db: Database): Promise<void> {
       email: 'owner@example.com',
       name: 'Ana Gabriela Torres',
       emailVerifiedAt: new Date(),
-      // No password until password hashing lands (#8); the development
-      // clinic guard does not need one.
-      passwordHash: null,
+      passwordHash,
+    });
+    // Portal user: guardian of a minor patient (no membership).
+    await tx.insert(users).values({
+      id: SEED_PORTAL_USER_ID,
+      email: 'portal@example.com',
+      name: 'Carmen Rodríguez',
+      emailVerifiedAt: new Date(),
+      passwordHash,
     });
     await tx.insert(memberships).values({
       userId: SEED_OWNER_USER_ID,
@@ -209,6 +231,14 @@ async function seed(db: Database): Promise<void> {
         notes: profile.notes[visit] ?? null,
       }));
       await tx.insert(consultations).values(rows);
+
+      if (profile.portalGuardian) {
+        await tx.insert(patientAccess).values({
+          userId: SEED_PORTAL_USER_ID,
+          patientId: patient.id,
+          relationship: 'guardian',
+        });
+      }
     }
   });
 }
@@ -231,7 +261,7 @@ async function main(): Promise<void> {
   try {
     await seed(db);
     console.log(
-      `Seed complete: 1 clinic, 1 owner, ${PATIENTS.length} patients.`,
+      `Seed complete: 1 clinic, 1 owner, 1 portal user, ${PATIENTS.length} patients.`,
     );
   } finally {
     await close();
