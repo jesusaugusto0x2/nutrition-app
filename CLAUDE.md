@@ -74,7 +74,7 @@ apps/api/src/
   database/       Drizzle client, schema/, migrations/, seed/, testing/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
-  auth/           sessions/ (token, cookie); sign-in endpoints pending (#8)
+  auth/           sign-in/out, passwords/, sessions/; session guard pending (#8)
   mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
@@ -135,7 +135,9 @@ Tooling notes:
   methods always take `clinicId` and also filter `deleted_at IS NULL`.
 - New endpoints go under `/api/clinic/...` (staff, `@ClinicAccess()` +
   `@CurrentClinic()`) or `/api/portal/...` (patients/guardians). The portal
-  is read-only and exposes only shareable fields.
+  is read-only and exposes only shareable fields. The only exception is
+  `/api/auth/...` (signing in comes before both), whose failures never
+  reveal whether an email has an account.
 - A record from another clinic must behave exactly like a missing one (404).
 - Every response uses `@ZodSerializerDto` with a schema from
   `@nutri/schemas`, so undeclared fields (`clinicId`, `deletedAt`) never

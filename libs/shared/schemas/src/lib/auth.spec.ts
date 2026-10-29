@@ -1,4 +1,10 @@
-import { authUserSchema, emailSchema, normalizeEmail } from './auth.js';
+import {
+  authUserSchema,
+  emailSchema,
+  normalizeEmail,
+  PASSWORD_MAX_LENGTH,
+  signInSchema,
+} from './auth.js';
 
 describe('normalizeEmail', () => {
   it('trims and lowercases the email', () => {
@@ -38,5 +44,37 @@ describe('authUserSchema', () => {
     });
 
     expect(result).not.toHaveProperty('passwordHash');
+  });
+});
+
+describe('signInSchema', () => {
+  it('normalizes the email and keeps the password as typed', () => {
+    expect(
+      signInSchema.parse({
+        email: ' Owner@Example.com ',
+        password: ' secret ',
+      }),
+    ).toEqual({ email: 'owner@example.com', password: ' secret ' });
+  });
+
+  it('accepts a password of the maximum length', () => {
+    const password = 'a'.repeat(PASSWORD_MAX_LENGTH);
+
+    expect(
+      signInSchema.safeParse({ email: 'owner@example.com', password }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    { email: 'owner@example.com', password: '' },
+    {
+      email: 'owner@example.com',
+      password: 'a'.repeat(PASSWORD_MAX_LENGTH + 1),
+    },
+    { email: 'not-an-email', password: 'secret' },
+    { email: 'owner@example.com' },
+    { password: 'secret' },
+  ])('rejects %o', (body) => {
+    expect(signInSchema.safeParse(body).success).toBe(false);
   });
 });

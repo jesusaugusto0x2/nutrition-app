@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the production image: starts a container, waits for its
 # HEALTHCHECK and checks that Nest serves the API, the SPA and JSON 404s for
-# unknown API routes, running as the `node` user.
+# unknown API routes, running as the `node` user, and that the native argon2
+# module works.
 #
 # Usage: DATABASE_URL=postgres://... scripts/smoke-test-image.sh <image>
 #
@@ -80,6 +81,16 @@ pass 'container is healthy'
 [ "$(docker exec "$container" id -u)" != 0 ] ||
   fail 'container process runs as root'
 pass 'runs as the node user'
+
+# argon2 is a native module: prove its prebuilt binary loads on Alpine (musl)
+# and hashes, without needing a migrated database.
+docker exec --workdir /app/api "$container" node -e "
+  const argon2 = require('argon2');
+  argon2.hash('smoke', { type: argon2.argon2id })
+    .then((hash) => argon2.verify(hash, 'smoke'))
+    .then((ok) => process.exit(ok ? 0 : 1), () => process.exit(1));
+" || fail 'argon2 does not hash and verify inside the image'
+pass 'argon2 hashes and verifies'
 
 # Requests a path; sets `status` and `content_type`, the body goes to $body.
 request() {

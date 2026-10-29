@@ -29,3 +29,17 @@ export const authUserSchema = z.object({
 });
 
 export type AuthUser = z.infer<typeof authUserSchema>;
+
+/**
+ * Longest password accepted. Hashing cost grows with input length, so an
+ * unbounded password would let one request burn CPU (denial of service).
+ */
+export const PASSWORD_MAX_LENGTH = 256;
+
+/** Body of `POST /api/auth/sign-in`. The password is never trimmed. */
+export const signInSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+});
+
+export type SignIn = z.infer<typeof signInSchema>;

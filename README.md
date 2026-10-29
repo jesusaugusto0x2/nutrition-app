@@ -45,8 +45,16 @@ Every email the API sends in development lands in Mailpit at
 http://localhost:8025; nothing leaves your machine. `pnpm mail:test` sends
 one email of each template there to preview them.
 
-There is no authentication yet: in development every clinic route acts on
-the seed clinic (see "TEMPORARY" in `apps/api/src/common/guards`).
+Clinic routes do not require a session yet: in development every clinic
+route acts on the seed clinic (see "TEMPORARY" in
+`apps/api/src/common/guards`). Sign-in already works
+(`POST /api/auth/sign-in`) with these seed users (development only; the seed
+refuses to run in production):
+
+| User                 | Password             | Kind                                         |
+| -------------------- | -------------------- | -------------------------------------------- |
+| `owner@example.com`  | `nutri-dev-password` | Staff: owner of the seed clinic              |
+| `portal@example.com` | `nutri-dev-password` | Portal: guardian of the patient Valentina R. |
 
 ## Scripts
 
