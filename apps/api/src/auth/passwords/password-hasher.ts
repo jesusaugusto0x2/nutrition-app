@@ -18,11 +18,11 @@ export class PasswordHasher implements OnModuleInit {
   }
 
   hash(password: string): Promise<string> {
-    return argon2.hash(password, PASSWORD_HASH_OPTIONS);
+    return argon2.hash(normalizePassword(password), PASSWORD_HASH_OPTIONS);
   }
 
   verify(hash: string, password: string): Promise<boolean> {
-    return argon2.verify(hash, password);
+    return argon2.verify(hash, normalizePassword(password));
   }
 
   /** Whether a stored hash uses another variant or older parameters. */
@@ -49,4 +49,13 @@ export class PasswordHasher implements OnModuleInit {
     this.dummyHash ??= this.hash(randomBytes(32).toString('base64url'));
     return this.dummyHash;
   }
+}
+
+/**
+ * NFC, as NIST SP 800-63B-4 recommends: the same password typed on another
+ * device (e.g. "ñ" as one code point or as "n" plus a combining tilde) must
+ * hash the same.
+ */
+function normalizePassword(password: string): string {
+  return password.normalize('NFC');
 }
