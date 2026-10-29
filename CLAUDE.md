@@ -69,9 +69,9 @@ Where things live:
 apps/api/src/
   config/         env validated with Zod (APP_CONFIG)
   database/       Drizzle client, schema/, migrations/, seed/, testing/
-  common/         decorators, guards, filters, request types
+  common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
-  auth/           placeholder (TODO)
+  auth/           sessions/ (token, cookie); sign-in endpoints pending (#8)
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
   app/            providers, query client, router

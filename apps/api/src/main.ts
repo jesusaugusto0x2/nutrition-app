@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 
@@ -18,6 +19,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.disable('x-powered-by');
+  // Fills req.cookies for the session cookie (unsigned: the token is opaque).
+  app.use(cookieParser());
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();
 

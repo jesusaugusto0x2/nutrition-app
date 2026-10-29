@@ -1,5 +1,5 @@
 import type { Database } from '../client';
-import { clinics, consultations, patients, users } from '../schema';
+import { clinics, consultations, patients, sessions, users } from '../schema';
 
 // Minimal fictional records for repository tests. Test-only.
 
@@ -62,4 +62,26 @@ export async function insertConsultation(
     })
     .returning();
   return consultation;
+}
+
+let sessionCount = 0;
+
+// `tokenHash` is a placeholder unless the test passes a real hash.
+export async function insertSession(
+  db: Database,
+  userId: string,
+  overrides: Partial<typeof sessions.$inferInsert> = {},
+) {
+  sessionCount += 1;
+  const [session] = await db
+    .insert(sessions)
+    .values({
+      userId,
+      tokenHash: `test-token-hash-${sessionCount}`,
+      expiresAt: new Date('2026-02-01T00:00:00.000Z'),
+      lastUsedAt: new Date('2026-01-01T00:00:00.000Z'),
+      ...overrides,
+    })
+    .returning();
+  return session;
 }
