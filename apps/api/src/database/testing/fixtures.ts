@@ -1,5 +1,12 @@
 import type { Database } from '../client';
-import { clinics, consultations, patients, sessions, users } from '../schema';
+import {
+  authTokens,
+  clinics,
+  consultations,
+  patients,
+  sessions,
+  users,
+} from '../schema';
 
 // Minimal fictional records for repository tests. Test-only.
 
@@ -84,4 +91,26 @@ export async function insertSession(
     })
     .returning();
   return session;
+}
+
+let authTokenCount = 0;
+
+// `tokenHash` is a placeholder unless the test passes a real hash.
+export async function insertAuthToken(
+  db: Database,
+  userId: string,
+  overrides: Partial<typeof authTokens.$inferInsert> = {},
+) {
+  authTokenCount += 1;
+  const [token] = await db
+    .insert(authTokens)
+    .values({
+      userId,
+      purpose: 'password_reset',
+      tokenHash: `test-auth-token-hash-${authTokenCount}`,
+      expiresAt: new Date('2026-02-01T00:00:00.000Z'),
+      ...overrides,
+    })
+    .returning();
+  return token;
 }

@@ -43,3 +43,41 @@ export const signInSchema = z.object({
 });
 
 export type SignIn = z.infer<typeof signInSchema>;
+
+/**
+ * Shortest new password, in Unicode code points. NIST SP 800-63B-4 (§3.1.1.2)
+ * requires 15 when the password is the only factor, as it is here.
+ */
+export const PASSWORD_MIN_LENGTH = 15;
+
+/**
+ * A new password (sign-up, password reset). Length is the only rule: NIST
+ * forbids composition rules (mixtures of character types). Each code point
+ * counts as one character, so emoji and accents are not penalized. Never
+ * trimmed; the API applies NFC before hashing.
+ */
+export const passwordSchema = z
+  .string()
+  .max(PASSWORD_MAX_LENGTH)
+  .refine((password) => Array.from(password).length >= PASSWORD_MIN_LENGTH, {
+    message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
+  });
+
+/** Body of `POST /api/auth/forgot-password`. */
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+export type ForgotPassword = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * A one-time token from an emailed link. Only bounded here: an unknown or
+ * malformed token fails the same way as an expired one.
+ */
+export const oneTimeTokenSchema = z.string().min(1).max(256);
+
+/** Body of `POST /api/auth/reset-password`. */
+export const resetPasswordSchema = z.object({
+  token: oneTimeTokenSchema,
+  password: passwordSchema,
+});
+
+export type ResetPassword = z.infer<typeof resetPasswordSchema>;

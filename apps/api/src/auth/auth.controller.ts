@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   HttpCode,
   HttpStatus,
@@ -11,8 +12,13 @@ import type { AuthUser } from '@nutri/schemas';
 import type { Request, Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { AuthService } from './auth.service';
-import { AuthUserDto } from './dto/auth.dto';
+import {
+  AuthUserDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
+import { PasswordResetService } from './passwords/password-reset.service';
 import { AuthThrottlerGuard } from './rate-limit/auth-throttler.guard';
 import { RateLimit, SIGN_IN_RATE_LIMITS } from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
@@ -28,6 +34,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly sessionCookie: SessionCookie,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   /** Body: `signInSchema`, validated by `LocalAuthGuard`. */
@@ -57,6 +64,30 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
     await this.authService.signOut(this.sessionCookie.read(request));
+    this.sessionCookie.clear(response);
+  }
+
+  /**
+   * Always 202 with no body, whether or not the email has an account; the
+   * link is emailed in the background.
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  forgotPassword(@Body() body: ForgotPasswordDto): void {
+    this.passwordReset.requestReset(body.email);
+  }
+
+  /**
+   * 204 after setting the new password. Every session of the user ends,
+   * including the caller's, so the web app sends them to the login page.
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetPassword(
+    @Body() body: ResetPasswordDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.passwordReset.resetPassword(body.token, body.password);
     this.sessionCookie.clear(response);
   }
 }
