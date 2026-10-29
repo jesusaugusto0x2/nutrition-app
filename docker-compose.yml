@@ -1,4 +1,5 @@
-# Local development database. Production uses Neon (managed PostgreSQL).
+# Local development services. Production uses Neon (managed PostgreSQL) and
+# an SMTP provider (docs/architecture.md, "Email").
 name: nutri
 
 services:
@@ -20,6 +21,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Catches every email the API sends in development; nothing leaves the
+  # machine. SMTP on 1025 (the API's default SMTP_URL), inbox at
+  # http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
 
 volumes:
   postgres-data:
