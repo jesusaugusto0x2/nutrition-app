@@ -6,6 +6,8 @@ export const apiErrorCodeSchema = z.enum([
   'UNAUTHORIZED',
   /** Sign-in failed. Deliberately says nothing about which part was wrong. */
   'INVALID_CREDENTIALS',
+  /** An emailed one-time token is unknown, expired or already used. */
+  'INVALID_TOKEN',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
