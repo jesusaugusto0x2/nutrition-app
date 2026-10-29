@@ -4,6 +4,8 @@ export const apiErrorCodeSchema = z.enum([
   'BAD_REQUEST',
   'VALIDATION_ERROR',
   'UNAUTHORIZED',
+  /** Sign-in failed. Deliberately says nothing about which part was wrong. */
+  'INVALID_CREDENTIALS',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',

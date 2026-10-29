@@ -92,6 +92,14 @@ export class SessionsService {
     await this.repository.deleteById(sessionId);
   }
 
+  /** Revokes the session a raw token belongs to, if any (e.g. sign-out). */
+  async revokeByToken(token: string): Promise<void> {
+    if (!isWellFormedSessionToken(token)) {
+      return;
+    }
+    await this.repository.deleteByTokenHash(hashSessionToken(token));
+  }
+
   /** Signs the user out everywhere (e.g. after a password reset). */
   async revokeAllForUser(userId: string): Promise<void> {
     await this.repository.deleteAllForUser(userId);

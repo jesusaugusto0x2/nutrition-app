@@ -94,7 +94,8 @@ patients(id, clinic_id)`, so the database itself rejects a consultation in
 
 ## Authentication (planned)
 
-**Status:** designed, not implemented. These are the decisions agreed in the
+**Status:** designed; partly implemented (the parts marked "implemented",
+with their ticket). These are the decisions agreed in the
 Authentication epic (#8); the work is split into tickets #9–#26. Until they
 land, the `DevelopmentClinicGuard` described above is still in place. This
 section is completed as each ticket lands (#27); values marked "decided in
@@ -178,6 +179,44 @@ Passwords are hashed with **argon2id**. `users.password_hash` is nullable:
 Google-only users have no password. Neither plain passwords nor raw tokens
 are stored in any column, and the shared `authUserSchema` never includes
 the hash.
+
+- **Parameters (implemented, #11):** the OWASP Password Storage Cheat Sheet
+  baseline, `m=19456` (19 MiB), `t=2`, `p=1`, checked in October 2026
+  (`auth/passwords/password-hash-options.ts`). `PasswordHasher.needsRehash`
+  flags hashes with other parameters or another argon2 variant, and a
+  successful sign-in rehashes them, so the parameters can be raised later
+  without a migration.
+- **Package:** `argon2` (native). It is in `allowBuilds` in
+  `pnpm-workspace.yaml` and ships prebuilt binaries for Alpine (musl, x64
+  and arm64), so the production image needs no compiler; the CI Docker job
+  proves it loads.
+- **Length cap:** `signInSchema` limits passwords to 256 characters, since
+  hashing cost grows with input length (denial of service). The check runs
+  before any hashing.
+
+### Email and password sign-in (implemented, #11)
+
+- `POST /api/auth/sign-in` `{ email, password }` (`signInSchema`) → 200 with
+  `authUserSchema` and the session cookie. `POST /api/auth/sign-out` → 204,
+  revokes the current session (if any) and clears the cookie.
+- Passport's local strategy (`usernameField: 'email'`) behind
+  `LocalAuthGuard`. Guards run before pipes, so the guard validates the body
+  with `signInSchema` itself: a malformed body gets the usual 400
+  `VALIDATION_ERROR`.
+- **One failure for everything:** unknown email, wrong password and a
+  Google-only account all return the same 401 `INVALID_CREDENTIALS` body.
+  When there is no hash to check, the password is still verified against a
+  dummy hash (created at startup with the current parameters), so response
+  time does not reveal which emails have an account. A thrown
+  `HttpException` can carry a specific `code`; `AllExceptionsFilter` keeps
+  it when it is a known `ApiErrorCode`.
+- **Session fixation:** sign-in always creates a new session and revokes
+  the one of the incoming cookie, if any.
+- Unverified emails are not rejected yet; the email verification ticket
+  adds that check.
+- Implementation: `AuthController`, `AuthService`, `LocalStrategy`,
+  `LocalAuthGuard`, `CredentialsRepository` (the only code that reads
+  `password_hash`) and `PasswordHasher` in `apps/api/src/auth`.
 
 ### Google: OpenID Connect
 
