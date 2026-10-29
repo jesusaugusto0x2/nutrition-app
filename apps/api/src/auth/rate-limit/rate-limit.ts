@@ -39,6 +39,23 @@ export const SIGN_IN_RATE_LIMITS = {
 } satisfies AuthRateLimits;
 
 /**
+ * Each request may send an email: per email it stops flooding one inbox
+ * with reset links, per IP it stops probing many addresses.
+ */
+export const FORGOT_PASSWORD_RATE_LIMITS = {
+  [IP_THROTTLER]: { limit: 10, ttl: minutes(15) },
+  [EMAIL_THROTTLER]: { limit: 3, ttl: minutes(15) },
+} satisfies AuthRateLimits;
+
+/**
+ * Tokens are 256-bit random values, so guessing is hopeless; the limit caps
+ * the password hashing a single client can trigger.
+ */
+export const RESET_PASSWORD_RATE_LIMITS = {
+  [IP_THROTTLER]: { limit: 10, ttl: minutes(15) },
+} satisfies AuthRateLimits;
+
+/**
  * Limits for an authentication route. Pair it with
  * `@UseGuards(AuthThrottlerGuard, ...)`, listing the throttler guard first
  * so a throttled request never reaches password hashing.

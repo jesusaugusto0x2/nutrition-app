@@ -261,9 +261,8 @@ the hash.
   (`auth/tokens/opaque-token.ts`: 32 random bytes, base64url, stored as
   SHA-256). `AuthTokensRepository.replace` is generic over the token purpose
   so email verification (#17) reuses it.
-- **Until rate limiting lands (#20)** `forgot-password` can be used to send
-  many reset emails to one address; the emails are harmless (the link only
-  lets the inbox owner act) but noisy.
+- Rate limited (#20): `forgot-password` 3 per email and 10 per IP,
+  `reset-password` 10 per IP, per 15 minutes (see Rate limiting).
 
 ### Google: OpenID Connect
 
@@ -305,13 +304,12 @@ by `state`). CORS stays disabled: the SPA and the API share one origin.
 - **Two counters:** `ip` (per client network) and `email` (per normalized
   target email, so spreading guesses over many IPs does not help). Routes
   without an email in the body skip the `email` counter.
-- **Limits:** sign-in allows 20 requests per IP and 5 per email per 15
-  minutes (successful ones count too). The endpoints still to come (sign-up,
-  forgot password, resend and verify email, reset password, Google start)
-  add `@RateLimit` in their own tickets; proposed limits per 15 minutes:
-  sign-up 5 per IP; forgot password and resend verification 3 per email
-  and 10 per IP; verify email and reset password 10 per IP; Google start 20
-  per IP.
+- **Limits (per 15 minutes; successful requests count too):** sign-in 20
+  per IP and 5 per email; forgot password 10 per IP and 3 per email; reset
+  password 10 per IP. The endpoints still to come add `@RateLimit` in their
+  own tickets, with these proposed limits: sign-up 5 per IP; resend
+  verification 3 per email and 10 per IP; verify email 10 per IP; Google
+  start 20 per IP.
 - **Throttle, never lock accounts:** a lockout lets an attacker block a real
   user. A blocked client waits until its window ends; the account itself is
   never disabled.

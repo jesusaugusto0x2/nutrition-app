@@ -23,7 +23,11 @@ import { FakeMailTransport } from '../mail/testing/fake-mail-transport';
 import { AuthModule } from './auth.module';
 import { PASSWORD_HASH_OPTIONS } from './passwords/password-hash-options';
 import { PasswordHasher } from './passwords/password-hasher';
-import { SIGN_IN_RATE_LIMITS } from './rate-limit/rate-limit';
+import {
+  FORGOT_PASSWORD_RATE_LIMITS,
+  RESET_PASSWORD_RATE_LIMITS,
+  SIGN_IN_RATE_LIMITS,
+} from './rate-limit/rate-limit';
 import { PRODUCTION_SESSION_COOKIE } from './sessions/session-cookie';
 import { SessionsService } from './sessions/sessions.service';
 import { hashOpaqueToken } from './tokens/opaque-token';
@@ -633,6 +637,40 @@ describe('AuthController', () => {
       expect(output).not.toContain(token);
       expect(output).not.toContain(NEW_PASSWORD);
       expect(output).not.toContain('reset-leak@example.com');
+    });
+
+    it('limits reset requests per email, whatever IP they come from', async () => {
+      const { email } = FORGOT_PASSWORD_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= email.limit; index++) {
+        // A new IP per request (the default).
+        const response = await post('forgot-password', {
+          email: 'flooded@example.com',
+        });
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(new Array(email.limit).fill(202));
+      expect(statuses.at(-1)).toBe(429);
+    });
+
+    it('limits reset attempts per IP', async () => {
+      const { ip } = RESET_PASSWORD_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= ip.limit; index++) {
+        const response = await post(
+          'reset-password',
+          { token: 'A'.repeat(43), password: NEW_PASSWORD },
+          undefined,
+          '192.0.2.50',
+        );
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).not.toContain(429);
+      expect(statuses.at(-1)).toBe(429);
     });
   });
 
