@@ -13,6 +13,8 @@ import { ZodSerializerDto } from 'nestjs-zod';
 import { AuthService } from './auth.service';
 import { AuthUserDto } from './dto/auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
+import { AuthThrottlerGuard } from './rate-limit/auth-throttler.guard';
+import { RateLimit, SIGN_IN_RATE_LIMITS } from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
 
 /** Request after `LocalAuthGuard` accepted the credentials. */
@@ -31,7 +33,8 @@ export class AuthController {
   /** Body: `signInSchema`, validated by `LocalAuthGuard`. */
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(LocalAuthGuard)
+  @RateLimit(SIGN_IN_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard, LocalAuthGuard)
   @ZodSerializerDto(AuthUserDto)
   async signIn(
     @Req() request: SignedInRequest,
