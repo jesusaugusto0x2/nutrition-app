@@ -181,6 +181,20 @@ describe('SessionsService', () => {
     expect(repository.deleteById).toHaveBeenCalledWith(SESSION_ID);
     expect(repository.deleteAllForUser).toHaveBeenCalledWith(USER_ID);
   });
+
+  it('revokes a session by its raw token through the hash', async () => {
+    await service.revokeByToken(TOKEN);
+
+    expect(repository.deleteByTokenHash).toHaveBeenCalledWith(
+      hashSessionToken(TOKEN),
+    );
+  });
+
+  it('ignores a malformed token on revocation', async () => {
+    await service.revokeByToken('not a token');
+
+    expect(repository.deleteByTokenHash).not.toHaveBeenCalled();
+  });
 });
 
 // End to end on PGlite with the real repository: proves expiry is enforced
