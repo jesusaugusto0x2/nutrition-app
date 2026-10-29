@@ -74,7 +74,8 @@ apps/api/src/
   database/       Drizzle client, schema/, migrations/, seed/, testing/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
-  auth/           sign-in/out, passwords/, sessions/; session guard pending (#8)
+  auth/           sign-in/out, password reset, passwords/, sessions/, tokens/;
+                  session guard pending (#8)
   mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/

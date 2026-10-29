@@ -5,7 +5,7 @@ import { DATABASE } from '../../database/database.tokens';
 import { sessions, USER_AGENT_MAX_LENGTH } from '../../database/schema';
 import { insertUser } from '../../database/testing/fixtures';
 import { createTestDatabase } from '../../database/testing/test-database';
-import { hashSessionToken } from './session-token';
+import { hashOpaqueToken } from '../tokens/opaque-token';
 import { SessionsRepository } from './sessions.repository';
 import {
   SESSION_ABSOLUTE_LIFETIME_MS,
@@ -79,7 +79,7 @@ describe('SessionsService', () => {
     );
     expect(repository.create).toHaveBeenCalledWith({
       userId: USER_ID,
-      tokenHash: hashSessionToken(token),
+      tokenHash: hashOpaqueToken(token),
       expiresAt,
       lastUsedAt: NOW,
       userAgent: 'Agent',
@@ -116,7 +116,7 @@ describe('SessionsService', () => {
     await service.validate(TOKEN);
 
     expect(repository.findActiveByTokenHash).toHaveBeenCalledWith(
-      hashSessionToken(TOKEN),
+      hashOpaqueToken(TOKEN),
       {
         now: NOW,
         idleSince: new Date(NOW.getTime() - SESSION_IDLE_TIMEOUT_MS),
@@ -143,7 +143,7 @@ describe('SessionsService', () => {
 
     await expect(service.validate(TOKEN)).resolves.toBeNull();
     expect(repository.deleteByTokenHash).toHaveBeenCalledWith(
-      hashSessionToken(TOKEN),
+      hashOpaqueToken(TOKEN),
     );
   });
 
@@ -186,7 +186,7 @@ describe('SessionsService', () => {
     await service.revokeByToken(TOKEN);
 
     expect(repository.deleteByTokenHash).toHaveBeenCalledWith(
-      hashSessionToken(TOKEN),
+      hashOpaqueToken(TOKEN),
     );
   });
 
@@ -236,7 +236,7 @@ describe('SessionsService with the database', () => {
 
     const rows = await connection.db.select().from(sessions);
     expect(JSON.stringify(rows)).not.toContain(token);
-    expect(rows.map((row) => row.tokenHash)).toContain(hashSessionToken(token));
+    expect(rows.map((row) => row.tokenHash)).toContain(hashOpaqueToken(token));
   });
 
   it('returns the user for a valid token and null after revocation', async () => {

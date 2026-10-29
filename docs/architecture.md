@@ -158,7 +158,7 @@ its ticket" are proposals to be confirmed in that ticket's PR.
   guide recommends), unsigned because the token is already opaque and
   random. Malformed tokens are rejected before any query. Neither the token
   nor the cookie is ever logged or included in an error response.
-- Password reset revokes every session of the user.
+- Password reset revokes every session of the user (implemented, #18).
 
 ### Emails: normalized once, enforced by the database
 
@@ -193,6 +193,19 @@ the hash.
 - **Length cap:** `signInSchema` limits passwords to 256 characters, since
   hashing cost grows with input length (denial of service). The check runs
   before any hashing.
+- **Policy for new passwords (implemented, #18):** `passwordSchema` in
+  `@nutri/schemas`, shared by password reset and sign-up, follows NIST SP
+  800-63B-4 §3.1.1.2 (checked in October 2026): at least **15 characters**,
+  because the password is the only factor (8 is allowed only with MFA, which
+  we do not have); at most 256; **no composition rules** (NIST forbids
+  requiring character types); each Unicode code point counts as one
+  character; never trimmed. Sign-in keeps accepting any non-empty password
+  so accounts created under another policy can still sign in.
+- **Unicode:** `PasswordHasher` applies NFC before hashing and verifying, as
+  NIST recommends, so the same password typed on another keyboard (e.g. "ñ"
+  as one code point or as "n" plus a combining tilde) matches.
+- The NIST blocklist of common or compromised passwords is not checked yet
+  ("Known technical debt").
 
 ### Email and password sign-in (implemented, #11)
 
@@ -217,6 +230,40 @@ the hash.
 - Implementation: `AuthController`, `AuthService`, `LocalStrategy`,
   `LocalAuthGuard`, `CredentialsRepository` (the only code that reads
   `password_hash`) and `PasswordHasher` in `apps/api/src/auth`.
+
+### Password reset (implemented, #18)
+
+- `POST /api/auth/forgot-password` `{ email }` (`forgotPasswordSchema`) →
+  **always 202 with an empty body.** If the email has an account (Google-only
+  ones included, which can set a first password this way), a token is stored
+  in `auth_tokens` (`password_reset`, 1 hour) and
+  `${APP_ORIGIN}/reset-password?token=...` is emailed. Issuing a token
+  deletes the user's earlier `password_reset` tokens, so only the latest link
+  works.
+- **The work runs after the response is sent** (`PasswordResetService
+.requestReset` does not await it), so response time does not reveal
+  whether the email has an account, and an SMTP failure cannot change the
+  response. Failures are logged with the error name only, never the email.
+- `POST /api/auth/reset-password` `{ token, password }`
+  (`resetPasswordSchema`, password checked with `passwordSchema`) → 204. In
+  **one transaction** (`CredentialsRepository.resetPassword`): consume the
+  token, store the new argon2id hash, set `email_verified_at` if it was
+  empty (the user proved access to the inbox) and delete **every session of
+  the user**. Consuming is a single conditional `UPDATE ... RETURNING`
+  (unused, unexpired, right purpose), so two concurrent requests with the
+  same token cannot both succeed. It also clears the caller's cookie and does
+  not sign the user in: the web app sends them to the login page.
+- Unknown, expired, used, replaced and malformed tokens all return the same
+  400 `INVALID_TOKEN`. Malformed tokens are rejected before hashing or
+  querying. Then the "your password was changed" email (`password-changed`)
+  is sent; if it fails the reset still stands and the failure is logged.
+- Token format and hashing are shared with sessions
+  (`auth/tokens/opaque-token.ts`: 32 random bytes, base64url, stored as
+  SHA-256). `AuthTokensRepository.replace` is generic over the token purpose
+  so email verification (#17) reuses it.
+- **Until rate limiting lands (#20)** `forgot-password` can be used to send
+  many reset emails to one address; the emails are harmless (the link only
+  lets the inbox owner act) but noisy.
 
 ### Google: OpenID Connect
 
@@ -460,6 +507,18 @@ resolved.
 - **Resolve when:** image size matters (e.g. cold starts). Options: move the
   PGlite test helper into a separate test-only package, or prune the peer in
   the `prod-deps` Docker stage and verify the API still starts.
+
+### Compromised password blocklist
+
+- **Status:** pending.
+- **Why:** NIST SP 800-63B-4 requires comparing new passwords against a
+  blocklist of common, expected or compromised passwords. `passwordSchema`
+  only checks length (#18).
+- **Resolve when:** before the first production sign-up (#45). Options: a
+  bundled list of the most common passwords, or the Have I Been Pwned range
+  API (k-anonymity: only the first 5 characters of the SHA-1 hash leave the
+  server). The check belongs in the API (sign-up and reset), not only in the
+  shared schema.
 
 ### Cleanup of expired sessions
 

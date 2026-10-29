@@ -27,6 +27,16 @@ describe('PasswordHasher', () => {
     await expect(hasher.verify(hash, `${PASSWORD}!`)).resolves.toBe(false);
   });
 
+  it('verifies a password typed with another Unicode composition', async () => {
+    const composed = 'contraseña de mañana';
+    const decomposed = composed.normalize('NFD');
+    expect(decomposed).not.toBe(composed);
+
+    const hash = await hasher.hash(decomposed);
+
+    await expect(hasher.verify(hash, composed)).resolves.toBe(true);
+  });
+
   it('does not need a rehash for a hash with the current parameters', async () => {
     expect(hasher.needsRehash(await hasher.hash(PASSWORD))).toBe(false);
   });

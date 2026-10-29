@@ -3,10 +3,10 @@ import type { AuthUser } from '@nutri/schemas';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { USER_AGENT_MAX_LENGTH } from '../../database/schema';
 import {
-  generateSessionToken,
-  hashSessionToken,
-  isWellFormedSessionToken,
-} from './session-token';
+  generateOpaqueToken,
+  hashOpaqueToken,
+  isWellFormedOpaqueToken,
+} from '../tokens/opaque-token';
 import { toAuthUser } from './sessions.mapper';
 import { SessionsRepository } from './sessions.repository';
 
@@ -44,12 +44,12 @@ export class SessionsService {
     userAgent: string | null | undefined,
   ): Promise<CreatedSession> {
     const now = this.clock.now();
-    const token = generateSessionToken();
+    const token = generateOpaqueToken();
     const expiresAt = new Date(now.getTime() + SESSION_ABSOLUTE_LIFETIME_MS);
 
     await this.repository.create({
       userId,
-      tokenHash: hashSessionToken(token),
+      tokenHash: hashOpaqueToken(token),
       expiresAt,
       lastUsedAt: now,
       userAgent: truncateUserAgent(userAgent),
@@ -62,12 +62,12 @@ export class SessionsService {
    * token. An expired or idle session is deleted.
    */
   async validate(token: string): Promise<ValidSession | null> {
-    if (!isWellFormedSessionToken(token)) {
+    if (!isWellFormedOpaqueToken(token)) {
       return null;
     }
 
     const now = this.clock.now();
-    const tokenHash = hashSessionToken(token);
+    const tokenHash = hashOpaqueToken(token);
     const session = await this.repository.findActiveByTokenHash(tokenHash, {
       now,
       idleSince: new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS),
@@ -94,10 +94,10 @@ export class SessionsService {
 
   /** Revokes the session a raw token belongs to, if any (e.g. sign-out). */
   async revokeByToken(token: string): Promise<void> {
-    if (!isWellFormedSessionToken(token)) {
+    if (!isWellFormedOpaqueToken(token)) {
       return;
     }
-    await this.repository.deleteByTokenHash(hashSessionToken(token));
+    await this.repository.deleteByTokenHash(hashOpaqueToken(token));
   }
 
   /** Signs the user out everywhere (e.g. after a password reset). */
