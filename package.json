@@ -18,7 +18,8 @@
     "db:generate": "pnpm --filter @nutri/api exec drizzle-kit generate",
     "db:migrate": "pnpm --filter @nutri/api exec drizzle-kit migrate",
     "db:seed": "pnpm --filter @nutri/api exec tsx src/database/seed/seed.ts",
-    "db:studio": "pnpm --filter @nutri/api exec drizzle-kit studio"
+    "db:studio": "pnpm --filter @nutri/api exec drizzle-kit studio",
+    "mail:test": "pnpm --filter @nutri/api exec tsx --tsconfig tsconfig.app.json src/mail/send-test-emails.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

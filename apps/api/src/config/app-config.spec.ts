@@ -11,6 +11,9 @@ describe('loadConfig', () => {
       NODE_ENV: 'development',
       PORT: 3000,
       DATABASE_URL: validEnv.DATABASE_URL,
+      SMTP_URL: 'smtp://localhost:1025',
+      MAIL_FROM: 'Mi consulta <no-reply@localhost>',
+      APP_ORIGIN: 'http://localhost:4200',
     });
   });
 
@@ -41,13 +44,56 @@ describe('loadConfig', () => {
     expect(message).not.toMatch(/secret-password/);
   });
 
-  it('requires WEB_DIST_DIR in production', () => {
-    expect(() => loadConfig({ ...validEnv, NODE_ENV: 'production' })).toThrow(
-      /WEB_DIST_DIR/,
+  describe('in production', () => {
+    const productionEnv = {
+      ...validEnv,
+      NODE_ENV: 'production',
+      WEB_DIST_DIR: '/web',
+      SMTP_URL: 'smtps://resend:secret-api-key@smtp.resend.com:465',
+      MAIL_FROM: 'Mi consulta <no-reply@example.com>',
+      APP_ORIGIN: 'https://app.example.com',
+    };
+
+    it('accepts a complete environment without applying defaults', () => {
+      expect(loadConfig(productionEnv)).toMatchObject({
+        WEB_DIST_DIR: '/web',
+        SMTP_URL: productionEnv.SMTP_URL,
+        MAIL_FROM: productionEnv.MAIL_FROM,
+        APP_ORIGIN: productionEnv.APP_ORIGIN,
+      });
+    });
+
+    it.each(['WEB_DIST_DIR', 'SMTP_URL', 'MAIL_FROM', 'APP_ORIGIN'])(
+      'requires %s',
+      (key) => {
+        expect(() =>
+          loadConfig({ ...productionEnv, [key]: undefined }),
+        ).toThrow(new RegExp(`${key}: Required in production`));
+      },
     );
+  });
+
+  it('rejects an SMTP_URL that is not smtp or smtps without echoing it', () => {
+    let message = '';
+    try {
+      loadConfig({ ...validEnv, SMTP_URL: 'https://user:secret-key@mail' });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/SMTP_URL/);
+    expect(message).not.toMatch(/secret-key/);
+  });
+
+  it('rejects an APP_ORIGIN with a path or trailing slash', () => {
+    expect(() =>
+      loadConfig({ ...validEnv, APP_ORIGIN: 'https://app.example.com/' }),
+    ).toThrow(/APP_ORIGIN/);
+    expect(() =>
+      loadConfig({ ...validEnv, APP_ORIGIN: 'https://app.example.com/app' }),
+    ).toThrow(/APP_ORIGIN/);
     expect(
-      loadConfig({ ...validEnv, NODE_ENV: 'production', WEB_DIST_DIR: '/web' })
-        .WEB_DIST_DIR,
-    ).toBe('/web');
+      loadConfig({ ...validEnv, APP_ORIGIN: 'http://localhost:4200' })
+        .APP_ORIGIN,
+    ).toBe('http://localhost:4200');
   });
 });

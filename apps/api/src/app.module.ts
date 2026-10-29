@@ -9,6 +9,7 @@ import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 import { ClinicsModule } from './modules/clinics/clinics.module';
 import { ConsultationsModule } from './modules/consultations/consultations.module';
 import { NutritionHistoryModule } from './modules/nutrition-history/nutrition-history.module';
@@ -29,6 +30,7 @@ import { PortalModule } from './modules/portal/portal.module';
           : [],
     }),
     AuthModule,
+    MailModule,
     HealthModule,
     ClinicsModule,
     PatientsModule,
