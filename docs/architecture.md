@@ -143,9 +143,20 @@ its ticket" are proposals to be confirmed in that ticket's PR.
   `Domain`; named `__Host-session` in production and a plain name in
   development over http. `Lax` rather than `Strict` because with `Strict`,
   opening the app from a link in WhatsApp or an email would look signed out.
-- **Expiry:** an absolute lifetime and an idle timeout (proposal: 30 days
-  absolute, 7 days idle; decided in its ticket). `last_used_at` is refreshed
-  at most every few minutes to avoid a write on every request.
+- **Expiry (implemented, #10):** a session ends 30 days after sign-in
+  (absolute, `expires_at`, also the cookie's `Expires`) or after 7 days
+  without use (idle, `last_used_at`), whichever comes first.
+  `last_used_at` is refreshed at most every 5 minutes, so a request does not
+  always write. Both checks run in the lookup query; a session that fails
+  them is deleted when its token is next presented. Time comes from an
+  injected `CLOCK` (`common/clock`) so expiry is tested deterministically.
+- **Implementation:** `auth/sessions/`: `SessionsRepository`,
+  `SessionsService` (`create`, `validate`, `revoke`, `revokeAllForUser`) and
+  the `SessionCookie` helper (set, clear, read). Cookies are parsed by the
+  `cookie-parser` middleware (registered in `main.ts`, as the NestJS cookies
+  guide recommends), unsigned because the token is already opaque and
+  random. Malformed tokens are rejected before any query. Neither the token
+  nor the cookie is ever logged or included in an error response.
 - Password reset revokes every session of the user.
 
 ### Emails: normalized once, enforced by the database
@@ -373,6 +384,18 @@ resolved.
 - **Resolve when:** image size matters (e.g. cold starts). Options: move the
   PGlite test helper into a separate test-only package, or prune the peer in
   the `prod-deps` Docker stage and verify the API still starts.
+
+### Cleanup of expired sessions
+
+- **Status:** pending.
+- **Why:** an expired or idle session is deleted only when its token is
+  presented again (`SessionsService.validate`). Sessions whose cookie is
+  never sent again (a cleared browser, a lost device) stay in `sessions`.
+  They are unusable (the lookup checks both expiries) but accumulate.
+- **Resolve when:** a scheduled job exists (e.g. `@nestjs/schedule` or a
+  Railway cron) or the table grows enough to matter: delete rows where
+  `expires_at <= now()` or `last_used_at <= now() - 7 days`. Expired
+  one-time `auth_tokens` need the same treatment.
 
 ### Production migrations
 
