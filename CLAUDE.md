@@ -183,6 +183,16 @@ Tooling notes:
 - Small, atomic commits. The pre-commit hook formats and lints staged files.
 - Branches: `feat/...`, `fix/...`, `chore/...` from `main`. (The initial
   scaffold was committed directly to `main`; all further work uses branches.)
+- `main` is protected by the "Protect main" repository ruleset: changes
+  arrive only through a pull request (no approvals needed), both CI jobs
+  (`Lint, typecheck, test and build` and `Build and smoke-test the Docker
+image`) must pass on a branch that is up to date with `main`, and force
+  pushes and deletion are blocked. Renaming a CI job means updating the
+  ruleset's required checks too, or every pull request stays blocked.
+- **Merge strategy: merge commit only** (squash and rebase are disabled).
+  Every atomic commit reaches `main` as written, so each one must pass
+  commitlint; the merge commit itself is ignored by it. Head branches are
+  deleted automatically after merging.
 - Never commit `.env` or secrets.
 
 ## 10. How to add a new feature module
