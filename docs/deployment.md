@@ -177,6 +177,8 @@ app.
 | `MAIL_FROM`              | Sender of every email, on the verified domain       | App        | Railway               |
 | `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF  | App        | Railway               |
 | `CLIENT_IP_SOURCE`       | `x-real-ip` on Railway; client IP for rate limiting | App        | Railway               |
+| `GOOGLE_CLIENT_ID`       | OAuth client for Google sign-in                     | App        | Railway               |
+| `GOOGLE_CLIENT_SECRET`   | Its secret                                          | App        | Railway (secret)      |
 
 ## Runbooks
 
@@ -266,9 +268,15 @@ migration.
 image, in a separate container with no volumes. It is not retried on failure.
 
 **Does the API boot with only the database variables?** No. In production it
-refuses to start without `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN` and
-`CLIENT_IP_SOURCE` (`apps/api/src/config/app-config.ts`), so see the first
-deploy under open questions.
+refuses to start without `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`,
+`CLIENT_IP_SOURCE`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+(`apps/api/src/config/app-config.ts`), so see the first deploy under open
+questions.
+
+**Google sign-in answers `redirect_uri_mismatch`.** The client at Google does
+not list `${APP_ORIGIN}/api/auth/google/callback` exactly. Add it, and change it
+together with the domain. See "Google: OpenID Connect" in
+[architecture.md](architecture.md), which has the console steps.
 
 **Every sign-in or save answers 403, but pages load.** `APP_ORIGIN` does not
 match the address in the browser: `CsrfGuard` logs `Rejected POST <route>`
@@ -294,9 +302,10 @@ job wakes it once a day for one short query.
 
 - **The first deploy needs variables owned by later tickets.** #40 comes
   before the domain (#41) and the mail records (#42), but the app cannot boot
-  without `APP_ORIGIN`, `SMTP_URL`, `MAIL_FROM` and `CLIENT_IP_SOURCE`. #40
-  must set temporary values (the Railway URL as `APP_ORIGIN`), and #41 and
-  #42 replace them.
+  without `APP_ORIGIN`, `SMTP_URL`, `MAIL_FROM`, `CLIENT_IP_SOURCE`,
+  `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. #40 must set temporary values
+  (the Railway URL as `APP_ORIGIN`, with its callback registered at Google),
+  and #41 and #42 replace them.
 - **CSRF behind Railway's edge is unverified.** OWASP warns that proxies can
   strip `Origin` or `Sec-*` headers, which would turn every write into a 403.
   #40 must sign in through the Railway URL after the first deploy.
