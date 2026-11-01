@@ -467,11 +467,12 @@ differences) used by both sides.
   with the real migrations, so clinic isolation is tested end to end without
   Docker.
 
-## Deployment (planned)
+## Deployment
 
 A single container on Railway (see the `Dockerfile`): the image builds both
 apps, keeps only the API's production dependencies (Nx `prune`) and runs Nest
-as the `node` user. Database: Neon. Not yet set up.
+as the `node` user. Database: Neon. Not yet set up; decisions, variables and
+runbooks are in [docs/deployment.md](deployment.md).
 
 CI builds this image on every pull request and push to `main` (Buildx with
 the GitHub Actions layer cache, never pushed) and smoke-tests it against a

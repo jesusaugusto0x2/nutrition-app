@@ -13,7 +13,10 @@ and data is isolated per clinic. A read-only portal for patients (or guardians
 of minors) is planned. **It handles health data from multiple clinics:
 isolation and not leaking data are non-negotiable.**
 
-Design rationale: [docs/architecture.md](docs/architecture.md).
+Docs live in `docs/`: [architecture.md](docs/architecture.md) holds
+cross-cutting design, and each epic has one `docs/<topic>.md` with its details
+(decisions, how to operate it, runbooks, FAQ), such as
+[deployment.md](docs/deployment.md).
 
 ## 2. Language rules
 
@@ -149,6 +152,10 @@ Tooling notes:
 - Every change that touches clinic isolation ships with a test proving it.
 - `DevelopmentClinicGuard` is TEMPORARY (development only) until real auth.
 - The service worker must never cache or handle `/api`.
+- Never run migrations or the seed by hand against production: migrations
+  run only from the Railway pre-deploy command, and the seed never runs there.
+- The Railway IaC file (`.railway/railway.ts`, added by #40) is the source of
+  truth for the service; do not change its settings in the dashboard.
 
 ## 7. Data and validation
 
@@ -221,8 +228,9 @@ image`) must pass on a branch that is up to date with `main`, and force
 8. **Routes:** add file routes under the right layout; routes only compose.
 9. **Texts:** add every visible string to `i18n/es.ts`.
 10. **Tests** for the new web logic; run `pnpm lint typecheck test build`.
-11. **Docs:** update docs/architecture.md and this file if an architectural
-    rule or convention changed.
+11. **Docs:** update the epic's `docs/<topic>.md` in the same PR (the epic's
+    first ticket creates it), and docs/architecture.md and this file if an
+    architectural rule or convention changed.
 
 ## 11. Definition of done
 
@@ -244,3 +252,5 @@ image`) must pass on a branch that is up to date with `main`, and force
 - Isolation-sensitive changes include a test proving isolation.
 - CLAUDE.md or docs updated if a convention changed; deviations that leave
   work pending are recorded in "Known technical debt".
+- Every epic has a `docs/<topic>.md`, each ticket updates it in the same PR,
+  and an epic is not done until its doc matches what was built.
