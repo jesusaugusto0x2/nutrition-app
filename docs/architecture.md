@@ -79,11 +79,9 @@ patients(id, clinic_id)`, so the database itself rejects a consultation in
 - A patient from another clinic is indistinguishable from a missing one
   (404), so ids cannot be probed across clinics.
 - Clinic routes live under `/api/clinic` and are marked with
-  `@ClinicAccess()`; handlers receive the clinic through `@CurrentClinic()`.
-  Until authentication exists, a **TEMPORARY** `DevelopmentClinicGuard`
-  assigns the seed clinic, only when `NODE_ENV=development`; in any other
-  environment clinic routes return 401. Real auth replaces only that guard
-  (see [Authentication (planned)](#authentication-planned)).
+  `@ClinicAccess()`; handlers receive the clinic through `@CurrentClinic()`,
+  which `ClinicAccessGuard` resolves from the user's membership (see
+  [Route protection](#route-protection-implemented-12)).
 - The patient portal will live under `/api/portal`: read-only and exposing
   only shareable fields, through the clinical modules' exported services.
 - Clinical records are soft-deleted (`deleted_at`); never physically deleted.
@@ -96,8 +94,7 @@ patients(id, clinic_id)`, so the database itself rejects a consultation in
 
 **Status:** designed; partly implemented (the parts marked "implemented",
 with their ticket). These are the decisions agreed in the
-Authentication epic (#8); the work is split into tickets #9–#26. Until they
-land, the `DevelopmentClinicGuard` described above is still in place. This
+Authentication epic (#8); the work is split into tickets #9–#26. This
 section is completed as each ticket lands (#27); values marked "decided in
 its ticket" are proposals to be confirmed in that ticket's PR.
 
@@ -283,6 +280,38 @@ the hash.
      onboarding.
 - Google routes answer 404 when `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
   are not configured (optional in development).
+
+### Route protection (implemented, #12)
+
+Three global guards run on every request, in the order `AppModule` registers
+them. Each one only reads what the one before it set:
+
+| Guard               | Applies to                  | Sets                       | Rejects                     |
+| ------------------- | --------------------------- | -------------------------- | --------------------------- |
+| `SessionAuthGuard`  | every route but `@Public()` | `request.user`             | 401 without a valid session |
+| `ClinicAccessGuard` | `@ClinicAccess()`           | `request.clinicId`         | 403 without a membership    |
+| `PortalAccessGuard` | `@PortalAccess()`           | `request.portalPatientIds` | 403 without patient access  |
+
+- **Protected by default.** A new route needs a session unless it says
+  otherwise, and `@Public()` goes on each handler, never on a controller, so
+  a new route in `AuthController` is protected too. Public today: health,
+  sign-in, sign-out (it answers 204 either way), forgot and reset password.
+- **Handlers read the result** with `@CurrentUser()`, `@CurrentClinic()` and
+  `@PortalPatientIds()`. The clinic never comes from the client.
+- **A route marked both `@Public()` and `@ClinicAccess()` or `@PortalAccess()`
+  fails closed:** the access guard answers 401 when there is no user.
+- **One clinic per user in the MVP.** The guard takes the oldest membership;
+  choosing among several clinics needs a selector in the web app and is out
+  of scope (TODO in `ClinicsService`).
+- **Portal grants are by user, across clinics,** and a soft-deleted patient
+  no longer counts as a grant. No portal endpoint exists yet; the guard is
+  tested with a probe route in `app.module.spec.ts`.
+- **Lookups stay inside their module:** `ClinicsService` (memberships) and
+  `PatientAccessService` (`patient_access`) are the exported entry points.
+  These two repositories take a user, not a clinic, because they are how a
+  request finds its clinic and its patients.
+- **The middleware serving the SPA is not behind the guards:** the built web
+  app is public, and only `/api` requires a session.
 
 ### CSRF
 

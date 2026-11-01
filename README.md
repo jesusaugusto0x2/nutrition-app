@@ -45,9 +45,7 @@ Every email the API sends in development lands in Mailpit at
 http://localhost:8025; nothing leaves your machine. `pnpm mail:test` sends
 one email of each template there to preview them.
 
-Clinic routes do not require a session yet: in development every clinic
-route acts on the seed clinic (see "TEMPORARY" in
-`apps/api/src/common/guards`). Sign-in already works
+Every route except health and the sign-in family requires a session. Sign in
 (`POST /api/auth/sign-in`) with these seed users (development only; the seed
 refuses to run in production):
 
@@ -55,6 +53,21 @@ refuses to run in production):
 | -------------------- | -------------------- | -------------------------------------------- |
 | `owner@example.com`  | `nutri-dev-password` | Staff: owner of the seed clinic              |
 | `portal@example.com` | `nutri-dev-password` | Portal: guardian of the patient Valentina R. |
+
+The web app has no login page yet (#22), so its clinic screens answer 401 until
+you sign in. Run this in the browser console on http://localhost:4200, then
+reload:
+
+```js
+await fetch('/api/auth/sign-in', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    email: 'owner@example.com',
+    password: 'nutri-dev-password',
+  }),
+});
+```
 
 ## Scripts
 

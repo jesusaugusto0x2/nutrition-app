@@ -3,8 +3,10 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './auth/auth.module';
+import { SessionAuthGuard } from './auth/sessions/session-auth.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { DevelopmentClinicGuard } from './common/guards/development-clinic.guard';
+import { ClinicAccessGuard } from './common/guards/clinic-access.guard';
+import { PortalAccessGuard } from './common/guards/portal-access.guard';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
@@ -42,8 +44,10 @@ import { PortalModule } from './modules/portal/portal.module';
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
-    // TEMPORARY until real auth: see DevelopmentClinicGuard.
-    { provide: APP_GUARD, useClass: DevelopmentClinicGuard },
+    // Order matters: the access guards read the user the session guard sets.
+    { provide: APP_GUARD, useClass: SessionAuthGuard },
+    { provide: APP_GUARD, useClass: ClinicAccessGuard },
+    { provide: APP_GUARD, useClass: PortalAccessGuard },
   ],
 })
 export class AppModule {}

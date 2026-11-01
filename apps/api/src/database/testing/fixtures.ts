@@ -3,6 +3,8 @@ import {
   authTokens,
   clinics,
   consultations,
+  memberships,
+  patientAccess,
   patients,
   sessions,
   users,
@@ -33,6 +35,19 @@ export async function insertUser(
   return user;
 }
 
+export async function insertMembership(
+  db: Database,
+  userId: string,
+  clinicId: string,
+  overrides: Partial<typeof memberships.$inferInsert> = {},
+) {
+  const [membership] = await db
+    .insert(memberships)
+    .values({ userId, clinicId, role: 'owner', ...overrides })
+    .returning();
+  return membership;
+}
+
 export async function insertPatient(
   db: Database,
   clinicId: string,
@@ -50,6 +65,19 @@ export async function insertPatient(
     })
     .returning();
   return patient;
+}
+
+export async function insertPatientAccess(
+  db: Database,
+  userId: string,
+  patientId: string,
+  overrides: Partial<typeof patientAccess.$inferInsert> = {},
+) {
+  const [access] = await db
+    .insert(patientAccess)
+    .values({ userId, patientId, relationship: 'guardian', ...overrides })
+    .returning();
+  return access;
 }
 
 export async function insertConsultation(
