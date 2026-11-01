@@ -226,7 +226,10 @@ describe('AppModule', () => {
     it('accepts the cookie set by signing in', async () => {
       const clinic = await insertClinic(connection.db);
       const patient = await insertPatient(connection.db, clinic.id);
-      const user = await insertUser(connection.db, { passwordHash });
+      const user = await insertUser(connection.db, {
+        passwordHash,
+        emailVerifiedAt: new Date(),
+      });
       await insertMembership(connection.db, user.id, clinic.id);
 
       const signIn = await request('auth/sign-in', undefined, {
