@@ -102,6 +102,18 @@ export const passwordSchema = z
     message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
   });
 
+const signUpNameSchema = z.string().trim().min(1).max(100);
+
+/** Body of `POST /api/auth/sign-up`. */
+export const signUpSchema = z.object({
+  name: signUpNameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+  clinicName: signUpNameSchema,
+});
+
+export type SignUp = z.infer<typeof signUpSchema>;
+
 /** Body of `POST /api/auth/forgot-password`. */
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 
