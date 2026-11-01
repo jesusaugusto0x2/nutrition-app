@@ -16,7 +16,7 @@ isolation and not leaking data are non-negotiable.**
 Docs live in `docs/`: [architecture.md](docs/architecture.md) holds
 cross-cutting design, and each epic has one `docs/<topic>.md` with its details
 (decisions, how to operate it, runbooks, FAQ), such as
-[deployment.md](docs/deployment.md).
+[deployment.md](docs/deployment.md) and [ci.md](docs/ci.md).
 
 ## 2. Language rules
 
@@ -204,16 +204,13 @@ Tooling notes:
 - Branches: `feat/...`, `fix/...`, `chore/...` from `main`. (The initial
   scaffold was committed directly to `main`; all further work uses branches.)
 - `main` is protected by the "Protect main" repository ruleset: changes
-  arrive only through a pull request (no approvals needed), both CI jobs
-  (`Lint, typecheck, test and build` and `Build and smoke-test the Docker
-image`) must pass on a branch that is up to date with `main`, and force
-  pushes and deletion are blocked. Renaming a CI job means updating the
+  arrive only through a pull request, and both CI jobs must pass on a branch
+  that is up to date with `main`. Renaming a CI job means updating the
   ruleset's required checks too, or every pull request stays blocked.
-- **Merge strategy: merge commit only** (squash and rebase are disabled).
-  Every atomic commit reaches `main` as written, so each one must pass
-  commitlint; the merge commit itself is ignored by it. Head branches are
-  deleted automatically after merging.
+- **Merge strategy: merge commit only.** Every atomic commit reaches `main`
+  as written, so each one must pass commitlint.
 - Never commit `.env` or secrets.
+- Details and reasons: [docs/ci.md](docs/ci.md#branch-protection).
 
 ## 10. How to add a new feature module
 
@@ -241,19 +238,16 @@ image`) must pass on a branch that is up to date with `main`, and force
 ## 11. Definition of done
 
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` are green.
-  CI (`.github/workflows/ci.yml`) runs them on every pull request to `main`
-  for the affected projects only, and on every push to `main` for all of
-  them. It caches the pnpm store and the Nx cache (`.nx/cache` plus its
-  metadata DB in `.nx/workspace-data`); editing the workflow
-  invalidates every Nx task (it is in `sharedGlobals`). A second job builds
-  the production image on every run and smoke-tests it with
-  `scripts/smoke-test-image.sh` (health, SPA, JSON 404, `node` user); after
-  changing the `Dockerfile` or runtime dependencies, run it locally (README).
-- CI also fails when generated files drift from their sources: every PR
-  commit must pass commitlint, `pnpm nx sync:check` must pass, the Drizzle
-  schema must match the committed migrations (`drizzle-kit check` and an
-  empty `drizzle-kit generate`), and the build must leave `git status`
-  clean (commit the regenerated `routeTree.gen.ts`).
+  CI runs them on every pull request and every push to `main`, and also
+  builds and smoke-tests the production image. After changing the
+  `Dockerfile` or runtime dependencies, run `scripts/smoke-test-image.sh`
+  locally (README).
+- CI also fails when a commit message or a generated file is wrong: every PR
+  commit passes commitlint, project references are in sync (`pnpm nx sync`),
+  the Drizzle schema has its migration (`pnpm db:generate`) and the build
+  leaves `git status` clean (commit `routeTree.gen.ts`).
+- Every check, cache, decision and CI failure is explained in
+  [docs/ci.md](docs/ci.md).
 - No TODO without context (say what, why and when).
 - Isolation-sensitive changes include a test proving isolation.
 - CLAUDE.md or docs updated if a convention changed; deviations that leave

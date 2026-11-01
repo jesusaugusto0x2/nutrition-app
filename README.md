@@ -10,7 +10,8 @@ per-clinic data isolation. The UI is in Spanish.
 - `libs/shared/utils`: shared pure calculations (`@nutri/utils`)
 
 See [docs/architecture.md](docs/architecture.md) for the design,
-[docs/deployment.md](docs/deployment.md) for production and
+[docs/deployment.md](docs/deployment.md) for production,
+[docs/ci.md](docs/ci.md) for CI and quality checks and
 [CLAUDE.md](CLAUDE.md) for development rules.
 
 ## Requirements
@@ -105,8 +106,9 @@ The container runs only Nest: the API under `/api` and the web app on every
 other route. Migrations are not run by the image yet (see
 [Known technical debt](docs/architecture.md#known-technical-debt)).
 
-CI builds the image and smoke-tests it on every pull request. To run the same
-smoke test locally against the Docker Compose database:
+CI builds the image and smoke-tests it on every pull request and push to `main`
+([what it checks](docs/ci.md#job-build-and-smoke-test-the-docker-image)). To run
+the same smoke test locally against the Docker Compose database:
 
 ```bash
 docker build -t nutri .
@@ -120,12 +122,7 @@ DATABASE_URL=postgres://nutri:nutri@host.docker.internal:5432/nutri \
   `pnpm db:seed`.
 - **Nx reports "The workspace is out of sync"**: run `pnpm nx sync` (needed
   after adding a dependency between workspace projects).
-- **CI fails on "Commit messages"**: a commit in the pull request does not
-  follow Conventional Commits with a scope; reword it (`git rebase -i`) and
-  force-push the branch.
-- **CI fails on "Drizzle schema and migrations"**: run `pnpm db:generate`
-  and commit the new migration.
-- **CI fails on "Generated files are committed"**: run `pnpm build` and
-  commit the files it changed (usually `apps/web/src/routeTree.gen.ts`).
 - **Tests ignore a tsconfig change**: run `pnpm exec vitest --clearCache`
   (Vitest caches transformed modules on disk).
+- **CI fails or does not run**: see
+  [Troubleshooting and FAQ](docs/ci.md#troubleshooting-and-faq).
