@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { BottomNav } from '@/components/navigation/bottom-nav';
 import { Sidebar } from '@/components/navigation/sidebar';
+import { requireClinicAccess } from '@/features/auth/guards';
 
 /**
  * Layout for clinic staff (owner, nutritionist, assistant). Sidebar from
@@ -8,6 +9,8 @@ import { Sidebar } from '@/components/navigation/sidebar';
  * bar on phones.
  */
 export const Route = createFileRoute('/_clinic')({
+  beforeLoad: ({ context, location }) =>
+    requireClinicAccess(context.queryClient, location.href),
   component: ClinicLayout,
 });
 
