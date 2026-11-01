@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, lte, or } from 'drizzle-orm';
 import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
 import { sessions, users } from '../../database/schema';
@@ -88,5 +88,22 @@ export class SessionsRepository {
 
   async deleteAllForUser(userId: string): Promise<void> {
     await this.db.delete(sessions).where(eq(sessions.userId, userId));
+  }
+
+  /**
+   * Deletes every session `findActiveByTokenHash` would reject: the exact
+   * opposite of its filter. Returns how many rows were deleted.
+   */
+  async deleteInactive({
+    now,
+    idleSince,
+  }: ActiveSessionCutoffs): Promise<number> {
+    const deleted = await this.db
+      .delete(sessions)
+      .where(
+        or(lte(sessions.expiresAt, now), lte(sessions.lastUsedAt, idleSince)),
+      )
+      .returning({ id: sessions.id });
+    return deleted.length;
   }
 }

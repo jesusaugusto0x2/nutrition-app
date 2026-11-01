@@ -8,7 +8,10 @@ import {
   isWellFormedOpaqueToken,
 } from '../tokens/opaque-token';
 import { toAuthUser } from './sessions.mapper';
-import { SessionsRepository } from './sessions.repository';
+import {
+  type ActiveSessionCutoffs,
+  SessionsRepository,
+} from './sessions.repository';
 
 const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
@@ -68,10 +71,10 @@ export class SessionsService {
 
     const now = this.clock.now();
     const tokenHash = hashOpaqueToken(token);
-    const session = await this.repository.findActiveByTokenHash(tokenHash, {
-      now,
-      idleSince: new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS),
-    });
+    const session = await this.repository.findActiveByTokenHash(
+      tokenHash,
+      activeSessionCutoffs(now),
+    );
 
     if (!session) {
       // No-op for unknown tokens; removes the row of an expired or idle one.
@@ -104,6 +107,23 @@ export class SessionsService {
   async revokeAllForUser(userId: string): Promise<void> {
     await this.repository.deleteAllForUser(userId);
   }
+
+  /**
+   * Deletes expired and idle sessions, which `validate` only removes when
+   * their token comes back. Returns how many were deleted.
+   */
+  async deleteInactive(): Promise<number> {
+    return this.repository.deleteInactive(
+      activeSessionCutoffs(this.clock.now()),
+    );
+  }
+}
+
+function activeSessionCutoffs(now: Date): ActiveSessionCutoffs {
+  return {
+    now,
+    idleSince: new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS),
+  };
 }
 
 function truncateUserAgent(
