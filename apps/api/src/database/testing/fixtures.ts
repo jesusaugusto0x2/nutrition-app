@@ -1,5 +1,6 @@
 import type { Database } from '../client';
 import {
+  authAccounts,
   authTokens,
   clinics,
   consultations,
@@ -119,6 +120,18 @@ export async function insertSession(
     })
     .returning();
   return session;
+}
+
+export async function insertAuthAccount(
+  db: Database,
+  userId: string,
+  providerAccountId: string,
+) {
+  const [account] = await db
+    .insert(authAccounts)
+    .values({ userId, provider: 'google', providerAccountId })
+    .returning();
+  return account;
 }
 
 let authTokenCount = 0;

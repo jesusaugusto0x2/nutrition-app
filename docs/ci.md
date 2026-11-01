@@ -108,8 +108,9 @@ a migrated schema. The script waits up to 60 s for the image's own
 
 On failure it prints the container logs; it always removes the container.
 `DATABASE_URL` is forwarded with `--env`, so its value never appears on a command
-line. `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN` and `CLIENT_IP_SOURCE` default to
-placeholders (nothing is emailed), and `SMOKE_PORT` (default 3100) sets the host
+line. `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`, `CLIENT_IP_SOURCE`,
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` default to placeholders (nothing
+is emailed, and Google is never called), and `SMOKE_PORT` (default 3100) sets the host
 port. To run it locally, see
 [Production image](../README.md#production-image) in the README. Do it after
 changing the `Dockerfile` or runtime dependencies.

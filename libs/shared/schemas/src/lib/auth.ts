@@ -114,6 +114,11 @@ export const signUpSchema = z.object({
 
 export type SignUp = z.infer<typeof signUpSchema>;
 
+/** Body of `POST /api/auth/onboarding`. */
+export const onboardingSchema = z.object({ clinicName: signUpNameSchema });
+
+export type Onboarding = z.infer<typeof onboardingSchema>;
+
 /** Body of `POST /api/auth/forgot-password`. */
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 

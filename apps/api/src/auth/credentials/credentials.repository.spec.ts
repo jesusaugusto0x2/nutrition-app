@@ -22,6 +22,128 @@ describe('CredentialsRepository', () => {
     await connection.close();
   });
 
+  describe('findByEmailForUpdate', () => {
+    it('finds the user inside the transaction', async () => {
+      const user = await insertUser(connection.db, {
+        email: 'locked@example.com',
+      });
+
+      await expect(
+        connection.db.transaction((tx) =>
+          repository.findByEmailForUpdate('locked@example.com', tx),
+        ),
+      ).resolves.toMatchObject({ id: user.id });
+    });
+
+    it('finds nothing for an unknown email', async () => {
+      await expect(
+        connection.db.transaction((tx) =>
+          repository.findByEmailForUpdate('unknown@example.com', tx),
+        ),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('createVerified', () => {
+    const verifiedAt = new Date('2026-11-01T12:00:00.000Z');
+
+    it('creates a verified user without a password', async () => {
+      const { id } = await connection.db.transaction((tx) =>
+        repository.createVerified(
+          {
+            email: 'created-by-google@example.com',
+            name: 'Ana',
+            emailVerifiedAt: verifiedAt,
+          },
+          tx,
+        ),
+      );
+
+      await expect(
+        repository.findByEmail('created-by-google@example.com'),
+      ).resolves.toEqual({
+        id,
+        email: 'created-by-google@example.com',
+        name: 'Ana',
+        passwordHash: null,
+        emailVerifiedAt: verifiedAt,
+      });
+    });
+
+    it('fails instead of reusing a taken email', async () => {
+      const existing = await insertUser(connection.db, {
+        email: 'race@example.com',
+        name: 'Original',
+      });
+
+      await expect(
+        connection.db.transaction((tx) =>
+          repository.createVerified(
+            {
+              email: 'race@example.com',
+              name: 'Second',
+              emailVerifiedAt: verifiedAt,
+            },
+            tx,
+          ),
+        ),
+      ).rejects.toThrow();
+
+      await expect(
+        repository.findByEmail('race@example.com'),
+      ).resolves.toMatchObject({ id: existing.id, name: 'Original' });
+    });
+  });
+
+  describe('takeOverUnverified', () => {
+    const now = new Date('2026-11-01T12:00:00.000Z');
+
+    it('removes the password, ends the sessions and verifies the email', async () => {
+      const user = await insertUser(connection.db, {
+        email: 'pre-registered@example.com',
+        passwordHash: 'attacker-hash',
+      });
+      await insertSession(connection.db, user.id);
+
+      await connection.db.transaction((tx) =>
+        repository.takeOverUnverified(user.id, now, tx),
+      );
+
+      await expect(
+        repository.findByEmail('pre-registered@example.com'),
+      ).resolves.toMatchObject({ passwordHash: null, emailVerifiedAt: now });
+      await expect(
+        connection.db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.userId, user.id)),
+      ).resolves.toEqual([]);
+    });
+
+    it('leaves other users alone', async () => {
+      const user = await insertUser(connection.db);
+      const other = await insertUser(connection.db, {
+        passwordHash: 'other-hash',
+      });
+      await insertSession(connection.db, other.id);
+
+      await connection.db.transaction((tx) =>
+        repository.takeOverUnverified(user.id, now, tx),
+      );
+
+      await expect(repository.findByEmail(other.email)).resolves.toMatchObject({
+        passwordHash: 'other-hash',
+        emailVerifiedAt: null,
+      });
+      await expect(
+        connection.db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.userId, other.id)),
+      ).resolves.toHaveLength(1);
+    });
+  });
+
   describe('createUnverified', () => {
     const newUser = {
       email: 'new@example.com',

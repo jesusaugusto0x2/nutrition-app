@@ -65,6 +65,15 @@ export const RESET_PASSWORD_RATE_LIMITS = {
 } satisfies AuthRateLimits;
 
 /**
+ * Starting and finishing a Google sign-in each call Google; the limit is per
+ * route, so one sign-in counts once on each. There is no email to count by
+ * before Google answers.
+ */
+export const GOOGLE_RATE_LIMITS = {
+  [IP_THROTTLER]: { limit: 20, ttl: minutes(15) },
+} satisfies AuthRateLimits;
+
+/**
  * Each request may send an email: per email it stops flooding one inbox
  * with links, per IP it stops probing many addresses.
  */

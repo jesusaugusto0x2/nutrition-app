@@ -78,7 +78,8 @@ apps/api/src/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
   auth/           sign-in/out, sign-up/, email-verification/, password reset,
-                  passwords/, sessions/ (including the global
+                  passwords/, google/ (OpenID Connect), accounts/ (linked
+                  identities), onboarding/, sessions/ (including the global
                   SessionAuthGuard), tokens/, cleanup/ (daily job)
   mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/

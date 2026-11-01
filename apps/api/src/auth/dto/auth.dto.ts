@@ -2,6 +2,7 @@ import {
   authMeSchema,
   authUserSchema,
   forgotPasswordSchema,
+  onboardingSchema,
   resendVerificationSchema,
   resetPasswordSchema,
   signUpSchema,
@@ -14,6 +15,8 @@ export class AuthUserDto extends createZodDto(authUserSchema) {}
 export class AuthMeDto extends createZodDto(authMeSchema) {}
 
 export class SignUpDto extends createZodDto(signUpSchema) {}
+
+export class OnboardingDto extends createZodDto(onboardingSchema) {}
 
 export class ForgotPasswordDto extends createZodDto(forgotPasswordSchema) {}
 
