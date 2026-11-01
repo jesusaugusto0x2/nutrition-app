@@ -86,6 +86,45 @@ describe('apiClient', () => {
     ).rejects.toThrow();
   });
 
+  it('reads Retry-After from a rate-limited response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(null, {
+          status: 429,
+          headers: { 'Retry-After': '872' },
+        }),
+      ),
+    );
+
+    const error = await apiClient
+      .get('/auth/me', patientSchema)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ status: 429, retryAfterSeconds: 872 });
+  });
+
+  it.each([[null], ['soon'], ['0'], ['Wed, 21 Oct 2026 07:28:00 GMT']])(
+    'has no retry time for the Retry-After %s',
+    async (header) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(null, {
+            status: 429,
+            headers: header === null ? {} : { 'Retry-After': header },
+          }),
+        ),
+      );
+
+      const error = await apiClient
+        .get('/auth/me', patientSchema)
+        .catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({ retryAfterSeconds: null });
+    },
+  );
+
   it('throws ApiClientError with the parsed error body', async () => {
     const errorBody = {
       statusCode: 404,
