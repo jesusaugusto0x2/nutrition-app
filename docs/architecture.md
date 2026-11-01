@@ -149,10 +149,10 @@ its ticket" are proposals to be confirmed in that ticket's PR.
   them is deleted when its token is next presented. Time comes from an
   injected `CLOCK` (`common/clock`) so expiry is tested deterministically.
 - **Implementation:** `auth/sessions/`: `SessionsRepository`,
-  `SessionsService` (`create`, `validate`, `revoke`, `revokeAllForUser`) and
-  the `SessionCookie` helper (set, clear, read). Cookies are parsed by the
-  `cookie-parser` middleware (registered in `main.ts`, as the NestJS cookies
-  guide recommends), unsigned because the token is already opaque and
+  `SessionsService` (`create`, `validate`, `revoke`, `revokeAllForUser`,
+  `deleteInactive`) and the `SessionCookie` helper (set, clear, read). Cookies
+  are parsed by the `cookie-parser` middleware (registered in `main.ts`, as
+  the NestJS cookies guide recommends), unsigned because the token is already opaque and
   random. Malformed tokens are rejected before any query. Neither the token
   nor the cookie is ever logged or included in an error response.
 - Password reset revokes every session of the user (implemented, #18).
@@ -434,7 +434,8 @@ The auth tables (`sessions`, `auth_accounts`, `auth_tokens`) and the
 credential columns on `users` are not clinic-scoped (a user can belong to
 several clinics) and are not clinical records. Expired sessions and used or
 expired one-time tokens may therefore be **physically deleted**, an
-exception to the soft-delete rule. IP addresses are not stored.
+exception to the soft-delete rule, which a daily job does
+([Scheduled jobs](deployment.md#scheduled-jobs)). IP addresses are not stored.
 
 ## Data
 
@@ -609,18 +610,6 @@ resolved.
   server). The check belongs in the API (sign-up and reset), not only in the
   shared schema.
 
-### Cleanup of expired sessions
-
-- **Status:** pending.
-- **Why:** an expired or idle session is deleted only when its token is
-  presented again (`SessionsService.validate`). Sessions whose cookie is
-  never sent again (a cleared browser, a lost device) stay in `sessions`.
-  They are unusable (the lookup checks both expiries) but accumulate.
-- **Resolve when:** a scheduled job exists (e.g. `@nestjs/schedule` or a
-  Railway cron) or the table grows enough to matter: delete rows where
-  `expires_at <= now()` or `last_used_at <= now() - 7 days`. Expired
-  one-time `auth_tokens` need the same treatment.
-
 ### Production migrations
 
 - **Status:** pending, part of the deployment work.
@@ -628,4 +617,3 @@ resolved.
   that is not in the production image, and deployment is out of scope.
 - **Resolve when:** setting up Railway + Neon. Options: a release command
   that runs `drizzle-kit migrate` from the build stage, or a small migration
-  entry point using `drizzle-orm`'s migrator shipped in the image.

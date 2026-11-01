@@ -8,6 +8,7 @@ import { ClinicsModule } from '../modules/clinics/clinics.module';
 import { PortalModule } from '../modules/portal/portal.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthCleanupJob } from './cleanup/auth-cleanup.job';
 import { CredentialsRepository } from './credentials/credentials.repository';
 import { LocalStrategy } from './local.strategy';
 import { PasswordHasher } from './passwords/password-hasher';
@@ -32,6 +33,7 @@ import { AuthTokensRepository } from './tokens/auth-tokens.repository';
   ],
   controllers: [AuthController],
   providers: [
+    AuthCleanupJob,
     AuthService,
     AuthThrottlerGuard,
     AuthTokensRepository,

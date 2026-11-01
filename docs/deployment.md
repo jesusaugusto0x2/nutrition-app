@@ -80,6 +80,8 @@ Sources, checked on 2026-11-01:
 [Railway pre-deploy command](https://docs.railway.com/deployments/pre-deploy-command),
 [Railway GitHub autodeploys](https://docs.railway.com/deployments/github-autodeploys),
 [Railway deployment actions](https://docs.railway.com/deployments/deployment-actions),
+[Railway cron jobs](https://docs.railway.com/cron-jobs),
+[Railway Serverless](https://docs.railway.com/deployments/serverless),
 [Neon connection pooling](https://neon.com/docs/connect/connection-pooling),
 [Neon instant restore](https://neon.com/docs/introduction/branch-restore).
 
@@ -105,7 +107,53 @@ Pending, see #42 (SPF, DKIM, DMARC, `SMTP_URL`, `MAIL_FROM`).
 
 ## Scheduled jobs
 
-Pending, see #43 (cleanup of expired sessions and one-time tokens).
+One job, `AuthCleanupJob` (`apps/api/src/auth/cleanup/auth-cleanup.job.ts`).
+It runs inside the API process every day at 03:00 UTC and physically deletes:
+
+- `sessions` where `expires_at <= now` or `last_used_at <= now - 7 days`, the
+  exact opposite of the active-session lookup;
+- `auth_tokens` that expired or were used.
+
+A session is otherwise deleted only when its token comes back, so rows of a
+cleared browser or a lost device would stay forever. They are auth data, not
+clinical records, so physical deletion is correct (see
+[Auth data and soft delete](architecture.md#auth-data-and-soft-delete)).
+
+Why in-process with `@nestjs/schedule`:
+
+- The container is always on, so the job needs no new service, variables or
+  deployment settings, and it ships and rolls back with the code.
+- Rejected: a Railway cron. It is a setting on a service that runs the start
+  command on the schedule and expects the process to exit, so it cannot live
+  on the API service. It would need a second service, a second entry point
+  and a copy of `DATABASE_URL`.
+- The delete is idempotent. A run missed during a deploy or restart is caught
+  up by the next one, and a duplicate run on several replicas deletes nothing
+  more. There is no distributed lock because none is needed.
+
+What this design requires of the service:
+
+- **Serverless (App Sleeping) must stay off.** A sleeping service wakes only
+  on inbound traffic; Railway documents no timer that wakes it, so the job
+  would not fire. #40 must keep it off in `.railway/railway.ts`.
+
+Operating it:
+
+- **Check that it ran:** look for a line from `AuthCleanupJob` in the Railway
+  logs, `Deleted <n> sessions and <m> one-time tokens`, once a day after 03:00
+  UTC. It logs only those counts, also when both are 0, so the line itself
+  proves the job ran.
+- **If it fails:** the line is `Could not clean up auth data (<error name>)`.
+  Nothing else is logged, on purpose: `@nestjs/schedule` logs whatever a job
+  throws, and a query error carries its SQL and parameters, so the job catches
+  every error itself. Expired rows are unusable, so a failure is not urgent;
+  the next run retries. If it repeats, check the database connection and that
+  the application role can `DELETE` on both tables (#38).
+- **Run it now or change the time:** there is no manual trigger. Change the
+  `@Cron` expression in a pull request.
+
+**Status: built and tested, not yet seen in production.** Nothing is deployed
+yet; #43 stays open until the log line has been checked once after #40.
 
 ## Go-live
 
@@ -222,6 +270,20 @@ refuses to start without `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN` and
 `CLIENT_IP_SOURCE` (`apps/api/src/config/app-config.ts`), so see the first
 deploy under open questions.
 
+**Do we need an index on `expires_at` for the cleanup job?** No. It scans
+`sessions` and `auth_tokens` once a day, and both tables stay small because
+of it. Add an index, in a new migration, only if the query shows up as slow.
+
+**Does the job read clinical data or need `clinicId`?** No. Sessions and
+one-time tokens are not clinic-scoped, so the job crosses clinics by design
+and touches only those two tables.
+
+**Which clock does the job use?** The API's (`CLOCK`), not the database's
+`now()`, like the session lookup, so both always agree on what is expired.
+
+**Does the job keep Neon awake?** No. If the compute has scaled to zero, the
+job wakes it once a day for one short query.
+
 ## Open questions and debt
 
 - **The first deploy needs variables owned by later tickets.** #40 comes
@@ -243,8 +305,6 @@ Known technical debt that affects production
 
 - [Production migrations](architecture.md#production-migrations), resolved
   by #39.
-- [Cleanup of expired sessions](architecture.md#cleanup-of-expired-sessions),
-  resolved by #43.
 - [Rate-limit counters in memory](architecture.md#rate-limit-counters-in-memory):
   blocks running more than one replica.
 - [Compromised password blocklist](architecture.md#compromised-password-blocklist):

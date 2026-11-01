@@ -1,9 +1,11 @@
 import { Controller, Get, type INestApplication } from '@nestjs/common';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import { apiErrorSchema, authMeSchema, type AuthUser } from '@nutri/schemas';
 import cookieParser from 'cookie-parser';
 import { eq } from 'drizzle-orm';
 import { AppModule } from './app.module';
+import { AUTH_CLEANUP_JOB } from './auth/cleanup/auth-cleanup.job';
 import { PasswordHasher } from './auth/passwords/password-hasher';
 import { DEVELOPMENT_SESSION_COOKIE } from './auth/sessions/session-cookie';
 import { SessionsService } from './auth/sessions/sessions.service';
@@ -13,13 +15,14 @@ import { PortalPatientIds } from './common/decorators/portal-patient-ids.decorat
 import { APP_CONFIG } from './config/app-config';
 import type { DatabaseConnection } from './database/client';
 import { DATABASE_CONNECTION } from './database/database.tokens';
-import { patients } from './database/schema';
+import { patients, sessions as sessionsTable } from './database/schema';
 import {
   insertClinic,
   insertConsultation,
   insertMembership,
   insertPatient,
   insertPatientAccess,
+  insertSession,
   insertUser,
 } from './database/testing/fixtures';
 import { createTestDatabase } from './database/testing/test-database';
@@ -501,6 +504,39 @@ describe('AppModule', () => {
         .where(eq(patients.id, patient.id));
 
       await expect(me(token)).resolves.toMatchObject({ patientAccess: [] });
+    });
+  });
+
+  describe('auth cleanup job', () => {
+    it('is scheduled at least once a day', () => {
+      const job = app.get(SchedulerRegistry).getCronJob(AUTH_CLEANUP_JOB);
+
+      expect(job.isActive).toBe(true);
+      expect(job.nextDate().diffNow('hours').hours).toBeLessThanOrEqual(24);
+    });
+
+    it('deletes expired sessions when it fires and keeps active ones', async () => {
+      const user = await insertUser(connection.db);
+      const token = await signedIn(user.id);
+      const expired = await insertSession(connection.db, user.id, {
+        expiresAt: new Date(Date.now() - 1000),
+        lastUsedAt: new Date(),
+      });
+      const remaining = () =>
+        connection.db
+          .select({ id: sessionsTable.id })
+          .from(sessionsTable)
+          .where(eq(sessionsTable.id, expired.id));
+
+      await app
+        .get(SchedulerRegistry)
+        .getCronJob(AUTH_CLEANUP_JOB)
+        .fireOnTick();
+
+      await vi.waitFor(async () => {
+        await expect(remaining()).resolves.toEqual([]);
+      });
+      await expect(sessions.validate(token)).resolves.not.toBeNull();
     });
   });
 });
