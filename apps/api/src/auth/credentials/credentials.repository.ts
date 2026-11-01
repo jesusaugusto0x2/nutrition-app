@@ -3,6 +3,7 @@ import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
 import { authTokens, sessions, users } from '../../database/schema';
+import type { Transaction } from '../../database/transaction-runner';
 
 const credentialsColumns = {
   id: users.id,
@@ -28,12 +29,25 @@ export interface PasswordReset {
   now: Date;
 }
 
-/** The user whose password was reset, for the notification email. */
-export interface ResetUserRow {
+export interface NewUser {
+  /** Must already be normalized (`normalizeEmail`). */
+  email: string;
+  name: string;
+  passwordHash: string;
+}
+
+/** What a service needs to email a user. */
+export interface UserRecipientRow {
   id: string;
   email: string;
   name: string;
 }
+
+const userRecipientColumns = {
+  id: users.id,
+  email: users.email,
+  name: users.name,
+};
 
 // Users are not clinic-scoped: a user can belong to several clinics.
 @Injectable()
@@ -48,6 +62,23 @@ export class CredentialsRepository {
       .where(eq(users.email, email))
       .limit(1);
     return row;
+  }
+
+  /**
+   * Creates an unverified user. Returns `undefined`, changing nothing, when
+   * the email already has an account; the unique constraint decides, so two
+   * concurrent sign-ups cannot both succeed.
+   */
+  async createUnverified(
+    user: NewUser,
+    tx?: Transaction,
+  ): Promise<UserRecipientRow | undefined> {
+    const [created] = await (tx ?? this.db)
+      .insert(users)
+      .values(user)
+      .onConflictDoNothing({ target: users.email })
+      .returning(userRecipientColumns);
+    return created;
   }
 
   async updatePasswordHash(
@@ -73,7 +104,7 @@ export class CredentialsRepository {
     tokenHash,
     passwordHash,
     now,
-  }: PasswordReset): Promise<ResetUserRow | undefined> {
+  }: PasswordReset): Promise<UserRecipientRow | undefined> {
     return this.db.transaction(async (tx) => {
       const [token] = await tx
         .update(authTokens)
@@ -98,7 +129,7 @@ export class CredentialsRepository {
           emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, ${now.toISOString()}::timestamptz)`,
         })
         .where(eq(users.id, token.userId))
-        .returning({ id: users.id, email: users.email, name: users.name });
+        .returning(userRecipientColumns);
       await tx.delete(sessions).where(eq(sessions.userId, token.userId));
       return user;
     });

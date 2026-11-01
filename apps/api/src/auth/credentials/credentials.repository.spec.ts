@@ -22,6 +22,65 @@ describe('CredentialsRepository', () => {
     await connection.close();
   });
 
+  describe('createUnverified', () => {
+    const newUser = {
+      email: 'new@example.com',
+      name: 'Ana',
+      passwordHash: 'stored-hash',
+    };
+
+    it('creates a user whose email is not verified', async () => {
+      const created = await repository.createUnverified(newUser);
+
+      expect(created).toEqual({
+        id: expect.any(String),
+        email: 'new@example.com',
+        name: 'Ana',
+      });
+      await expect(repository.findByEmail('new@example.com')).resolves.toEqual({
+        ...newUser,
+        id: created?.id,
+        emailVerifiedAt: null,
+      });
+    });
+
+    it('changes nothing when the email already has an account', async () => {
+      const existing = await insertUser(connection.db, {
+        email: 'taken@example.com',
+        name: 'Original',
+        passwordHash: 'original-hash',
+      });
+
+      await expect(
+        repository.createUnverified({ ...newUser, email: 'taken@example.com' }),
+      ).resolves.toBeUndefined();
+
+      await expect(
+        repository.findByEmail('taken@example.com'),
+      ).resolves.toMatchObject({
+        id: existing.id,
+        name: 'Original',
+        passwordHash: 'original-hash',
+      });
+    });
+
+    it('writes through the transaction it receives', async () => {
+      await expect(
+        connection.db.transaction(async (tx) => {
+          await repository.createUnverified(
+            { ...newUser, email: 'rolled-back@example.com' },
+            tx,
+          );
+          throw new Error('rollback');
+        }),
+      ).rejects.toThrow('rollback');
+
+      await expect(
+        repository.findByEmail('rolled-back@example.com'),
+      ).resolves.toBeUndefined();
+    });
+  });
+
   it('finds a user and their password hash by email', async () => {
     const user = await insertUser(connection.db, {
       email: 'ana@example.com',

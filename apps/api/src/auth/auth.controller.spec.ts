@@ -18,8 +18,11 @@ import { DATABASE } from '../database/database.tokens';
 import { authTokens, users } from '../database/schema';
 import { insertAuthToken, insertUser } from '../database/testing/fixtures';
 import { createTestDatabase } from '../database/testing/test-database';
+import { TransactionRunner } from '../database/transaction-runner';
+import { mailMessages } from '../mail/mail-messages';
 import { MAIL_TRANSPORT } from '../mail/mail-transport';
 import { FakeMailTransport } from '../mail/testing/fake-mail-transport';
+import { ClinicsService } from '../modules/clinics/clinics.service';
 import { AuthModule } from './auth.module';
 import { PASSWORD_HASH_OPTIONS } from './passwords/password-hash-options';
 import { PasswordHasher } from './passwords/password-hasher';
@@ -27,6 +30,7 @@ import {
   FORGOT_PASSWORD_RATE_LIMITS,
   RESET_PASSWORD_RATE_LIMITS,
   SIGN_IN_RATE_LIMITS,
+  SIGN_UP_RATE_LIMITS,
 } from './rate-limit/rate-limit';
 import { PRODUCTION_SESSION_COOKIE } from './sessions/session-cookie';
 import { SessionsService } from './sessions/sessions.service';
@@ -56,6 +60,7 @@ class TestInfrastructureModule {
       global: true,
       providers: [
         { provide: DATABASE, useValue: db },
+        TransactionRunner,
         {
           provide: APP_CONFIG,
           useValue: {
@@ -66,7 +71,7 @@ class TestInfrastructureModule {
           },
         },
       ],
-      exports: [DATABASE, APP_CONFIG],
+      exports: [DATABASE, TransactionRunner, APP_CONFIG],
     };
   }
 }
@@ -88,6 +93,7 @@ describe('AuthController', () => {
   let baseUrl: string;
   let logger: RecordingLogger;
   let sessions: SessionsService;
+  let clinics: ClinicsService;
   let passwordHash: string;
   let mail: FakeMailTransport;
 
@@ -116,6 +122,7 @@ describe('AuthController', () => {
     await app.listen(0, '127.0.0.1');
     baseUrl = await app.getUrl();
     sessions = moduleRef.get(SessionsService);
+    clinics = moduleRef.get(ClinicsService, { strict: false });
     passwordHash = await moduleRef.get(PasswordHasher).hash(PASSWORD);
   });
 
@@ -437,6 +444,150 @@ describe('AuthController', () => {
       const response = await post('sign-out');
 
       expect(response.status).toBe(204);
+    });
+  });
+
+  describe('POST /api/auth/sign-up', () => {
+    function signUp(email: string, ip?: string) {
+      return post(
+        'sign-up',
+        {
+          name: 'Ana Torres',
+          email,
+          password: PASSWORD,
+          clinicName: 'Consultorio Ana',
+        },
+        undefined,
+        ip,
+      );
+    }
+
+    function emailsTo(to: string) {
+      return mail.sent.filter((message) => message.to === to);
+    }
+
+    it('answers identically for a new and an existing email and sends the right email to each', async () => {
+      await insertUser(connection.db, {
+        email: 'taken@example.com',
+        name: 'Stored name',
+        passwordHash,
+      });
+
+      const [created, existing] = await Promise.all([
+        signUp('new-account@example.com'),
+        signUp('taken@example.com'),
+      ]);
+
+      expect(created.status).toBe(202);
+      expect(existing.status).toBe(created.status);
+      await expect(created.text()).resolves.toBe('');
+      await expect(existing.text()).resolves.toBe('');
+      expect(existing.headers.get('content-type')).toBe(
+        created.headers.get('content-type'),
+      );
+      await vi.waitFor(() => {
+        expect(emailsTo('new-account@example.com')).toHaveLength(1);
+        expect(emailsTo('taken@example.com')).toHaveLength(1);
+      });
+      const [verification] = emailsTo('new-account@example.com');
+      const [notice] = emailsTo('taken@example.com');
+      expect(verification.subject).toBe(mailMessages.emailVerification.subject);
+      expect(verification.text).toMatch(
+        /https:\/\/app\.example\.com\/verify-email\?token=[A-Za-z0-9_-]{43}/,
+      );
+      expect(notice.subject).toBe(mailMessages.signUpAttempt.subject);
+      expect(notice.text).toContain('Hola, Stored name:');
+      expect(notice.text).not.toContain('token=');
+    });
+
+    it('creates an unverified owner of a new clinic and does not sign them in', async () => {
+      const response = await signUp(' Owner.New@Example.com ');
+
+      await vi.waitFor(() =>
+        expect(emailsTo('owner.new@example.com')).toHaveLength(1),
+      );
+      expect(response.headers.getSetCookie()).toEqual([]);
+      const [user] = await connection.db
+        .select()
+        .from(users)
+        .where(eq(users.email, 'owner.new@example.com'));
+      expect(user.emailVerifiedAt).toBeNull();
+      await expect(
+        clinics.listMembershipsForUser(user.id),
+      ).resolves.toMatchObject([
+        { clinicName: 'Consultorio Ana', role: 'owner' },
+      ]);
+      await expect(
+        connection.db
+          .select({ purpose: authTokens.purpose })
+          .from(authTokens)
+          .where(eq(authTokens.userId, user.id)),
+      ).resolves.toEqual([{ purpose: 'email_verification' }]);
+    });
+
+    it('rejects a password shorter than 15 characters and creates nothing', async () => {
+      const response = await post('sign-up', {
+        name: 'Ana Torres',
+        email: 'short-password@example.com',
+        password: 'only 14 chars!',
+        clinicName: 'Consultorio Ana',
+      });
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'VALIDATION_ERROR',
+      });
+      await expect(
+        connection.db
+          .select()
+          .from(users)
+          .where(eq(users.email, 'short-password@example.com')),
+      ).resolves.toEqual([]);
+    });
+
+    it('limits sign-ups per IP', async () => {
+      const statuses: number[] = [];
+      for (let index = 0; index <= SIGN_UP_RATE_LIMITS.ip.limit; index++) {
+        const response = await signUp(
+          `ip-limit-${index}@example.com`,
+          '192.0.2.60',
+        );
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(
+        new Array(SIGN_UP_RATE_LIMITS.ip.limit).fill(202),
+      );
+      expect(statuses.at(-1)).toBe(429);
+    });
+
+    it('limits sign-ups per email, whatever IP they come from', async () => {
+      const statuses: number[] = [];
+      for (let index = 0; index <= SIGN_UP_RATE_LIMITS.email.limit; index++) {
+        // A new IP per request (the default).
+        statuses.push((await signUp('flooded-sign-up@example.com')).status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(
+        new Array(SIGN_UP_RATE_LIMITS.email.limit).fill(202),
+      );
+      expect(statuses.at(-1)).toBe(429);
+    });
+
+    it('never puts the password, the token or the email in a response or a log', async () => {
+      const body = await (await signUp('sign-up-leak@example.com')).text();
+      await vi.waitFor(() =>
+        expect(emailsTo('sign-up-leak@example.com')).toHaveLength(1),
+      );
+      const token = emailsTo('sign-up-leak@example.com')[0].text.match(
+        /token=([A-Za-z0-9_-]{43})/,
+      )?.[1];
+
+      const output = [body, ...logger.lines].join('\n');
+      expect(token).toBeDefined();
+      expect(output).not.toContain(token);
+      expect(output).not.toContain(PASSWORD);
+      expect(output).not.toContain('sign-up-leak@example.com');
     });
   });
 
