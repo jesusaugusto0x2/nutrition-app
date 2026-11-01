@@ -1,5 +1,5 @@
 import { type ApiError, apiErrorSchema } from '@nutri/schemas';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 const API_PREFIX = '/api';
 
@@ -30,6 +30,14 @@ export const apiClient = {
     schema: TSchema,
   ) {
     return request(path, schema, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  /** For endpoints that answer without a body (202, 204). */
+  async postEmpty(path: string, body?: unknown): Promise<void> {
+    await request(path, z.unknown(), {
       method: 'POST',
       body: JSON.stringify(body),
     });

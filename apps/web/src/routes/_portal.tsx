@@ -1,8 +1,11 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { requirePortalAccess } from '@/features/auth/guards';
 import { t } from '@/i18n';
 
 /** Read-only layout for patients and guardians. Placeholder for now. */
 export const Route = createFileRoute('/_portal')({
+  beforeLoad: ({ context, location }) =>
+    requirePortalAccess(context.queryClient, location.href),
   component: () => (
     <div className="min-h-dvh">
       <header className="border-b">

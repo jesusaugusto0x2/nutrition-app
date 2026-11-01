@@ -62,6 +62,22 @@ describe('apiClient', () => {
     );
   });
 
+  it('accepts an empty response from postEmpty', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      apiClient.postEmpty('/auth/sign-out'),
+    ).resolves.toBeUndefined();
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeUndefined();
+    expect(init.headers).not.toHaveProperty('Content-Type');
+  });
+
   it('rejects responses that break the shared contract', async () => {
     mockFetch(200, { ...patient, sex: 'unknown' });
 
