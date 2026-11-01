@@ -119,6 +119,11 @@ export const forgotPasswordSchema = z.object({ email: emailSchema });
 
 export type ForgotPassword = z.infer<typeof forgotPasswordSchema>;
 
+/** Body of `POST /api/auth/resend-verification`. */
+export const resendVerificationSchema = z.object({ email: emailSchema });
+
+export type ResendVerification = z.infer<typeof resendVerificationSchema>;
+
 /**
  * A one-time token from an emailed link. Only bounded here: an unknown or
  * malformed token fails the same way as an expired one.
