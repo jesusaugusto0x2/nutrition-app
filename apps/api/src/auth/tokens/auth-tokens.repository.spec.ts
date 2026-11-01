@@ -76,4 +76,49 @@ describe('AuthTokensRepository', () => {
       { purpose: 'password_reset', tokenHash: 'hash-other-user' },
     ]);
   });
+
+  describe('deleteExpiredOrUsed', () => {
+    const now = new Date('2026-01-10T00:00:00.000Z');
+    const future = new Date('2026-01-10T00:00:00.001Z');
+
+    beforeEach(async () => {
+      await connection.db.delete(authTokens);
+    });
+
+    it('deletes expired and used tokens and keeps usable ones', async () => {
+      const user = await insertUser(connection.db);
+      await insertAuthToken(connection.db, user.id, {
+        tokenHash: 'expired',
+        expiresAt: new Date('2026-01-09T00:00:00.000Z'),
+      });
+      await insertAuthToken(connection.db, user.id, {
+        tokenHash: 'expires-now',
+        expiresAt: now,
+      });
+      await insertAuthToken(connection.db, user.id, {
+        tokenHash: 'used',
+        expiresAt: future,
+        usedAt: new Date('2026-01-09T00:00:00.000Z'),
+      });
+      await insertAuthToken(connection.db, user.id, {
+        tokenHash: 'usable',
+        purpose: 'email_verification',
+        expiresAt: future,
+      });
+
+      await expect(repository.deleteExpiredOrUsed(now)).resolves.toBe(3);
+
+      await expect(tokensOf(user.id)).resolves.toEqual([
+        { purpose: 'email_verification', tokenHash: 'usable' },
+      ]);
+    });
+
+    it('deletes nothing on a second run', async () => {
+      const user = await insertUser(connection.db);
+      await insertAuthToken(connection.db, user.id, { expiresAt: now });
+
+      await expect(repository.deleteExpiredOrUsed(now)).resolves.toBe(1);
+      await expect(repository.deleteExpiredOrUsed(now)).resolves.toBe(0);
+    });
+  });
 });

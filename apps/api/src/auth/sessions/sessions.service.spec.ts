@@ -54,6 +54,7 @@ describe('SessionsService', () => {
     deleteByTokenHash: vi.fn(),
     deleteById: vi.fn(),
     deleteAllForUser: vi.fn(),
+    deleteInactive: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -194,6 +195,17 @@ describe('SessionsService', () => {
     await service.revokeByToken('not a token');
 
     expect(repository.deleteByTokenHash).not.toHaveBeenCalled();
+  });
+
+  it('deletes inactive sessions with the cutoffs validate uses', async () => {
+    repository.deleteInactive.mockResolvedValue(4);
+
+    await expect(service.deleteInactive()).resolves.toBe(4);
+
+    expect(repository.deleteInactive).toHaveBeenCalledWith({
+      now: NOW,
+      idleSince: new Date(NOW.getTime() - SESSION_IDLE_TIMEOUT_MS),
+    });
   });
 });
 

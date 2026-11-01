@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull, lte, or } from 'drizzle-orm';
 import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
 import { authTokens } from '../../database/schema';
@@ -33,5 +33,14 @@ export class AuthTokensRepository {
         );
       await tx.insert(authTokens).values(token);
     });
+  }
+
+  /** Deletes tokens that can no longer be used. Returns how many. */
+  async deleteExpiredOrUsed(now: Date): Promise<number> {
+    const deleted = await this.db
+      .delete(authTokens)
+      .where(or(lte(authTokens.expiresAt, now), isNotNull(authTokens.usedAt)))
+      .returning({ id: authTokens.id });
+    return deleted.length;
   }
 }

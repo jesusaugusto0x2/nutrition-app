@@ -161,4 +161,85 @@ describe('SessionsRepository', () => {
       .where(eq(sessions.userId, otherUser.id));
     expect(others).toEqual([{ id: otherSession.id }]);
   });
+
+  describe('deleteInactive', () => {
+    const activeUse = new Date('2026-01-09T00:00:00.000Z');
+    const activeExpiry = new Date('2026-02-01T00:00:00.000Z');
+
+    beforeEach(async () => {
+      await connection.db.delete(sessions);
+    });
+
+    function remainingHashes() {
+      return connection.db
+        .select({ tokenHash: sessions.tokenHash })
+        .from(sessions);
+    }
+
+    it('deletes expired and idle sessions and keeps active ones', async () => {
+      const user = await insertUser(connection.db);
+      await insertSession(connection.db, user.id, {
+        tokenHash: 'past-absolute-expiry',
+        expiresAt: new Date('2026-01-09T00:00:00.000Z'),
+        lastUsedAt: activeUse,
+      });
+      await insertSession(connection.db, user.id, {
+        tokenHash: 'idle',
+        expiresAt: activeExpiry,
+        lastUsedAt: new Date('2026-01-02T00:00:00.000Z'),
+      });
+      await insertSession(connection.db, user.id, {
+        tokenHash: 'active',
+        expiresAt: activeExpiry,
+        lastUsedAt: activeUse,
+      });
+
+      await expect(repository.deleteInactive(cutoffs)).resolves.toBe(2);
+
+      await expect(remainingHashes()).resolves.toEqual([
+        { tokenHash: 'active' },
+      ]);
+    });
+
+    it('deletes sessions exactly at either cutoff, as the lookup rejects them', async () => {
+      const user = await insertUser(connection.db);
+      await insertSession(connection.db, user.id, {
+        tokenHash: 'expires-now',
+        expiresAt: cutoffs.now,
+        lastUsedAt: activeUse,
+      });
+      await insertSession(connection.db, user.id, {
+        tokenHash: 'idle-since-cutoff',
+        expiresAt: activeExpiry,
+        lastUsedAt: cutoffs.idleSince,
+      });
+
+      await expect(repository.deleteInactive(cutoffs)).resolves.toBe(2);
+    });
+
+    it('keeps sessions just inside both cutoffs', async () => {
+      const user = await insertUser(connection.db);
+      await insertSession(connection.db, user.id, {
+        tokenHash: 'just-active',
+        expiresAt: new Date(cutoffs.now.getTime() + 1),
+        lastUsedAt: new Date(cutoffs.idleSince.getTime() + 1),
+      });
+
+      await expect(repository.deleteInactive(cutoffs)).resolves.toBe(0);
+
+      await expect(
+        repository.findActiveByTokenHash('just-active', cutoffs),
+      ).resolves.toBeDefined();
+    });
+
+    it('deletes nothing on a second run', async () => {
+      const user = await insertUser(connection.db);
+      await insertSession(connection.db, user.id, {
+        expiresAt: cutoffs.now,
+      });
+
+      await expect(repository.deleteInactive(cutoffs)).resolves.toBe(1);
+      await expect(repository.deleteInactive(cutoffs)).resolves.toBe(0);
+    });
+  });
 });
