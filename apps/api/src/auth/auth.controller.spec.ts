@@ -28,15 +28,18 @@ import { PASSWORD_HASH_OPTIONS } from './passwords/password-hash-options';
 import { PasswordHasher } from './passwords/password-hasher';
 import {
   FORGOT_PASSWORD_RATE_LIMITS,
+  RESEND_VERIFICATION_RATE_LIMITS,
   RESET_PASSWORD_RATE_LIMITS,
   SIGN_IN_RATE_LIMITS,
   SIGN_UP_RATE_LIMITS,
+  VERIFY_EMAIL_RATE_LIMITS,
 } from './rate-limit/rate-limit';
 import { PRODUCTION_SESSION_COOKIE } from './sessions/session-cookie';
 import { SessionsService } from './sessions/sessions.service';
 import { hashOpaqueToken } from './tokens/opaque-token';
 
 const PASSWORD = 'correct horse battery staple';
+const VERIFIED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 /** Keeps every log line so tests can assert what was (not) logged. */
 class RecordingLogger implements LoggerService {
@@ -191,7 +194,7 @@ describe('AuthController', () => {
         email: 'ana@example.com',
         name: 'Ana',
         passwordHash,
-        emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+        emailVerifiedAt: VERIFIED_AT,
       });
 
       const response = await signIn(' Ana@Example.com ', PASSWORD);
@@ -266,6 +269,7 @@ describe('AuthController', () => {
       await insertUser(connection.db, {
         email: 'fixation@example.com',
         passwordHash,
+        emailVerifiedAt: VERIFIED_AT,
       });
       const first = sessionTokenFrom(
         await signIn('fixation@example.com', PASSWORD),
@@ -287,6 +291,7 @@ describe('AuthController', () => {
       const user = await insertUser(connection.db, {
         email: 'rehash@example.com',
         passwordHash: outdated,
+        emailVerifiedAt: VERIFIED_AT,
       });
 
       const response = await signIn('rehash@example.com', PASSWORD);
@@ -406,6 +411,7 @@ describe('AuthController', () => {
         await insertUser(connection.db, {
           email: 'window@example.com',
           passwordHash,
+          emailVerifiedAt: VERIFIED_AT,
         });
         await signInTimes(email.limit, () =>
           signIn('window@example.com', 'not the password'),
@@ -426,6 +432,7 @@ describe('AuthController', () => {
       await insertUser(connection.db, {
         email: 'signout@example.com',
         passwordHash,
+        emailVerifiedAt: VERIFIED_AT,
       });
       const token = sessionTokenFrom(
         await signIn('signout@example.com', PASSWORD),
@@ -658,9 +665,7 @@ describe('AuthController', () => {
         email: 'reset-flow@example.com',
         passwordHash,
       });
-      const before = sessionTokenFrom(
-        await signIn('reset-flow@example.com', PASSWORD),
-      );
+      const { token: before } = await sessions.create(user.id, 'Test agent');
       await post('forgot-password', { email: 'reset-flow@example.com' });
       const token = await resetTokenSentTo('reset-flow@example.com');
 
@@ -821,6 +826,317 @@ describe('AuthController', () => {
       }
 
       expect(statuses.slice(0, -1)).not.toContain(429);
+      expect(statuses.at(-1)).toBe(429);
+    });
+  });
+
+  describe('email verification', () => {
+    function emailsTo(to: string) {
+      return mail.sent.filter((message) => message.to === to);
+    }
+
+    /** The token of link number `count` emailed to `to`, once it arrives. */
+    async function verificationTokenSentTo(
+      to: string,
+      count = 1,
+    ): Promise<string> {
+      return vi.waitFor(() => {
+        const links = emailsTo(to)
+          .map((message) =>
+            message.text.match(
+              /https:\/\/app\.example\.com\/verify-email\?token=([A-Za-z0-9_-]{43})/,
+            ),
+          )
+          .filter((match) => match !== null);
+        if (links.length < count) {
+          throw new Error(`Link ${count} was not sent to ${to}`);
+        }
+        return links[count - 1][1];
+      });
+    }
+
+    function verifyEmail(token: string, cookie?: string) {
+      return post('verify-email', { token }, cookie);
+    }
+
+    function resend(email: string, ip?: string) {
+      return post('resend-verification', { email }, undefined, ip);
+    }
+
+    function usedAtOf(token: string) {
+      return connection.db
+        .select({ usedAt: authTokens.usedAt })
+        .from(authTokens)
+        .where(eq(authTokens.tokenHash, hashOpaqueToken(token)))
+        .then(([row]) => row.usedAt);
+    }
+
+    /** An unverified user with a link in their inbox. */
+    async function unverifiedUserWithLink(email: string) {
+      const user = await insertUser(connection.db, { email, passwordHash });
+      await resend(email);
+      return { user, token: await verificationTokenSentTo(email) };
+    }
+
+    it('takes a new account from sign-up to a session through the emailed link', async () => {
+      await post('sign-up', {
+        name: 'Ana Torres',
+        email: 'full-flow@example.com',
+        password: PASSWORD,
+        clinicName: 'Consultorio Ana',
+      });
+      const token = await verificationTokenSentTo('full-flow@example.com');
+      const blocked = await signIn('full-flow@example.com', PASSWORD);
+
+      const response = await verifyEmail(token);
+
+      expect(blocked.status).toBe(403);
+      expect(blocked.headers.getSetCookie()).toEqual([]);
+      await expect(errorBody(blocked)).resolves.toEqual({
+        statusCode: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'The email is not verified',
+        path: '/api/auth/sign-in',
+      });
+      expect(response.status).toBe(200);
+      const user = await response.json();
+      expect(user).toEqual({
+        id: expect.any(String),
+        email: 'full-flow@example.com',
+        name: 'Ana Torres',
+        emailVerified: true,
+      });
+      const session = await sessions.validate(sessionTokenFrom(response));
+      expect(session?.user).toEqual(user);
+      expect((await signIn('full-flow@example.com', PASSWORD)).status).toBe(
+        200,
+      );
+    });
+
+    it('answers a wrong password on an unverified account like any other', async () => {
+      await insertUser(connection.db, {
+        email: 'unverified-wrong@example.com',
+        passwordHash,
+      });
+
+      const response = await signIn(
+        'unverified-wrong@example.com',
+        'not the password',
+      );
+
+      expect(response.status).toBe(401);
+      await expect(errorBody(response)).resolves.toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+      });
+    });
+
+    it('replaces the session of the incoming cookie', async () => {
+      const { user, token } = await unverifiedUserWithLink(
+        'verify-fixation@example.com',
+      );
+      const { token: before } = await sessions.create(user.id, 'Test agent');
+
+      const response = await verifyEmail(token, before);
+
+      const after = sessionTokenFrom(response);
+      expect(after).not.toBe(before);
+      await expect(sessions.validate(before)).resolves.toBeNull();
+      await expect(sessions.validate(after)).resolves.not.toBeNull();
+    });
+
+    it('stores only the hash of the token', async () => {
+      const { user, token } = await unverifiedUserWithLink(
+        'verify-hash@example.com',
+      );
+
+      const rows = await connection.db
+        .select({ tokenHash: authTokens.tokenHash })
+        .from(authTokens)
+        .where(eq(authTokens.userId, user.id));
+
+      expect(rows).toEqual([{ tokenHash: hashOpaqueToken(token) }]);
+    });
+
+    it('is not consumed by a GET of the link, as a preview would send', async () => {
+      const { token } = await unverifiedUserWithLink(
+        'verify-preview@example.com',
+      );
+
+      const previews = await Promise.all(
+        [
+          `${baseUrl}/verify-email?token=${token}`,
+          `${baseUrl}/api/auth/verify-email?token=${token}`,
+        ].map((url) => fetch(url)),
+      );
+
+      for (const preview of previews) {
+        expect(preview.headers.getSetCookie()).toEqual([]);
+      }
+      await expect(usedAtOf(token)).resolves.toBeNull();
+      expect((await verifyEmail(token)).status).toBe(200);
+    });
+
+    it('returns the same 400 for an expired, a used, an unknown and a malformed token', async () => {
+      const user = await insertUser(connection.db, {
+        email: 'verify-expired@example.com',
+        passwordHash,
+      });
+      const expired = 'V'.repeat(43);
+      await insertAuthToken(connection.db, user.id, {
+        purpose: 'email_verification',
+        tokenHash: hashOpaqueToken(expired),
+        expiresAt: new Date(Date.now() - 1000),
+      });
+      const { token: used } = await unverifiedUserWithLink(
+        'verify-used@example.com',
+      );
+      expect((await verifyEmail(used)).status).toBe(200);
+
+      const responses = await Promise.all(
+        [expired, used, 'W'.repeat(43), 'not-a-token'].map((token) =>
+          verifyEmail(token),
+        ),
+      );
+
+      const bodies = await Promise.all(responses.map(errorBody));
+      for (const [index, response] of responses.entries()) {
+        expect(response.status).toBe(400);
+        expect(response.headers.getSetCookie()).toEqual([]);
+        expect(bodies[index]).toEqual({
+          statusCode: 400,
+          code: 'INVALID_TOKEN',
+          message: 'The link is invalid or has expired',
+          path: '/api/auth/verify-email',
+        });
+      }
+    });
+
+    it('does not sign anyone in with a link left over from before a password reset', async () => {
+      const { token } = await unverifiedUserWithLink(
+        'verify-after-reset@example.com',
+      );
+      await post('forgot-password', {
+        email: 'verify-after-reset@example.com',
+      });
+      const resetToken = await vi.waitFor(() => {
+        const match = emailsTo('verify-after-reset@example.com')
+          .map((message) => message.text.match(/reset-password\?token=(\S+)/))
+          .find((found) => found !== null);
+        if (!match) {
+          throw new Error('The reset link was not sent');
+        }
+        return match[1];
+      });
+      await post('reset-password', {
+        token: resetToken,
+        password: 'a brand new passphrase',
+      });
+
+      const response = await verifyEmail(token);
+
+      expect(response.status).toBe(400);
+      expect(response.headers.getSetCookie()).toEqual([]);
+    });
+
+    it('answers identically for unverified, verified and unknown emails and emails only the first', async () => {
+      await insertUser(connection.db, {
+        email: 'resend-unverified@example.com',
+        passwordHash,
+      });
+      await insertUser(connection.db, {
+        email: 'resend-verified@example.com',
+        passwordHash,
+        emailVerifiedAt: VERIFIED_AT,
+      });
+
+      const responses = await Promise.all([
+        resend(' Resend-Unverified@Example.com '),
+        resend('resend-verified@example.com'),
+        resend('resend-nobody@example.com'),
+      ]);
+
+      for (const response of responses) {
+        expect(response.status).toBe(202);
+        await expect(response.text()).resolves.toBe('');
+        expect(response.headers.get('content-type')).toBe(
+          responses[0].headers.get('content-type'),
+        );
+      }
+      await verificationTokenSentTo('resend-unverified@example.com');
+      expect(emailsTo('resend-verified@example.com')).toEqual([]);
+      expect(emailsTo('resend-nobody@example.com')).toEqual([]);
+    });
+
+    it('invalidates the older link when resending', async () => {
+      const email = 'resend-twice@example.com';
+      const { token: first } = await unverifiedUserWithLink(email);
+
+      await resend(email);
+      const second = await verificationTokenSentTo(email, 2);
+
+      expect(second).not.toBe(first);
+      expect((await verifyEmail(first)).status).toBe(400);
+      expect((await verifyEmail(second)).status).toBe(200);
+    });
+
+    it('never puts a token or the email in a response or a log', async () => {
+      const email = 'verify-leak@example.com';
+      const { token } = await unverifiedUserWithLink(email);
+      const bodies = [
+        await (await resend(email)).text(),
+        await (await verifyEmail(token)).text(),
+        await (await verifyEmail('X'.repeat(43))).text(),
+      ];
+
+      const output = [...bodies, ...logger.lines].join('\n');
+      expect(output).not.toContain(token);
+      expect(logger.lines.join('\n')).not.toContain(email);
+    });
+
+    it('limits resends per email, whatever IP they come from', async () => {
+      const { email } = RESEND_VERIFICATION_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= email.limit; index++) {
+        // A new IP per request (the default).
+        statuses.push((await resend('flooded-resend@example.com')).status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(new Array(email.limit).fill(202));
+      expect(statuses.at(-1)).toBe(429);
+    });
+
+    it('limits resends per IP', async () => {
+      const { ip } = RESEND_VERIFICATION_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= ip.limit; index++) {
+        const response = await resend(
+          `resend-ip-${index}@example.com`,
+          '192.0.2.70',
+        );
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(new Array(ip.limit).fill(202));
+      expect(statuses.at(-1)).toBe(429);
+    });
+
+    it('limits verification attempts per IP', async () => {
+      const { ip } = VERIFY_EMAIL_RATE_LIMITS;
+
+      const statuses: number[] = [];
+      for (let index = 0; index <= ip.limit; index++) {
+        const response = await post(
+          'verify-email',
+          { token: 'A'.repeat(43) },
+          undefined,
+          '192.0.2.71',
+        );
+        statuses.push(response.status);
+      }
+
+      expect(statuses.slice(0, -1)).toEqual(new Array(ip.limit).fill(400));
       expect(statuses.at(-1)).toBe(429);
     });
   });

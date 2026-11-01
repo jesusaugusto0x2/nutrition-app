@@ -1,13 +1,9 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { normalizeEmail } from '@nutri/schemas';
 import { CLOCK, type Clock } from '../../common/clock/clock';
 import { MailService } from '../../mail/mail.service';
 import { CredentialsRepository } from '../credentials/credentials.repository';
+import { invalidToken } from '../tokens/invalid-token';
 import {
   generateOpaqueToken,
   hashOpaqueToken,
@@ -18,17 +14,6 @@ import { PasswordHasher } from './password-hasher';
 
 /** A reset link stops working this long after it is emailed. */
 export const PASSWORD_RESET_TOKEN_LIFETIME_MS = 60 * 60 * 1000;
-
-/**
- * The single reset failure: unknown, expired and already used tokens are
- * indistinguishable.
- */
-export function invalidToken(): BadRequestException {
-  return new BadRequestException({
-    code: 'INVALID_TOKEN',
-    message: 'The link is invalid or has expired',
-  });
-}
 
 @Injectable()
 export class PasswordResetService {
