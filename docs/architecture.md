@@ -408,7 +408,7 @@ them. Each one only reads what the one before it set:
   from `Route.useSearch()`: the URL can still show a rejected value, but the
   page never receives it (`validateSearch` must always return the key, because
   the router merges it over the raw params). It may contain a query string, so
-  #22 must go there with `router.history.push(redirect)`, not
+  the login page goes there with `router.history.push(redirect)`, not
   `navigate({ to })`.
 - **Global 401 handling:** `createQueryClient` reports any 401 from a query or
   mutation, except `INVALID_CREDENTIALS` (a wrong password, shown by the form),
@@ -431,6 +431,54 @@ them. Each one only reads what the one before it set:
 - `useSignIn` removes the cached `me` rather than invalidating it, so nothing
   can read the old "signed out". `useResetPassword` clears everything, since
   the API ends every session of the user.
+
+### Web app: login page (implemented, #22)
+
+- `/login` is `features/auth/components/login-form.tsx` inside the `_auth`
+  layout: the brand panel (spec 42) beside the form from `lg`, one column
+  with the boxed brand on phones. The layout is shared with the coming sign-up
+  and password pages.
+- **After a success** `useSignIn` removes `me`, the form fetches it again and
+  goes to `redirect` or `homePath(me)`. A failure while fetching `me` shows the
+  generic error.
+- **Every failure above the form is a `FormAlert` (spec 40):**
+
+  | API answer                | Shown                                        |
+  | ------------------------- | -------------------------------------------- |
+  | 401 `INVALID_CREDENTIALS` | one generic message                          |
+  | 429 with `Retry-After`    | wait in minutes; password and submit blocked |
+  | 429 without it            | "in a few minutes"; nothing blocked          |
+  | 403 `EMAIL_NOT_VERIFIED`  | "resend email" action                        |
+  | anything else             | generic error                                |
+
+- **The live countdown is only on the submit button.** Text inside
+  `role="alert"` is read aloud whenever it changes, so the alert keeps the
+  minutes computed when the 429 arrived.
+- **Changing the email lifts the block:** the 5-attempt limit counts per email
+  and someone may simply have mistyped it. If the IP limit was the one hit, the
+  next attempt gets a new 429 with the right wait. The block is client state
+  only; reloading loses it and the API still answers 429.
+- **`ApiClientError.retryAfterSeconds`** carries the header. Only the seconds
+  form is read, which is what `AuthThrottlerGuard` sends.
+- **Validation messages are chosen in the form,** because `signInSchema`
+  messages are English: the schema decides whether a field is valid, the form
+  picks the Spanish text.
+- **Written against #17 before it exists.** `EMAIL_NOT_VERIFIED` and
+  `resendVerificationSchema` are in `@nutri/schemas` as #17 specifies, and
+  `useResendVerification` posts to `/api/auth/resend-verification`. Until #17
+  ships the API never answers that 403, so the state cannot be reached and the
+  missing endpoint cannot be called.
+- **Plain `<a>` links to `/forgot-password` and `/sign-up`** until #24 and #23
+  add those routes: `Link` only accepts registered routes. They show the
+  not-found page until then.
+- **Differences from the prototype, on purpose:**
+  - No "te quedan N intentos": the API does not report it, and #22 asks for
+    one generic message.
+  - No "mantener la sesión abierta": sessions have one lifetime and the API has
+    no such option.
+  - No Google button, separator or mention of Google in the subtitle yet (#25).
+  - "¿Olvidaste tu contraseña?" sits under the field on desktop too, so there
+    is a single link and the tab order goes through the password first.
 
 ### CSRF (implemented, #13)
 
