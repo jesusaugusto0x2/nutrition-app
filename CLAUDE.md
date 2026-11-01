@@ -119,6 +119,10 @@ Tooling notes:
 - **Frontend:** `components/ui` is generic (shadcn); `features/<domain>`
   holds domain logic, queries and components; `routes/` only composes
   features and loads data.
+- Route loaders and `beforeLoad` never return clinical or account data:
+  loaders only fill the TanStack Query cache. The router keeps what they
+  return in a cache of its own, which survives `queryClient.clear()` on
+  sign-out.
 - Forms: shadcn `Field` components + React Hook Form `Controller` +
   `zodResolver` with schemas from `@nutri/schemas`.
 - **Styling:** only the design tokens in `styles/globals.css` (Tailwind

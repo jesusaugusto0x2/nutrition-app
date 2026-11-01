@@ -330,6 +330,64 @@ them. Each one only reads what the one before it set:
 - **The middleware serving the SPA is not behind the guards:** the built web
   app is public, and only `/api` requires a session.
 
+### Web app: auth state and route guards (implemented, #21)
+
+- **`me` is the only source of auth state** (`meQueryOptions` in
+  `features/auth/api.ts`). A 401 from `/api/auth/me` resolves to `null`
+  instead of failing: being signed out is normal on `/login`, and an error
+  there would fire the global 401 handler.
+- **Guards live in `features/auth/guards.ts`** and run in `beforeLoad`:
+
+  | Route         | Signed out               | Signed in without access |
+  | ------------- | ------------------------ | ------------------------ |
+  | `_clinic`     | `/login?redirect=<path>` | the user's home          |
+  | `_portal`     | `/login?redirect=<path>` | the user's home          |
+  | `/onboarding` | `/login?redirect=<path>` | home, if they have one   |
+  | `_auth`       | stays                    | always the user's home   |
+  | `/`           | `/login`                 | always the user's home   |
+
+  The home comes from `homePath`: `/patients` with a membership, otherwise
+  `/portal` with portal access, otherwise `/onboarding`. Someone who is both
+  staff and a patient lands on `/patients` and can still open `/portal`.
+
+- **Guards use `fetchQuery`, not `ensureQueryData`,** so a stale `me` is
+  refetched and awaited before it authorizes a navigation (fresh for the
+  default 30 seconds). Any failure other than a 401 shows the error page.
+- **`/onboarding` is outside `_auth`:** its user is signed in, so that layout
+  would bounce them in a loop. It is a placeholder until #25.
+- **Pages reached from an emailed link while signed in** would be sent home by
+  `_auth`, so `/reset-password` and `/verify-email` (#24) need their own
+  placement.
+- **`redirect` is validated by `safeRedirectPath`,** which parses with the
+  WHATWG URL algorithm instead of matching characters, because browsers read
+  `/\evil.com` as `//evil.com` and strip tabs and newlines. `/login` reads it
+  from `Route.useSearch()`: the URL can still show a rejected value, but the
+  page never receives it (`validateSearch` must always return the key, because
+  the router merges it over the raw params). It may contain a query string, so
+  #22 must go there with `router.history.push(redirect)`, not
+  `navigate({ to })`.
+- **Global 401 handling:** `createQueryClient` reports any 401 from a query or
+  mutation, except `INVALID_CREDENTIALS` (a wrong password, shown by the form),
+  and `handleUnauthorized` ends the session and keeps the current path in
+  `redirect`. A 401 that arrives on `/login` only clears the cache, so it does
+  not overwrite that `redirect`.
+- **Leaving a session has a fixed order (`endSession`):** set `me` to `null`,
+  navigate to `/login`, then clear the cache. Clearing first would make the
+  page still mounted refetch what was removed, and without `me = null`,
+  `_auth` would send the user back home. `queryClient.clear()` also removes
+  mutations, whose variables can hold a password. A guard that finds the
+  session gone clears the cache too, since no 401 error fired in that path.
+- **Sign-out clears only after the API answers:** the cookie is `HttpOnly`, so
+  if the request fails the user is still signed in and must not be told
+  otherwise.
+- **Loaders and guards never return data** (rule in CLAUDE.md). The router
+  keeps left matches, with their loader results, out of reach of
+  `queryClient.clear()`; `api.spec.tsx` proves no patient data stays there
+  after going back.
+- `useSignIn` removes the cached `me` rather than invalidating it, so nothing
+  can read the old "signed out". `useResetPassword` clears everything, since
+  the API ends every session of the user.
+
 ### CSRF (implemented, #13)
 
 Cookies are attached by the browser automatically, and `SameSite=Lax` does
