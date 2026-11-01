@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { AuthMembership } from '@nutri/schemas';
 import { MembershipsRepository } from './memberships.repository';
 
 @Injectable()
@@ -14,5 +15,10 @@ export class ClinicsService {
    */
   findClinicIdForUser(userId: string): Promise<string | null> {
     return this.membershipsRepository.findFirstClinicIdByUser(userId);
+  }
+
+  /** The clinics the user works in; empty for anyone else. */
+  listMembershipsForUser(userId: string): Promise<AuthMembership[]> {
+    return this.membershipsRepository.findAllByUser(userId);
   }
 }

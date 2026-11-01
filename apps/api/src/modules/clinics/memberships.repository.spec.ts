@@ -56,4 +56,40 @@ describe('MembershipsRepository', () => {
       first.id,
     );
   });
+
+  it("lists the user's clinics with name and role, oldest first", async () => {
+    const first = await insertClinic(connection.db, 'First clinic');
+    const second = await insertClinic(connection.db, 'Second clinic');
+    const user = await insertUser(connection.db);
+    await insertMembership(connection.db, user.id, second.id, {
+      role: 'assistant',
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+    });
+    await insertMembership(connection.db, user.id, first.id, {
+      role: 'nutritionist',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    await expect(repository.findAllByUser(user.id)).resolves.toEqual([
+      {
+        clinicId: first.id,
+        clinicName: 'First clinic',
+        role: 'nutritionist',
+      },
+      {
+        clinicId: second.id,
+        clinicName: 'Second clinic',
+        role: 'assistant',
+      },
+    ]);
+  });
+
+  it("does not list another user's clinics", async () => {
+    const clinic = await insertClinic(connection.db);
+    const member = await insertUser(connection.db);
+    await insertMembership(connection.db, member.id, clinic.id);
+    const other = await insertUser(connection.db);
+
+    await expect(repository.findAllByUser(other.id)).resolves.toEqual([]);
+  });
 });

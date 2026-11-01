@@ -1,5 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { type AuthUser, normalizeEmail } from '@nutri/schemas';
+import { type AuthMe, type AuthUser, normalizeEmail } from '@nutri/schemas';
+import { ClinicsService } from '../modules/clinics/clinics.service';
+import { PatientAccessService } from '../modules/portal/patient-access.service';
 import { CredentialsRepository } from './credentials/credentials.repository';
 import { PasswordHasher } from './passwords/password-hasher';
 import { toAuthUser } from './sessions/sessions.mapper';
@@ -26,6 +28,8 @@ export class AuthService {
     private readonly credentials: CredentialsRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly sessions: SessionsService,
+    private readonly clinics: ClinicsService,
+    private readonly patientAccess: PatientAccessService,
   ) {}
 
   /** The user for a correct email and password; otherwise `invalidCredentials`. */
@@ -73,5 +77,14 @@ export class AuthService {
     if (token) {
       await this.sessions.revokeByToken(token);
     }
+  }
+
+  /** The signed-in user with their own clinics and portal patients. */
+  async getMe(user: AuthUser): Promise<AuthMe> {
+    const [memberships, patientAccess] = await Promise.all([
+      this.clinics.listMembershipsForUser(user.id),
+      this.patientAccess.listForUser(user.id),
+    ]);
+    return { user, memberships, patientAccess };
   }
 }

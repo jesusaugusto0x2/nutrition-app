@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { AuthPatientAccess } from '@nutri/schemas';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
@@ -20,5 +21,19 @@ export class PatientAccessRepository {
       .where(and(eq(patientAccess.userId, userId), isNull(patients.deletedAt)))
       .orderBy(asc(patientAccess.createdAt), asc(patientAccess.id));
     return rows.map((row) => row.patientId);
+  }
+
+  findAllByUser(userId: string): Promise<AuthPatientAccess[]> {
+    return this.db
+      .select({
+        patientId: patientAccess.patientId,
+        firstName: patients.firstName,
+        lastName: patients.lastName,
+        relationship: patientAccess.relationship,
+      })
+      .from(patientAccess)
+      .innerJoin(patients, eq(patients.id, patientAccess.patientId))
+      .where(and(eq(patientAccess.userId, userId), isNull(patients.deletedAt)))
+      .orderBy(asc(patientAccess.createdAt), asc(patientAccess.id));
   }
 }

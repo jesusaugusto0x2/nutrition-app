@@ -1,6 +1,6 @@
 import { Controller, Get, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { apiErrorSchema, type AuthUser } from '@nutri/schemas';
+import { apiErrorSchema, authMeSchema, type AuthUser } from '@nutri/schemas';
 import cookieParser from 'cookie-parser';
 import { eq } from 'drizzle-orm';
 import { AppModule } from './app.module';
@@ -236,6 +236,107 @@ describe('AppModule', () => {
       const response = await request('test-probe/session-only', token);
 
       await expect(response.json()).resolves.toEqual({ userId: user.id });
+    });
+  });
+
+  describe('GET /api/auth/me', () => {
+    async function me(token: string) {
+      const response = await request('auth/me', token);
+      expect(response.status).toBe(200);
+      return authMeSchema.strict().parse(await response.json());
+    }
+
+    /** Other users' clinics and patients, which must not show up. */
+    async function strangers() {
+      await staffUser();
+      await portalUser();
+    }
+
+    it('answers 401 without a session', async () => {
+      const response = await request('auth/me');
+
+      expect(response.status).toBe(401);
+      await expect(errorCode(response)).resolves.toBe('UNAUTHORIZED');
+    });
+
+    it('answers 401 after the session is revoked', async () => {
+      const { token } = await staffUser();
+      await sessions.revokeByToken(token);
+
+      const response = await request('auth/me', token);
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns the clinic of a staff user and no patients', async () => {
+      await strangers();
+      const { clinic, user, token } = await staffUser();
+
+      await expect(me(token)).resolves.toEqual({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          emailVerified: false,
+        },
+        memberships: [
+          { clinicId: clinic.id, clinicName: clinic.name, role: 'owner' },
+        ],
+        patientAccess: [],
+      });
+    });
+
+    it('returns the patients of a portal user and no clinics', async () => {
+      await strangers();
+      const { patient, token } = await portalUser();
+
+      const body = await me(token);
+
+      expect(body.memberships).toEqual([]);
+      expect(body.patientAccess).toEqual([
+        {
+          patientId: patient.id,
+          firstName: patient.firstName,
+          lastName: patient.lastName,
+          relationship: 'guardian',
+        },
+      ]);
+    });
+
+    it('returns both for a user who is staff and has patient access', async () => {
+      const { clinic, user, token } = await staffUser();
+      const other = await staffUser();
+      const patient = await insertPatient(connection.db, other.clinic.id);
+      await insertPatientAccess(connection.db, user.id, patient.id, {
+        relationship: 'self',
+      });
+
+      const body = await me(token);
+
+      expect(body.memberships.map((row) => row.clinicId)).toEqual([clinic.id]);
+      expect(body.patientAccess.map((row) => row.patientId)).toEqual([
+        patient.id,
+      ]);
+    });
+
+    it('returns empty lists for a user with neither', async () => {
+      await strangers();
+      const user = await insertUser(connection.db);
+
+      const body = await me(await signedIn(user.id));
+
+      expect(body.memberships).toEqual([]);
+      expect(body.patientAccess).toEqual([]);
+    });
+
+    it('omits a soft-deleted patient', async () => {
+      const { patient, token } = await portalUser();
+      await connection.db
+        .update(patients)
+        .set({ deletedAt: new Date() })
+        .where(eq(patients.id, patient.id));
+
+      await expect(me(token)).resolves.toMatchObject({ patientAccess: [] });
     });
   });
 

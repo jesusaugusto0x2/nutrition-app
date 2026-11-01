@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -8,12 +9,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { AuthUser } from '@nutri/schemas';
+import type { AuthMe, AuthUser } from '@nutri/schemas';
 import type { Request, Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
 import {
+  AuthMeDto,
   AuthUserDto,
   ForgotPasswordDto,
   ResetPasswordDto,
@@ -61,6 +64,16 @@ export class AuthController {
     );
     this.sessionCookie.set(response, token, expiresAt);
     return request.user;
+  }
+
+  /**
+   * Who is signed in, so the web app can route them to the clinic area, the
+   * portal or onboarding. Needs a session but no clinic.
+   */
+  @Get('me')
+  @ZodSerializerDto(AuthMeDto)
+  me(@CurrentUser() user: AuthUser): Promise<AuthMe> {
+    return this.authService.getMe(user);
   }
 
   /** Always 204, also without a valid session: the outcome is the same. */
