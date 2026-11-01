@@ -4,6 +4,12 @@ import { asc, eq } from 'drizzle-orm';
 import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
 import { clinics, memberships } from '../../database/schema';
+import type { Transaction } from '../../database/transaction-runner';
+
+export type NewMembership = Pick<
+  typeof memberships.$inferInsert,
+  'userId' | 'clinicId' | 'role'
+>;
 
 /**
  * Data access for memberships. Lookups go by user, not by clinic: this is how
@@ -12,6 +18,10 @@ import { clinics, memberships } from '../../database/schema';
 @Injectable()
 export class MembershipsRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
+
+  async create(membership: NewMembership, tx?: Transaction): Promise<void> {
+    await (tx ?? this.db).insert(memberships).values(membership);
+  }
 
   async findFirstClinicIdByUser(userId: string): Promise<string | null> {
     const [membership] = await this.db
