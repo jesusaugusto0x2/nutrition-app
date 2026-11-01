@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { SessionAuthGuard } from './auth/sessions/session-auth.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ClinicAccessGuard } from './common/guards/clinic-access.guard';
+import { CsrfGuard } from './common/guards/csrf.guard';
 import { PortalAccessGuard } from './common/guards/portal-access.guard';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { ConfigModule } from './config/config.module';
@@ -44,7 +45,9 @@ import { PortalModule } from './modules/portal/portal.module';
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
-    // Order matters: the access guards read the user the session guard sets.
+    // Order matters: CSRF rejects before any database work, and the access
+    // guards read the user the session guard sets.
+    { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: APP_GUARD, useClass: ClinicAccessGuard },
     { provide: APP_GUARD, useClass: PortalAccessGuard },
