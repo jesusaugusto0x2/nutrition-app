@@ -415,4 +415,119 @@ describe('CredentialsRepository', () => {
       await expect(sessionCount(other.id)).resolves.toBe(1);
     });
   });
+
+  describe('verifyEmail', () => {
+    const now = new Date('2026-01-10T00:00:00.000Z');
+    const verifiedAt = new Date('2026-01-01T00:00:00.000Z');
+
+    function verifiedAtOf(id: string) {
+      return connection.db
+        .select({ emailVerifiedAt: users.emailVerifiedAt })
+        .from(users)
+        .where(eq(users.id, id))
+        .then(([row]) => row.emailVerifiedAt);
+    }
+
+    it('verifies the email and consumes the token', async () => {
+      const user = await insertUser(connection.db, {
+        email: 'verify@example.com',
+        name: 'Verify',
+      });
+      const token = await insertAuthToken(connection.db, user.id, {
+        purpose: 'email_verification',
+        expiresAt: new Date('2026-01-10T01:00:00.000Z'),
+      });
+
+      await expect(
+        repository.verifyEmail({ tokenHash: token.tokenHash, now }),
+      ).resolves.toEqual({
+        id: user.id,
+        email: 'verify@example.com',
+        name: 'Verify',
+        emailVerifiedAt: now,
+      });
+
+      await expect(verifiedAtOf(user.id)).resolves.toEqual(now);
+      const [row] = await connection.db
+        .select({ usedAt: authTokens.usedAt })
+        .from(authTokens)
+        .where(eq(authTokens.id, token.id));
+      expect(row.usedAt).toEqual(now);
+    });
+
+    it('accepts a token only once', async () => {
+      const user = await insertUser(connection.db);
+      const { tokenHash } = await insertAuthToken(connection.db, user.id, {
+        purpose: 'email_verification',
+      });
+
+      await expect(
+        repository.verifyEmail({ tokenHash, now }),
+      ).resolves.toBeDefined();
+      await expect(
+        repository.verifyEmail({ tokenHash, now }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('does not accept a token for an email that is already verified', async () => {
+      const user = await insertUser(connection.db, {
+        emailVerifiedAt: verifiedAt,
+      });
+      const { tokenHash } = await insertAuthToken(connection.db, user.id, {
+        purpose: 'email_verification',
+      });
+
+      await expect(
+        repository.verifyEmail({ tokenHash, now }),
+      ).resolves.toBeUndefined();
+
+      await expect(verifiedAtOf(user.id)).resolves.toEqual(verifiedAt);
+    });
+
+    it.each([
+      {
+        case: 'an expired token',
+        token: { purpose: 'email_verification' as const, expiresAt: now },
+      },
+      {
+        case: 'a used token',
+        token: { purpose: 'email_verification' as const, usedAt: verifiedAt },
+      },
+      {
+        case: 'a password reset token',
+        token: { purpose: 'password_reset' as const },
+      },
+    ])('changes nothing for $case', async ({ token }) => {
+      const user = await insertUser(connection.db);
+      const { tokenHash } = await insertAuthToken(
+        connection.db,
+        user.id,
+        token,
+      );
+
+      await expect(
+        repository.verifyEmail({ tokenHash, now }),
+      ).resolves.toBeUndefined();
+
+      await expect(verifiedAtOf(user.id)).resolves.toBeNull();
+    });
+
+    it('changes nothing for an unknown token', async () => {
+      await expect(
+        repository.verifyEmail({ tokenHash: 'hash-unknown', now }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("verifies only the token owner's email", async () => {
+      const user = await insertUser(connection.db);
+      const other = await insertUser(connection.db);
+      const { tokenHash } = await insertAuthToken(connection.db, user.id, {
+        purpose: 'email_verification',
+      });
+
+      await repository.verifyEmail({ tokenHash, now });
+
+      await expect(verifiedAtOf(other.id)).resolves.toBeNull();
+    });
+  });
 });

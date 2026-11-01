@@ -74,6 +74,23 @@ export const GOOGLE_RATE_LIMITS = {
 } satisfies AuthRateLimits;
 
 /**
+ * Each request may send an email: per email it stops flooding one inbox
+ * with links, per IP it stops probing many addresses.
+ */
+export const RESEND_VERIFICATION_RATE_LIMITS = {
+  [IP_THROTTLER]: { limit: 10, ttl: minutes(15) },
+  [EMAIL_THROTTLER]: { limit: 3, ttl: minutes(15) },
+} satisfies AuthRateLimits;
+
+/**
+ * Tokens are 256-bit random values, so guessing is hopeless; the limit caps
+ * how many database transactions a single client can trigger.
+ */
+export const VERIFY_EMAIL_RATE_LIMITS = {
+  [IP_THROTTLER]: { limit: 10, ttl: minutes(15) },
+} satisfies AuthRateLimits;
+
+/**
  * Limits for an authentication route. Pair it with
  * `@UseGuards(AuthThrottlerGuard, ...)`, listing the throttler guard first
  * so a throttled request never reaches password hashing.

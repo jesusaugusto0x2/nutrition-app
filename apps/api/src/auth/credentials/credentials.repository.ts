@@ -4,6 +4,7 @@ import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
 import { authTokens, sessions, users } from '../../database/schema';
 import type { Transaction } from '../../database/transaction-runner';
+import type { AuthTokenPurpose } from '../tokens/auth-tokens.repository';
 
 const credentialsColumns = {
   id: users.id,
@@ -55,6 +56,14 @@ const userRecipientColumns = {
   email: users.email,
   name: users.name,
 };
+
+export interface EmailVerification {
+  tokenHash: string;
+  now: Date;
+}
+
+/** A user whose email was just verified. */
+export type VerifiedUserRow = Omit<CredentialsRow, 'passwordHash'>;
 
 // Users are not clinic-scoped: a user can belong to several clinics.
 @Injectable()
@@ -163,9 +172,6 @@ export class CredentialsRepository {
    * token, stores the new hash, marks the email verified (the user proved
    * access to the inbox) and deletes every session of the user. Returns
    * `undefined`, changing nothing, when the token is not valid.
-   *
-   * Consuming is a single conditional UPDATE, so two concurrent requests
-   * with the same token cannot both succeed.
    */
   async resetPassword({
     tokenHash,
@@ -173,19 +179,13 @@ export class CredentialsRepository {
     now,
   }: PasswordReset): Promise<UserRecipientRow | undefined> {
     return this.db.transaction(async (tx) => {
-      const [token] = await tx
-        .update(authTokens)
-        .set({ usedAt: now })
-        .where(
-          and(
-            eq(authTokens.tokenHash, tokenHash),
-            eq(authTokens.purpose, 'password_reset'),
-            isNull(authTokens.usedAt),
-            gt(authTokens.expiresAt, now),
-          ),
-        )
-        .returning({ userId: authTokens.userId });
-      if (!token) {
+      const userId = await this.consumeToken(
+        tx,
+        tokenHash,
+        'password_reset',
+        now,
+      );
+      if (!userId) {
         return undefined;
       }
 
@@ -195,10 +195,69 @@ export class CredentialsRepository {
           passwordHash,
           emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, ${now.toISOString()}::timestamptz)`,
         })
-        .where(eq(users.id, token.userId))
+        .where(eq(users.id, userId))
         .returning(userRecipientColumns);
-      await tx.delete(sessions).where(eq(sessions.userId, token.userId));
+      await tx.delete(sessions).where(eq(sessions.userId, userId));
       return user;
     });
+  }
+
+  /**
+   * In one transaction: consumes an unused, unexpired `email_verification`
+   * token and marks the email verified. Returns `undefined` when the token is
+   * not valid or the email is already verified: a verification link signs the
+   * user in, so a leftover one must not do it after, say, a password reset
+   * ended every session.
+   */
+  async verifyEmail({
+    tokenHash,
+    now,
+  }: EmailVerification): Promise<VerifiedUserRow | undefined> {
+    return this.db.transaction(async (tx) => {
+      const userId = await this.consumeToken(
+        tx,
+        tokenHash,
+        'email_verification',
+        now,
+      );
+      if (!userId) {
+        return undefined;
+      }
+
+      const [user] = await tx
+        .update(users)
+        .set({ emailVerifiedAt: now })
+        .where(and(eq(users.id, userId), isNull(users.emailVerifiedAt)))
+        .returning({
+          ...userRecipientColumns,
+          emailVerifiedAt: users.emailVerifiedAt,
+        });
+      return user;
+    });
+  }
+
+  /**
+   * Marks an unused, unexpired token as used and returns its user. A single
+   * conditional UPDATE, so two concurrent requests cannot both succeed.
+   */
+  private async consumeToken(
+    tx: Transaction,
+    tokenHash: string,
+    purpose: AuthTokenPurpose,
+    now: Date,
+  ): Promise<string | undefined> {
+    const [token] = await tx
+      .update(authTokens)
+      .set({ usedAt: now })
+      .where(
+        and(
+          eq(authTokens.tokenHash, tokenHash),
+          eq(authTokens.purpose, purpose),
+          isNull(authTokens.usedAt),
+          gt(authTokens.expiresAt, now),
+        ),
+      )
+      .returning({ userId: authTokens.userId });
+    return token?.userId;
   }
 }

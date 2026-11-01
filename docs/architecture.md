@@ -237,15 +237,55 @@ the hash.
 - **New email:** the user stays unverified and `EmailVerificationService` emails
   a verification link after the commit (`email_verification` token, 24 hours,
   `${APP_ORIGIN}/verify-email?token=...`). The token is stored outside the
-  transaction, so if it or the email fails the account remains; resending the
-  link is #17, which also adds the endpoint that consumes the token.
+  transaction, so if it or the email fails the account remains and the user
+  can ask for a new link (see "Email verification").
 - **Existing email** (Google-only accounts included): nothing changes and its
   owner gets the `sign-up-attempt` notice, with a link to the login page. The
   notice uses the **stored** name, never the submitted one, so a stranger cannot
   put their own text in an email to someone else. An unverified account gets
-  this notice too, not a new link: resending is #17.
+  this notice too, not a new link: `resend-verification` is the way to get one.
 - **No session is created.** The user is signed in when they verify the email.
 - Rate limited: 3 per email and 5 per IP per 15 minutes (see Rate limiting).
+
+### Email verification (implemented, #17)
+
+- `POST /api/auth/verify-email` `{ token }` (`verifyEmailSchema`) → 200 with
+  `authUserSchema` and the session cookie. In **one transaction**
+  (`CredentialsRepository.verifyEmail`): consume the token and set
+  `email_verified_at`. Then the session starts as in sign-in, revoking the one
+  of the incoming cookie, if any.
+- **`POST`, not `GET`:** link previews in WhatsApp and email clients fetch
+  `GET` URLs and would consume the token. The link opens the web page, which
+  reads the token and posts it. The token is single use, so that page (#24)
+  must post it exactly once, also under React Strict Mode, which runs effects
+  twice in development.
+- Unknown, expired, used, replaced and malformed tokens all return the same
+  400 `INVALID_TOKEN` as password reset (`tokens/invalid-token.ts`).
+- **A link for an already verified email is rejected too.** The link signs the
+  user in, so it must not outlive its purpose: otherwise one left in the inbox
+  would open a session after a password reset (which also verifies the email)
+  ended them all. The web page shows the error state, whose next step is
+  signing in.
+- `POST /api/auth/resend-verification` `{ email }`
+  (`resendVerificationSchema`) → **always 202 with an empty body.** It emails a
+  new link only if the email has an unverified account, and runs after the
+  response is sent, like forgot password, so neither the response nor its
+  timing reveal which emails have one. Failures are logged with the error name
+  only. `AuthTokensRepository.replace` deletes the earlier token, so only the
+  latest link works.
+- **Sign-in:** a correct password on an unverified email → 403
+  `EMAIL_NOT_VERIFIED`, and the web app offers to resend. It comes after the
+  password check, so a wrong password still gets the usual 401 and only
+  someone who holds the credentials learns the state of the account.
+  `SessionAuthGuard` does not check it: every way to get a session already
+  requires a verified email.
+- **Known limit, pre-registration:** someone can sign up with another person's
+  email and choose the password. If the owner clicks the verification link
+  anyway, the account is verified with that password. The email tells them to
+  ignore it if it was not them, and signing in with Google for that email
+  clears the password (see "Google: OpenID Connect").
+- Rate limited: `resend-verification` 3 per email and 10 per IP, `verify-email`
+  10 per IP, per 15 minutes (see Rate limiting).
 
 ### Email and password sign-in (implemented, #11)
 
@@ -265,8 +305,8 @@ the hash.
   it when it is a known `ApiErrorCode`.
 - **Session fixation:** sign-in always creates a new session and revokes
   the one of the incoming cookie, if any.
-- Unverified emails are not rejected yet; the email verification ticket
-  adds that check.
+- A correct password on an unverified email → 403 `EMAIL_NOT_VERIFIED` (see
+  "Email verification").
 - Implementation: `AuthController`, `AuthService`, `LocalStrategy`,
   `LocalAuthGuard`, `CredentialsRepository` (the only code that reads
   `password_hash`) and `PasswordHasher` in `apps/api/src/auth`.
@@ -566,10 +606,8 @@ stays disabled: the SPA and the API share one origin.
   per IP and 5 per email; sign-up 5 per IP and 3 per email (every request
   sends an email, so the per-email limit stops anyone flooding an inbox with
   notices from many IPs); forgot password 10 per IP and 3 per email; reset
-  password 10 per IP; Google start and callback 20 per IP each. The endpoints
-  still to come add `@RateLimit` in their own tickets, with these proposed
-  limits: resend verification 3 per email and 10 per IP; verify email 10 per
-  IP.
+  password 10 per IP; resend verification 10 per IP and 3 per email; verify
+  email 10 per IP; Google start and callback 20 per IP each.
 - **Throttle, never lock accounts:** a lockout lets an attacker block a real
   user. A blocked client waits until its window ends; the account itself is
   never disabled.
