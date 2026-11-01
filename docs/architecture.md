@@ -50,6 +50,19 @@ libs/shared/utils   Pure domain calculations (@nutri/utils)
   `ConsultationsService` uses `PatientsService.assertExists`), never through
   another module's repository. This keeps data access rules, such as clinic
   scoping, in one place per table.
+- **Transactions across modules.** A write that spans modules stays atomic
+  without breaking those layers. The service that owns the use case opens the
+  transaction with `TransactionRunner.run` (`database/transaction-runner.ts`,
+  provided by the global `DatabaseModule`) and passes the `Transaction` handle
+  to every step, as the last argument. Repository methods that can join one
+  take an optional `tx` and write through `tx ?? this.db`. An exported service
+  method that makes several writes takes a **required** `tx`, so it cannot run
+  half outside a transaction (`ClinicsService.createWithOwner`). A repository
+  method whose steps all live in one module may still open its own
+  transaction (`CredentialsRepository.resetPassword`). Never send email or
+  call another service over the network inside a transaction: it would hold a
+  database connection for the whole call, and a rollback cannot unsend it.
+  Sign-up is the reference example.
 - **Validation and serialization with nestjs-zod.** Request DTOs and
   response DTOs are created from `@nutri/schemas`. `ZodValidationPipe`
   validates params and bodies; `ZodSerializerInterceptor` validates every
@@ -204,6 +217,36 @@ the hash.
 - The NIST blocklist of common or compromised passwords is not checked yet
   ("Known technical debt").
 
+### Sign-up (implemented, #16)
+
+- `POST /api/auth/sign-up` `{ name, email, password, clinicName }`
+  (`signUpSchema`, password checked with `passwordSchema`) → **always 202 with
+  an empty body**, like forgot password. The web app already knows what to
+  show ("check your email"), so the API sends no text.
+- **The work runs after the response is sent** (`SignUpService.requestSignUp`
+  does not await it), so response time does not reveal whether the email has
+  an account, and a failure cannot change the response. The cost is that a
+  failed sign-up looks like a successful one to the user: it is logged with
+  the error name only, and they can sign up again. No request data is logged.
+- **One path for both cases.** The password is always hashed, then a single
+  transaction (see "Transactions across modules") inserts the user with
+  `ON CONFLICT DO NOTHING` and, if a row was created, the clinic and the
+  `owner` membership. The unique constraint on `users.email` decides who is
+  new, so two concurrent sign-ups with the same email create one account and
+  one clinic, and the loser is treated as an existing email.
+- **New email:** the user stays unverified and `EmailVerificationService` emails
+  a verification link after the commit (`email_verification` token, 24 hours,
+  `${APP_ORIGIN}/verify-email?token=...`). The token is stored outside the
+  transaction, so if it or the email fails the account remains; resending the
+  link is #17, which also adds the endpoint that consumes the token.
+- **Existing email** (Google-only accounts included): nothing changes and its
+  owner gets the `sign-up-attempt` notice, with a link to the login page. The
+  notice uses the **stored** name, never the submitted one, so a stranger cannot
+  put their own text in an email to someone else. An unverified account gets
+  this notice too, not a new link: resending is #17.
+- **No session is created.** The user is signed in when they verify the email.
+- Rate limited: 3 per email and 5 per IP per 15 minutes (see Rate limiting).
+
 ### Email and password sign-in (implemented, #11)
 
 - `POST /api/auth/sign-in` `{ email, password }` (`signInSchema`) → 200 with
@@ -312,7 +355,8 @@ them. Each one only reads what the one before it set:
 - **Protected by default.** A new route needs a session unless it says
   otherwise, and `@Public()` goes on each handler, never on a controller, so
   a new route in `AuthController` is protected too. Public today: health,
-  sign-in, sign-out (it answers 204 either way), forgot and reset password.
+  sign-up, sign-in, sign-out (it answers 204 either way), forgot and reset
+  password.
 - **Handlers read the result** with `@CurrentUser()`, `@CurrentClinic()` and
   `@PortalPatientIds()`. The clinic never comes from the client.
 - **A route marked both `@Public()` and `@ClinicAccess()` or `@PortalAccess()`
@@ -378,11 +422,12 @@ stays disabled: the SPA and the API share one origin.
   target email, so spreading guesses over many IPs does not help). Routes
   without an email in the body skip the `email` counter.
 - **Limits (per 15 minutes; successful requests count too):** sign-in 20
-  per IP and 5 per email; forgot password 10 per IP and 3 per email; reset
+  per IP and 5 per email; sign-up 5 per IP and 3 per email (every request
+  sends an email, so the per-email limit stops anyone flooding an inbox with
+  notices from many IPs); forgot password 10 per IP and 3 per email; reset
   password 10 per IP. The endpoints still to come add `@RateLimit` in their
-  own tickets, with these proposed limits: sign-up 5 per IP; resend
-  verification 3 per email and 10 per IP; verify email 10 per IP; Google
-  start 20 per IP.
+  own tickets, with these proposed limits: resend verification 3 per email
+  and 10 per IP; verify email 10 per IP; Google start 20 per IP.
 - **Throttle, never lock accounts:** a lockout lets an attacker block a real
   user. A blocked client waits until its window ends; the account itself is
   never disabled.
@@ -427,8 +472,8 @@ stays disabled: the SPA and the API share one origin.
   value; development defaults point at Mailpit and the Vite dev server. In
   production an `smtp://` URL must upgrade with STARTTLS (`requireTLS`).
 - **Templates:** `email-verification` and `password-reset` (links built from
-  `APP_ORIGIN` with the token as a query parameter) and `password-changed`.
-  Each one has a plain-text and a simple HTML part with inline styles
+  `APP_ORIGIN` with the token as a query parameter), `sign-up-attempt` (links
+  to the login page) and `password-changed`. Each one has a plain-text and a simple HTML part with inline styles
   (email clients ignore stylesheets), whose colors mirror the web tokens.
   Every interpolated value is HTML-escaped. Callers pass tokens, not URLs.
 - **Spanish texts live in `mail/mail-messages.ts`,** an exception to the
