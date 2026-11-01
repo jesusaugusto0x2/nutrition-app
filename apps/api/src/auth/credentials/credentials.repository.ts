@@ -36,6 +36,13 @@ export interface NewUser {
   passwordHash: string;
 }
 
+export interface NewVerifiedUser {
+  /** Must already be normalized (`normalizeEmail`). */
+  email: string;
+  name: string;
+  emailVerifiedAt: Date;
+}
+
 /** What a service needs to email a user. */
 export interface UserRecipientRow {
   id: string;
@@ -79,6 +86,66 @@ export class CredentialsRepository {
       .onConflictDoNothing({ target: users.email })
       .returning(userRecipientColumns);
     return created;
+  }
+
+  /**
+   * Like `findByEmail`, but holds the row until `tx` ends, so a decision based
+   * on it (such as linking Google) cannot race a change to the same user.
+   */
+  async findByEmailForUpdate(
+    email: string,
+    tx: Transaction,
+  ): Promise<CredentialsRow | undefined> {
+    const [row] = await tx
+      .select(credentialsColumns)
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1)
+      .for('update');
+    return row;
+  }
+
+  /** Holds the user's row until `tx` ends; serializes writes per user. */
+  async lockUser(userId: string, tx: Transaction): Promise<void> {
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update');
+  }
+
+  /**
+   * Creates a user whose email is already verified, without a password. A
+   * taken email fails on the unique constraint, rolling `tx` back: this is
+   * only called after `findByEmailForUpdate` found nothing, so losing that
+   * race is rare and never worth signing in as the winner.
+   */
+  async createVerified(
+    user: NewVerifiedUser,
+    tx: Transaction,
+  ): Promise<{ id: string }> {
+    const [created] = await tx
+      .insert(users)
+      .values(user)
+      .returning({ id: users.id });
+    return created;
+  }
+
+  /**
+   * Takes an unverified account away from whoever registered it, who may not
+   * own the email: removes the password, deletes every session and marks the
+   * email verified.
+   */
+  async takeOverUnverified(
+    userId: string,
+    now: Date,
+    tx: Transaction,
+  ): Promise<void> {
+    await tx
+      .update(users)
+      .set({ passwordHash: null, emailVerifiedAt: now })
+      .where(eq(users.id, userId));
+    await tx.delete(sessions).where(eq(sessions.userId, userId));
   }
 
   async updatePasswordHash(

@@ -65,6 +65,6 @@ describe('ClinicsService', () => {
     await expect(service.listMembershipsForUser(USER_ID)).resolves.toEqual([
       membership,
     ]);
-    expect(repository.findAllByUser).toHaveBeenCalledWith(USER_ID);
+    expect(repository.findAllByUser).toHaveBeenCalledWith(USER_ID, undefined);
   });
 });

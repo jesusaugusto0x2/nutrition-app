@@ -43,7 +43,10 @@ export class ClinicsService {
   }
 
   /** The clinics the user works in; empty for anyone else. */
-  listMembershipsForUser(userId: string): Promise<AuthMembership[]> {
-    return this.membershipsRepository.findAllByUser(userId);
+  listMembershipsForUser(
+    userId: string,
+    tx?: Transaction,
+  ): Promise<AuthMembership[]> {
+    return this.membershipsRepository.findAllByUser(userId, tx);
   }
 }

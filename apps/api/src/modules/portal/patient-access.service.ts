@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthPatientAccess } from '@nutri/schemas';
+import type { Transaction } from '../../database/transaction-runner';
 import { PatientAccessRepository } from './patient-access.repository';
 
 @Injectable()
@@ -14,7 +15,7 @@ export class PatientAccessService {
   }
 
   /** The same patients, with the names the web app shows. */
-  listForUser(userId: string): Promise<AuthPatientAccess[]> {
-    return this.patientAccessRepository.findAllByUser(userId);
+  listForUser(userId: string, tx?: Transaction): Promise<AuthPatientAccess[]> {
+    return this.patientAccessRepository.findAllByUser(userId, tx);
   }
 }

@@ -54,6 +54,8 @@ describe('loadConfig', () => {
       MAIL_FROM: 'Mi consulta <no-reply@example.com>',
       APP_ORIGIN: 'https://app.example.com',
       CLIENT_IP_SOURCE: 'x-real-ip',
+      GOOGLE_CLIENT_ID: 'client-id',
+      GOOGLE_CLIENT_SECRET: 'secret-client-secret',
     };
 
     it('accepts a complete environment without applying defaults', () => {
@@ -72,6 +74,8 @@ describe('loadConfig', () => {
       'MAIL_FROM',
       'APP_ORIGIN',
       'CLIENT_IP_SOURCE',
+      'GOOGLE_CLIENT_ID',
+      'GOOGLE_CLIENT_SECRET',
     ])('requires %s', (key) => {
       expect(() => loadConfig({ ...productionEnv, [key]: undefined })).toThrow(
         new RegExp(`${key}: Required in production`),
@@ -88,6 +92,47 @@ describe('loadConfig', () => {
     }
     expect(message).toMatch(/SMTP_URL/);
     expect(message).not.toMatch(/secret-key/);
+  });
+
+  describe('Google credentials', () => {
+    it('are optional outside production', () => {
+      const config = loadConfig(validEnv);
+
+      expect(config.GOOGLE_CLIENT_ID).toBeUndefined();
+      expect(config.GOOGLE_CLIENT_SECRET).toBeUndefined();
+    });
+
+    it('are read when both are set', () => {
+      expect(
+        loadConfig({
+          ...validEnv,
+          GOOGLE_CLIENT_ID: 'client-id',
+          GOOGLE_CLIENT_SECRET: 'client-secret',
+        }),
+      ).toMatchObject({
+        GOOGLE_CLIENT_ID: 'client-id',
+        GOOGLE_CLIENT_SECRET: 'client-secret',
+      });
+    });
+
+    it.each([
+      ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+      ['GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID'],
+    ])('reject %s without %s', (present, missing) => {
+      expect(() =>
+        loadConfig({ ...validEnv, [present]: 'secret-value' }),
+      ).toThrow(new RegExp(missing));
+    });
+
+    it('never appear in the error message', () => {
+      let message = '';
+      try {
+        loadConfig({ ...validEnv, GOOGLE_CLIENT_SECRET: 'secret-value' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).not.toMatch(/secret-value/);
+    });
   });
 
   it('rejects an unknown CLIENT_IP_SOURCE', () => {

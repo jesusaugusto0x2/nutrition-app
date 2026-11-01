@@ -19,10 +19,12 @@ import {
   AuthMeDto,
   AuthUserDto,
   ForgotPasswordDto,
+  OnboardingDto,
   ResetPasswordDto,
   SignUpDto,
 } from './dto/auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
+import { OnboardingService } from './onboarding/onboarding.service';
 import { PasswordResetService } from './passwords/password-reset.service';
 import { AuthThrottlerGuard } from './rate-limit/auth-throttler.guard';
 import {
@@ -48,6 +50,7 @@ export class AuthController {
     private readonly sessionCookie: SessionCookie,
     private readonly passwordReset: PasswordResetService,
     private readonly signUpService: SignUpService,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   /**
@@ -92,6 +95,19 @@ export class AuthController {
   @ZodSerializerDto(AuthMeDto)
   me(@CurrentUser() user: AuthUser): Promise<AuthMe> {
     return this.authService.getMe(user);
+  }
+
+  /**
+   * 204 after creating the clinic of a user who has neither a clinic nor
+   * portal access; 409 for anyone else. The web app then reads `me` again.
+   */
+  @Post('onboarding')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async onboarding(
+    @CurrentUser() user: AuthUser,
+    @Body() body: OnboardingDto,
+  ): Promise<void> {
+    await this.onboardingService.createClinic(user.id, body.clinicName);
   }
 
   /** Always 204, also without a valid session: the outcome is the same. */

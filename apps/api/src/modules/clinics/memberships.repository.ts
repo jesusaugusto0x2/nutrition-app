@@ -34,8 +34,8 @@ export class MembershipsRepository {
   }
 
   /** Oldest first, so the first one is the clinic requests run in. */
-  findAllByUser(userId: string): Promise<AuthMembership[]> {
-    return this.db
+  findAllByUser(userId: string, tx?: Transaction): Promise<AuthMembership[]> {
+    return (tx ?? this.db)
       .select({
         clinicId: memberships.clinicId,
         clinicName: clinics.name,

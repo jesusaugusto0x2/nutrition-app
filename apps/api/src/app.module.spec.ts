@@ -596,6 +596,107 @@ describe('AppModule', () => {
     });
   });
 
+  describe('POST /api/auth/onboarding', () => {
+    function onboarding(token?: string, clinicName = 'Consultorio Ana') {
+      return request('auth/onboarding', token, {
+        method: 'POST',
+        body: JSON.stringify({ clinicName }),
+      });
+    }
+
+    async function memberships(token: string) {
+      const response = await request('auth/me', token);
+      return authMeSchema.parse(await response.json()).memberships;
+    }
+
+    it('answers 401 without a session', async () => {
+      const response = await onboarding();
+
+      expect(response.status).toBe(401);
+    });
+
+    it('rejects a write from another origin', async () => {
+      const user = await insertUser(connection.db);
+
+      const response = await request(
+        'auth/onboarding',
+        await signedIn(user.id),
+        {
+          method: 'POST',
+          headers: { origin: 'https://evil.example' },
+          body: JSON.stringify({ clinicName: 'Consultorio Ana' }),
+        },
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it('rejects an empty clinic name', async () => {
+      const user = await insertUser(connection.db);
+
+      const response = await onboarding(await signedIn(user.id), '  ');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('creates the clinic with the user as owner', async () => {
+      const user = await insertUser(connection.db);
+      const token = await signedIn(user.id);
+
+      const response = await onboarding(token, ' Consultorio Ana ');
+
+      expect(response.status).toBe(204);
+      await expect(memberships(token)).resolves.toEqual([
+        expect.objectContaining({
+          clinicName: 'Consultorio Ana',
+          role: 'owner',
+        }),
+      ]);
+    });
+
+    it('rejects a second clinic', async () => {
+      const user = await insertUser(connection.db);
+      const token = await signedIn(user.id);
+      await onboarding(token);
+
+      const response = await onboarding(token);
+
+      expect(response.status).toBe(409);
+      await expect(errorCode(response)).resolves.toBe('CONFLICT');
+      await expect(memberships(token)).resolves.toHaveLength(1);
+    });
+
+    it('rejects a user who already has a membership', async () => {
+      const { token } = await staffUser();
+
+      const response = await onboarding(token);
+
+      expect(response.status).toBe(409);
+      await expect(memberships(token)).resolves.toHaveLength(1);
+    });
+
+    it('rejects a user with portal access', async () => {
+      const { token } = await portalUser();
+
+      const response = await onboarding(token);
+
+      expect(response.status).toBe(409);
+      await expect(memberships(token)).resolves.toEqual([]);
+    });
+
+    it("gives no access to another clinic's patients", async () => {
+      const { clinic } = await staffUser();
+      const patient = await insertPatient(connection.db, clinic.id);
+      const user = await insertUser(connection.db);
+      const token = await signedIn(user.id);
+
+      await onboarding(token);
+
+      const response = await request(`clinic/patients/${patient.id}`, token);
+      expect(response.status).toBe(404);
+    });
+  });
+
   describe('auth cleanup job', () => {
     it('is scheduled at least once a day', () => {
       const job = app.get(SchedulerRegistry).getCronJob(AUTH_CLEANUP_JOB);

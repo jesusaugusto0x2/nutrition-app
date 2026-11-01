@@ -4,6 +4,7 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Database } from '../../database/client';
 import { DATABASE } from '../../database/database.tokens';
 import { patientAccess, patients } from '../../database/schema';
+import type { Transaction } from '../../database/transaction-runner';
 
 /**
  * Data access for portal grants. Lookups go by user, not by clinic: a guardian
@@ -23,8 +24,11 @@ export class PatientAccessRepository {
     return rows.map((row) => row.patientId);
   }
 
-  findAllByUser(userId: string): Promise<AuthPatientAccess[]> {
-    return this.db
+  findAllByUser(
+    userId: string,
+    tx?: Transaction,
+  ): Promise<AuthPatientAccess[]> {
+    return (tx ?? this.db)
       .select({
         patientId: patientAccess.patientId,
         firstName: patients.firstName,
