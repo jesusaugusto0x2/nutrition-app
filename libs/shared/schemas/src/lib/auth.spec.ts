@@ -4,6 +4,7 @@ import {
   emailSchema,
   forgotPasswordSchema,
   normalizeEmail,
+  onboardingSchema,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   passwordSchema,
@@ -174,6 +175,18 @@ describe('passwordSchema', () => {
     expect(
       passwordSchema.safeParse('a'.repeat(PASSWORD_MAX_LENGTH + 1)).success,
     ).toBe(false);
+  });
+});
+
+describe('onboardingSchema', () => {
+  it('trims the clinic name', () => {
+    expect(onboardingSchema.parse({ clinicName: ' Consultorio Ana ' })).toEqual(
+      { clinicName: 'Consultorio Ana' },
+    );
+  });
+
+  it.each(['', '   ', 'x'.repeat(101)])('rejects %j', (clinicName) => {
+    expect(onboardingSchema.safeParse({ clinicName }).success).toBe(false);
   });
 });
 
