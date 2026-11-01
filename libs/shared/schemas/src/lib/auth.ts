@@ -132,3 +132,13 @@ export const resetPasswordSchema = z.object({
 });
 
 export type ResetPassword = z.infer<typeof resetPasswordSchema>;
+
+/** Body of `POST /api/auth/verify-email`. */
+export const verifyEmailSchema = z.object({ token: oneTimeTokenSchema });
+
+export type VerifyEmail = z.infer<typeof verifyEmailSchema>;
+
+/** Body of `POST /api/auth/resend-verification`. */
+export const resendVerificationSchema = z.object({ email: emailSchema });
+
+export type ResendVerification = z.infer<typeof resendVerificationSchema>;
