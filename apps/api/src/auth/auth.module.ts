@@ -4,6 +4,8 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CLOCK, systemClock } from '../common/clock/clock';
 import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { MailModule } from '../mail/mail.module';
+import { ClinicsModule } from '../modules/clinics/clinics.module';
+import { PortalModule } from '../modules/portal/portal.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthCleanupJob } from './cleanup/auth-cleanup.job';
@@ -20,8 +22,10 @@ import { AuthTokensRepository } from './tokens/auth-tokens.repository';
 
 @Module({
   imports: [
+    ClinicsModule,
     MailModule,
     PassportModule,
+    PortalModule,
     ThrottlerModule.forRootAsync({
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig) => createThrottlerOptions(config),

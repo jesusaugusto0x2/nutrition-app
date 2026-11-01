@@ -1,4 +1,5 @@
 import {
+  authMeSchema,
   authUserSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -6,6 +7,8 @@ import {
 import { createZodDto } from 'nestjs-zod';
 
 export class AuthUserDto extends createZodDto(authUserSchema) {}
+
+export class AuthMeDto extends createZodDto(authMeSchema) {}
 
 export class ForgotPasswordDto extends createZodDto(forgotPasswordSchema) {}
 

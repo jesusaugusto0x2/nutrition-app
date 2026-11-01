@@ -228,6 +228,23 @@ the hash.
   `LocalAuthGuard`, `CredentialsRepository` (the only code that reads
   `password_hash`) and `PasswordHasher` in `apps/api/src/auth`.
 
+### Current user (implemented, #14)
+
+- `GET /api/auth/me` (`authMeSchema`) tells the web app who is signed in and
+  where to send them: `user`, `memberships` (`clinicId`, `clinicName`, `role`)
+  and `patientAccess` (`patientId`, `firstName`, `lastName`, `relationship`).
+  A membership means the clinic area, a grant means the portal, and neither
+  means onboarding; a user can have both.
+- Requires a session but no clinic, so it stays reachable for portal users
+  and for users with neither. Without a valid session it answers 401.
+- **Everything is looked up by the session's user**, never from the request,
+  so it lists only that user's clinics and patients. Memberships come oldest
+  first (the first is the clinic `ClinicAccessGuard` uses); soft-deleted
+  patients are left out, as in `PortalAccessGuard`.
+- `AuthService.getMe` reads them through `ClinicsService` and
+  `PatientAccessService`; `AuthModule` imports `ClinicsModule` and
+  `PortalModule`. Those modules must not import `AuthModule` back.
+
 ### Password reset (implemented, #18)
 
 - `POST /api/auth/forgot-password` `{ email }` (`forgotPasswordSchema`) →
