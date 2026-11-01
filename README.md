@@ -9,7 +9,8 @@ per-clinic data isolation. The UI is in Spanish.
 - `libs/shared/schemas`: shared Zod schemas (`@nutri/schemas`)
 - `libs/shared/utils`: shared pure calculations (`@nutri/utils`)
 
-See [docs/architecture.md](docs/architecture.md) for the design and
+See [docs/architecture.md](docs/architecture.md) for the design,
+[docs/deployment.md](docs/deployment.md) for production and
 [CLAUDE.md](CLAUDE.md) for development rules.
 
 ## Requirements
