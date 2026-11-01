@@ -140,6 +140,9 @@ Tooling notes:
 - Every route requires a session by default (global `SessionAuthGuard`).
   Only routes meant for signed-out callers use `@Public()`, on each handler,
   never on a controller.
+- Only `GET`, `HEAD` and `OPTIONS` skip the global `CsrfGuard`, so a safe
+  method never changes state. Writes must come from `APP_ORIGIN`; `@Public()`
+  does not exempt them.
 - New endpoints go under `/api/clinic/...` (staff, `@ClinicAccess()` +
   `@CurrentClinic()`) or `/api/portal/...` (patients/guardians,
   `@PortalAccess()` + `@PortalPatientIds()`). The portal is read-only and

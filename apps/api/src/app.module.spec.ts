@@ -29,6 +29,7 @@ import { createTestDatabase } from './database/testing/test-database';
 import { MAIL_TRANSPORT } from './mail/mail-transport';
 import { FakeMailTransport } from './mail/testing/fake-mail-transport';
 
+const APP_ORIGIN = 'https://app.example.com';
 const PASSWORD = 'correct horse battery staple';
 const UNKNOWN_ID = '00000000-0000-4000-8000-0000000000ff';
 
@@ -65,7 +66,7 @@ describe('AppModule', () => {
       .overrideProvider(APP_CONFIG)
       .useValue({
         NODE_ENV: 'test',
-        APP_ORIGIN: 'https://app.example.com',
+        APP_ORIGIN,
         MAIL_FROM: 'Mi consulta <no-reply@example.com>',
         CLIENT_IP_SOURCE: 'socket',
       })
@@ -89,12 +90,22 @@ describe('AppModule', () => {
     await app.close();
   });
 
-  function request(path: string, token?: string, init: RequestInit = {}) {
+  /** Sends what the web app sends; `headers` override it. */
+  function request(
+    path: string,
+    token?: string,
+    {
+      headers,
+      ...init
+    }: RequestInit & { headers?: Record<string, string> } = {},
+  ) {
     return fetch(`${baseUrl}/api/${path}`, {
       ...init,
       headers: {
         'content-type': 'application/json',
+        origin: APP_ORIGIN,
         ...(token && { cookie: `${DEVELOPMENT_SESSION_COOKIE}=${token}` }),
+        ...headers,
       },
     });
   }
@@ -239,6 +250,84 @@ describe('AppModule', () => {
       const response = await request('test-probe/session-only', token);
 
       await expect(response.json()).resolves.toEqual({ userId: user.id });
+    });
+  });
+
+  describe('CSRF protection', () => {
+    it('rejects a sign-in from another origin before checking credentials', async () => {
+      const user = await insertUser(connection.db, { passwordHash });
+
+      const response = await request('auth/sign-in', undefined, {
+        method: 'POST',
+        headers: { origin: 'https://evil.example' },
+        body: JSON.stringify({ email: user.email, password: PASSWORD }),
+      });
+
+      expect(response.status).toBe(403);
+      await expect(errorCode(response)).resolves.toBe('FORBIDDEN');
+      expect(response.headers.getSetCookie()).toEqual([]);
+    });
+
+    it('rejects Sec-Fetch-Site: cross-site before checking the session', async () => {
+      const response = await request('clinic/patients', undefined, {
+        method: 'POST',
+        headers: { 'sec-fetch-site': 'cross-site' },
+        body: '{}',
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('does not let a forged request change a patient of the signed-in user', async () => {
+      const { clinic, token } = await staffUser();
+      const patient = await insertPatient(connection.db, clinic.id, {
+        firstName: 'Original',
+      });
+
+      const response = await request(`clinic/patients/${patient.id}`, token, {
+        method: 'PATCH',
+        headers: { origin: 'https://evil.example' },
+        body: JSON.stringify({ firstName: 'Changed' }),
+      });
+      const [row] = await connection.db
+        .select({ firstName: patients.firstName })
+        .from(patients)
+        .where(eq(patients.id, patient.id));
+
+      expect(response.status).toBe(403);
+      expect(row.firstName).toBe('Original');
+    });
+
+    it('rejects a write with neither Origin nor Referer', async () => {
+      const response = await fetch(`${baseUrl}/api/auth/sign-out`, {
+        method: 'POST',
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('lets the app write', async () => {
+      const { clinic, token } = await staffUser();
+      const patient = await insertPatient(connection.db, clinic.id);
+
+      const response = await request(`clinic/patients/${patient.id}`, token, {
+        method: 'PATCH',
+        headers: { 'sec-fetch-site': 'same-origin' },
+        body: JSON.stringify({ firstName: 'Changed' }),
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it('does not check reads', async () => {
+      const response = await request('health', undefined, {
+        headers: {
+          'sec-fetch-site': 'cross-site',
+          origin: 'https://evil.example',
+        },
+      });
+
+      expect(response.status).toBe(200);
     });
   });
 

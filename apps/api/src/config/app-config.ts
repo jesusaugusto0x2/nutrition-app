@@ -42,7 +42,7 @@ const envSchema = z
     // Sender of every email, e.g. `Mi consulta <no-reply@example.com>`.
     MAIL_FROM: z.string().trim().min(1).optional(),
     // Public origin of the app (scheme, host and port, no path), used to
-    // build the links in emails.
+    // build the links in emails and to reject cross-site writes (`CsrfGuard`).
     APP_ORIGIN: z
       .url({ protocol: /^https?$/ })
       .refine((value) => new URL(value).origin === value, {
