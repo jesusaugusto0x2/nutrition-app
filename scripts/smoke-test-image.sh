@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Smoke test for the production image: starts a container, waits for its
 # HEALTHCHECK and checks that Nest serves the API, the SPA and JSON 404s for
-# unknown API routes, running as the `node` user, and that the native argon2
-# module works.
+# unknown API routes, running as the `node` user, that the native argon2
+# module works, and that writes are accepted only from APP_ORIGIN.
 #
 # Usage: DATABASE_URL=postgres://... scripts/smoke-test-image.sh <image>
 #
@@ -123,5 +123,19 @@ expect /api/does-not-exist 404 application/json '"code":"NOT_FOUND"'
 if grep --quiet --fixed-strings '<div id="root">' "$body"; then
   fail 'GET /api/does-not-exist returned the SPA'
 fi
+
+# expect_write <origin> <status>: signing out without a session touches no
+# table, so this needs no migrated database.
+expect_write() {
+  status="$(curl --silent --show-error --output /dev/null \
+    --write-out '%{http_code}' --request POST --header "Origin: $1" \
+    "${base_url}/api/auth/sign-out")"
+  [ "$status" = "$2" ] ||
+    fail "POST with Origin $1 returned ${status}, expected $2"
+  pass "POST with Origin $1 -> ${status}"
+}
+
+expect_write "$APP_ORIGIN" 204
+expect_write https://evil.example 403
 
 echo 'Smoke test passed.'
