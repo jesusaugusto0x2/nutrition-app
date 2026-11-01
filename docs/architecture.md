@@ -313,15 +313,42 @@ them. Each one only reads what the one before it set:
 - **The middleware serving the SPA is not behind the guards:** the built web
   app is public, and only `/api` requires a session.
 
-### CSRF
+### CSRF (implemented, #13)
 
 Cookies are attached by the browser automatically, and `SameSite=Lax` does
-not block every cross-site write. As defense in depth, every unsafe method
-(`POST`, `PUT`, `PATCH`, `DELETE`) under `/api` is rejected when
-`Sec-Fetch-Site` is `cross-site`, and otherwise its `Origin` (fallback
-`Referer`) must match `APP_ORIGIN`, following the OWASP CSRF Prevention Cheat
-Sheet. No endpoint changes state on `GET` (the Google callback is protected
-by `state`). CORS stays disabled: the SPA and the API share one origin.
+not block every cross-site write. As defense in depth, the global `CsrfGuard`
+(`apps/api/src/common/guards/csrf.guard.ts`) checks every method except `GET`,
+`HEAD` and `OPTIONS`, following the OWASP CSRF Prevention Cheat Sheet. CORS
+stays disabled: the SPA and the API share one origin.
+
+- **The rule:** reject when `Sec-Fetch-Site` is `cross-site`; otherwise
+  `Origin`, or `Referer` only when `Origin` is absent, must match `APP_ORIGIN`
+  exactly. A browser on the app always sends `Origin` on these methods.
+- **Every other `Sec-Fetch-Site` value goes on to the origin check** instead
+  of being trusted. That covers `same-site` (sibling subdomains are not
+  trusted) and unknown values, which OWASP says to ignore.
+- **Fails closed:** `Origin: null` and a request with neither header get 403,
+  because neither is evidence of a same-origin request. A client that is not
+  a browser, such as `curl`, must send `Origin` itself.
+- **The target is the configured `APP_ORIGIN`, never `Host`.** OWASP calls this
+  the most secure option, and `Host` is unreliable behind a proxy. The Vite
+  proxy rewrites `Host` (`changeOrigin: true`) but not `Origin`, so development
+  uses `http://localhost:4200`. In production the app sits behind Railway's
+  edge; the checks after the first deploy must include a sign-in through it.
+- **It runs first, with no exemptions.** It comes before `SessionAuthGuard`, so
+  a rejected request costs no database work and no rate-limit counter, and it
+  also covers `@Public()` routes (sign-in is a login CSRF target). A future
+  cross-site `POST`, such as a webhook, would need its own explicit exemption
+  and its own authentication.
+- **No endpoint changes state on `GET`** (checked for #13). The only writes on
+  a `GET` are session bookkeeping in `SessionAuthGuard` (`last_used_at`, removing
+  an expired row), which an attacker gains nothing from. The Google callback,
+  still to come, is a `GET` protected by `state`.
+- **No `Vary` header:** OWASP asks for it when a cache could reuse a response,
+  and responses to these methods are not cacheable. No log-only rollout
+  either: nothing was deployed before the guard.
+- **Rejections are logged** as a warning with the method and route pattern
+  only. The same warnings on every write mean a wrong `APP_ORIGIN`.
 
 ### Rate limiting (implemented, #20)
 

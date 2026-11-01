@@ -222,6 +222,12 @@ refuses to start without `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN` and
 `CLIENT_IP_SOURCE` (`apps/api/src/config/app-config.ts`), so see the first
 deploy under open questions.
 
+**Every sign-in or save answers 403, but pages load.** `APP_ORIGIN` does not
+match the address in the browser: `CsrfGuard` logs `Rejected POST <route>`
+for each one. Set it to the exact public origin (scheme, host and port), and
+change it together with the domain. See the CSRF section of
+[architecture.md](architecture.md).
+
 ## Open questions and debt
 
 - **The first deploy needs variables owned by later tickets.** #40 comes
@@ -229,6 +235,9 @@ deploy under open questions.
   without `APP_ORIGIN`, `SMTP_URL`, `MAIL_FROM` and `CLIENT_IP_SOURCE`. #40
   must set temporary values (the Railway URL as `APP_ORIGIN`), and #41 and
   #42 replace them.
+- **CSRF behind Railway's edge is unverified.** OWASP warns that proxies can
+  strip `Origin` or `Sec-*` headers, which would turn every write into a 403.
+  #40 must sign in through the Railway URL after the first deploy.
 - **The owner-role string is visible to the app.** Pre-deploy shares the
   service's variables, so `DATABASE_MIGRATION_URL` is also in the running
   container's environment. The app never reads it, but this weakens the
