@@ -39,6 +39,15 @@ export const SIGN_IN_RATE_LIMITS = {
 } satisfies AuthRateLimits;
 
 /**
+ * Every request sends an email and hashes a password: per email it stops
+ * flooding one inbox with notices, per IP it stops mass account creation.
+ */
+export const SIGN_UP_RATE_LIMITS = {
+  [IP_THROTTLER]: { limit: 5, ttl: minutes(15) },
+  [EMAIL_THROTTLER]: { limit: 3, ttl: minutes(15) },
+} satisfies AuthRateLimits;
+
+/**
  * Each request may send an email: per email it stops flooding one inbox
  * with reset links, per IP it stops probing many addresses.
  */

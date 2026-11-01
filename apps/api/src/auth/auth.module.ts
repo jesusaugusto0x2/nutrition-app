@@ -10,6 +10,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthCleanupJob } from './cleanup/auth-cleanup.job';
 import { CredentialsRepository } from './credentials/credentials.repository';
+import { EmailVerificationService } from './email-verification/email-verification.service';
 import { LocalStrategy } from './local.strategy';
 import { PasswordHasher } from './passwords/password-hasher';
 import { PasswordResetService } from './passwords/password-reset.service';
@@ -18,6 +19,7 @@ import { createThrottlerOptions } from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
 import { SessionsRepository } from './sessions/sessions.repository';
 import { SessionsService } from './sessions/sessions.service';
+import { SignUpService } from './sign-up/sign-up.service';
 import { AuthTokensRepository } from './tokens/auth-tokens.repository';
 
 @Module({
@@ -38,12 +40,14 @@ import { AuthTokensRepository } from './tokens/auth-tokens.repository';
     AuthThrottlerGuard,
     AuthTokensRepository,
     CredentialsRepository,
+    EmailVerificationService,
     LocalStrategy,
     PasswordHasher,
     PasswordResetService,
     SessionsRepository,
     SessionsService,
     SessionCookie,
+    SignUpService,
     { provide: CLOCK, useValue: systemClock },
   ],
   exports: [SessionsService, SessionCookie],

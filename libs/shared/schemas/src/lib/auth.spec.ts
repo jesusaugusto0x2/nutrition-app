@@ -9,6 +9,7 @@ import {
   passwordSchema,
   resetPasswordSchema,
   signInSchema,
+  signUpSchema,
 } from './auth.js';
 
 describe('normalizeEmail', () => {
@@ -173,6 +174,38 @@ describe('passwordSchema', () => {
     expect(
       passwordSchema.safeParse('a'.repeat(PASSWORD_MAX_LENGTH + 1)).success,
     ).toBe(false);
+  });
+});
+
+describe('signUpSchema', () => {
+  const body = {
+    name: 'Ana Torres',
+    email: 'ana@example.com',
+    password: 'correct horse battery staple',
+    clinicName: 'Consultorio Ana',
+  };
+
+  it('normalizes the email, trims the names and keeps the password as typed', () => {
+    expect(
+      signUpSchema.parse({
+        name: ' Ana Torres ',
+        email: ' Ana@Example.com ',
+        password: ' correct horse battery staple ',
+        clinicName: ' Consultorio Ana ',
+      }),
+    ).toEqual({ ...body, password: ' correct horse battery staple ' });
+  });
+
+  it.each([
+    { ...body, name: '   ' },
+    { ...body, name: 'a'.repeat(101) },
+    { ...body, email: 'not-an-email' },
+    { ...body, password: 'too short' },
+    { ...body, clinicName: '   ' },
+    { ...body, clinicName: 'a'.repeat(101) },
+    { email: body.email, password: body.password },
+  ])('rejects %o', (value) => {
+    expect(signUpSchema.safeParse(value).success).toBe(false);
   });
 });
 

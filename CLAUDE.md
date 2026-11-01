@@ -77,8 +77,9 @@ apps/api/src/
   database/       Drizzle client, schema/, migrations/, seed/, testing/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
-  auth/           sign-in/out, password reset, passwords/, sessions/ (including
-                  the global SessionAuthGuard), tokens/, cleanup/ (daily job)
+  auth/           sign-in/out, sign-up/, email-verification/, password reset,
+                  passwords/, sessions/ (including the global
+                  SessionAuthGuard), tokens/, cleanup/ (daily job)
   mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
@@ -113,6 +114,10 @@ Tooling notes:
   - Repositories: the only code that touches the database.
 - Modules communicate through **exported services**, never through another
   module's repository.
+- A write that spans modules runs in one `TransactionRunner.run`, opened by the
+  service that owns the use case, which passes `tx` to every step. No email
+  or network call inside a transaction (docs/architecture.md, "Transactions
+  across modules").
 - **Respect Nx module boundaries; never disable
   `@nx/enforce-module-boundaries`.** api and web never import each other;
   shared libs stay framework-free; utils may use schemas, not the reverse.

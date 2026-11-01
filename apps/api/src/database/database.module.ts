@@ -7,6 +7,7 @@ import {
 import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { createDatabase, type DatabaseConnection } from './client';
 import { DATABASE, DATABASE_CONNECTION } from './database.tokens';
+import { TransactionRunner } from './transaction-runner';
 
 @Global()
 @Module({
@@ -21,8 +22,9 @@ import { DATABASE, DATABASE_CONNECTION } from './database.tokens';
       inject: [DATABASE_CONNECTION],
       useFactory: (connection: DatabaseConnection) => connection.db,
     },
+    TransactionRunner,
   ],
-  exports: [DATABASE],
+  exports: [DATABASE, TransactionRunner],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(

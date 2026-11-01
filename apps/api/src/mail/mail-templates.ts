@@ -3,6 +3,7 @@ import { mailMessages as m } from './mail-messages';
 /** Data each template needs. Links are built here from `APP_ORIGIN`. */
 export interface MailTemplateData {
   'email-verification': { name: string; token: string };
+  'sign-up-attempt': { name: string };
   'password-reset': { name: string; token: string };
   'password-changed': { name: string };
 }
@@ -62,6 +63,17 @@ function toContent(
         footer: [m.emailVerification.expiry, m.ignoreIfNotYou],
       };
     }
+    case 'sign-up-attempt':
+      return {
+        subject: m.signUpAttempt.subject,
+        name: data.name,
+        paragraphs: [m.signUpAttempt.intro, m.signUpAttempt.advice],
+        action: {
+          label: m.signUpAttempt.action,
+          url: new URL('/login', appOrigin).toString(),
+        },
+        footer: [m.ignoreIfNotYou],
+      };
     case 'password-reset': {
       const { name, token } = data as MailTemplateData['password-reset'];
       return {

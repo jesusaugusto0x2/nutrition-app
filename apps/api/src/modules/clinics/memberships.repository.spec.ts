@@ -20,6 +20,38 @@ describe('MembershipsRepository', () => {
     await connection.close();
   });
 
+  it('creates a membership with the given role', async () => {
+    const clinic = await insertClinic(connection.db, 'New clinic');
+    const user = await insertUser(connection.db);
+
+    await repository.create({
+      userId: user.id,
+      clinicId: clinic.id,
+      role: 'owner',
+    });
+
+    await expect(repository.findAllByUser(user.id)).resolves.toEqual([
+      { clinicId: clinic.id, clinicName: 'New clinic', role: 'owner' },
+    ]);
+  });
+
+  it('writes through the transaction it receives', async () => {
+    const clinic = await insertClinic(connection.db);
+    const user = await insertUser(connection.db);
+
+    await expect(
+      connection.db.transaction(async (tx) => {
+        await repository.create(
+          { userId: user.id, clinicId: clinic.id, role: 'owner' },
+          tx,
+        );
+        throw new Error('rollback');
+      }),
+    ).rejects.toThrow('rollback');
+
+    await expect(repository.findAllByUser(user.id)).resolves.toEqual([]);
+  });
+
   it("finds the clinic of the user's membership", async () => {
     const clinic = await insertClinic(connection.db);
     const user = await insertUser(connection.db);

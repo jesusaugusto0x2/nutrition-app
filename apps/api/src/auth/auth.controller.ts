@@ -20,6 +20,7 @@ import {
   AuthUserDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  SignUpDto,
 } from './dto/auth.dto';
 import { LocalAuthGuard } from './local-auth.guard';
 import { PasswordResetService } from './passwords/password-reset.service';
@@ -29,8 +30,10 @@ import {
   RateLimit,
   RESET_PASSWORD_RATE_LIMITS,
   SIGN_IN_RATE_LIMITS,
+  SIGN_UP_RATE_LIMITS,
 } from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
+import { SignUpService } from './sign-up/sign-up.service';
 
 /** Request after `LocalAuthGuard` accepted the credentials. */
 interface SignedInRequest extends Request {
@@ -44,7 +47,22 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly sessionCookie: SessionCookie,
     private readonly passwordReset: PasswordResetService,
+    private readonly signUpService: SignUpService,
   ) {}
+
+  /**
+   * Always 202 with no body, whether or not the email has an account; the
+   * email goes out in the background. No session: the user is signed in when
+   * they verify the email.
+   */
+  @Public()
+  @Post('sign-up')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RateLimit(SIGN_UP_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard)
+  signUp(@Body() body: SignUpDto): void {
+    this.signUpService.requestSignUp(body);
+  }
 
   /** Body: `signInSchema`, validated by `LocalAuthGuard`. */
   @Public()
