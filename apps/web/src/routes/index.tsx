@@ -1,8 +1,6 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
+import { redirectToHome } from '@/features/auth/guards';
 
-// Until auth exists, the clinic area is the entry point.
 export const Route = createFileRoute('/')({
-  beforeLoad: () => {
-    throw redirect({ to: '/patients' });
-  },
+  beforeLoad: ({ context }) => redirectToHome(context.queryClient),
 });

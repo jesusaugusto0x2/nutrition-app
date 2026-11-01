@@ -187,6 +187,10 @@ export const es = {
     title: 'Iniciar sesión',
     comingSoon: 'El inicio de sesión estará disponible próximamente.',
   },
+  onboarding: {
+    title: 'Crea tu consultorio',
+    comingSoon: 'La creación de consultorios estará disponible próximamente.',
+  },
   portal: {
     title: 'Portal del paciente',
     comingSoon: 'El portal para pacientes estará disponible próximamente.',
