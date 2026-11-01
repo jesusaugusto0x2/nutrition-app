@@ -77,8 +77,8 @@ apps/api/src/
   database/       Drizzle client, schema/, migrations/, seed/, testing/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
-  auth/           sign-in/out, password reset, passwords/, sessions/, tokens/;
-                  session guard pending (#8)
+  auth/           sign-in/out, password reset, passwords/, sessions/ (including
+                  the global SessionAuthGuard), tokens/
   mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
@@ -137,9 +137,13 @@ Tooling notes:
 
 - Every access to clinical data is filtered by `clinicId`. Repository
   methods always take `clinicId` and also filter `deleted_at IS NULL`.
+- Every route requires a session by default (global `SessionAuthGuard`).
+  Only routes meant for signed-out callers use `@Public()`, on each handler,
+  never on a controller.
 - New endpoints go under `/api/clinic/...` (staff, `@ClinicAccess()` +
-  `@CurrentClinic()`) or `/api/portal/...` (patients/guardians). The portal
-  is read-only and exposes only shareable fields. The only exception is
+  `@CurrentClinic()`) or `/api/portal/...` (patients/guardians,
+  `@PortalAccess()` + `@PortalPatientIds()`). The portal is read-only and
+  exposes only shareable fields. The only exception is
   `/api/auth/...` (signing in comes before both), whose failures never
   reveal whether an email has an account.
 - A record from another clinic must behave exactly like a missing one (404).
@@ -150,7 +154,6 @@ Tooling notes:
 - Never log patient data or secrets (no bodies, no DB error messages, no
   env values, no email recipients or email content).
 - Every change that touches clinic isolation ships with a test proving it.
-- `DevelopmentClinicGuard` is TEMPORARY (development only) until real auth.
 - The service worker must never cache or handle `/api`.
 - Never run migrations or the seed by hand against production: migrations
   run only from the Railway pre-deploy command, and the seed never runs there.
