@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './auth/auth.module';
@@ -23,6 +24,7 @@ import { PortalModule } from './modules/portal/portal.module';
   imports: [
     ConfigModule,
     DatabaseModule,
+    ScheduleModule.forRoot(),
     // Production only: serve the built SPA, falling back to index.html for
     // client-side routes. /api is excluded so unknown API routes return 404.
     ServeStaticModule.forRootAsync({

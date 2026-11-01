@@ -78,7 +78,7 @@ apps/api/src/
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
   auth/           sign-in/out, password reset, passwords/, sessions/ (including
-                  the global SessionAuthGuard), tokens/
+                  the global SessionAuthGuard), tokens/, cleanup/ (daily job)
   mail/           MailService (SMTP via nodemailer), templates, Spanish texts
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
