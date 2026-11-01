@@ -606,15 +606,9 @@ apps, keeps only the API's production dependencies (Nx `prune`) and runs Nest
 as the `node` user. Database: Neon. Not yet set up; decisions, variables and
 runbooks are in [docs/deployment.md](deployment.md).
 
-CI builds this image on every pull request and push to `main` (Buildx with
-the GitHub Actions layer cache, never pushed) and smoke-tests it against a
-PostgreSQL service container with `scripts/smoke-test-image.sh`: it waits for
-the image's own `HEALTHCHECK`, then checks `GET /api/health`, that `/` and
-deep links return the SPA, that unknown `/api` routes return a JSON 404
-instead of `index.html`, and that the process runs as `node`. The image
-stages can break without `pnpm build` failing (a dependency missing from the
-pruned lockfile, a native module on Alpine), so this job ignores Nx
-`affected`.
+CI builds this image on every run and smoke-tests it, without ever pushing it;
+what the smoke test checks and why the job ignores Nx `affected` are in
+[docs/ci.md](ci.md#job-build-and-smoke-test-the-docker-image).
 
 ## Known technical debt
 
