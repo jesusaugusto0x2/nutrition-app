@@ -8,6 +8,7 @@ const index: { family: string; sections: [id: string, title: string][] }[] = [
     family: families.navigation,
     sections: [
       ['brand', components.brand],
+      ['brand-panel', components.brandPanel],
       ['sidebar', components.sidebar],
       ['bottom-nav', components.bottomNav],
       ['back-link', components.backLink],
@@ -61,6 +62,7 @@ const index: { family: string; sections: [id: string, title: string][] }[] = [
       ['success', components.success],
       ['undo', components.undo],
       ['info', components.info],
+      ['form-alert', components.formAlert],
       ['empty', components.empty],
       ['coming-soon-card', components.comingSoonCard],
       ['save-bar', components.saveBar],

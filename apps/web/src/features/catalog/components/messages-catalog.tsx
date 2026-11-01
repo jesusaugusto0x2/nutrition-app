@@ -1,9 +1,14 @@
-import { Trash2Icon } from 'lucide-react';
+import { LockIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { comingSoonItems } from '@/components/navigation/nav-items';
 import { ComingSoonCard, EmptyState } from '@/components/ui/empty-state';
-import { InfoNotice, SuccessNotice, UndoNotice } from '@/components/ui/notice';
+import {
+  FormAlert,
+  InfoNotice,
+  SuccessNotice,
+  UndoNotice,
+} from '@/components/ui/notice';
 import { SaveBar } from '@/components/ui/save-bar';
 import { t } from '@/i18n';
 import { catalog } from '../samples';
@@ -51,6 +56,22 @@ export function MessagesCatalog() {
       <CatalogSection id="info" title={components.info}>
         <InfoNotice>{samples.notShown}</InfoNotice>
         <InfoNotice tone="clinical">{t.bmi.percentileNote}</InfoNotice>
+      </CatalogSection>
+      <CatalogSection id="form-alert" title={components.formAlert}>
+        <FormAlert title={t.auth.invalidCredentialsTitle}>
+          {t.auth.invalidCredentialsBody}
+        </FormAlert>
+        <FormAlert
+          icon={LockIcon}
+          title={t.auth.tooManyAttemptsTitle}
+          action={
+            <a href="#form-alert" className="font-bold">
+              {t.auth.createNewPassword}
+            </a>
+          }
+        >
+          {t.auth.tooManyAttemptsBody(15)}
+        </FormAlert>
       </CatalogSection>
       <CatalogSection id="empty" title={components.empty}>
         <EmptyState action={<a href="#text-field">{samples.createPatient}</a>}>

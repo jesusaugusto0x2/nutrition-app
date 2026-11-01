@@ -185,7 +185,41 @@ export const es = {
   },
   auth: {
     title: 'Iniciar sesión',
-    comingSoon: 'El inicio de sesión estará disponible próximamente.',
+    subtitle: 'Entra con tu email y tu contraseña.',
+    panelTitle: 'El seguimiento nutricional, siempre a mano.',
+    panelSubtitle:
+      'Para nutricionistas y sus pacientes, en el teléfono y en la computadora.',
+    email: 'Email',
+    emailPlaceholder: 'nombre@correo.com',
+    emailRequired: 'Escribe tu email.',
+    emailInvalid: 'Revisa el email: debe verse como nombre@correo.com',
+    password: 'Contraseña',
+    passwordRequired: 'Escribe tu contraseña.',
+    forgotPassword: '¿Olvidaste tu contraseña?',
+    submit: 'Entrar',
+    submitLocked: (time: string) => `Entrar · disponible en ${time}`,
+    noAccount: '¿Eres nutricionista y no tienes cuenta?',
+    createAccount: 'Crear cuenta',
+    patientHint:
+      '¿Eres paciente? Entra con el enlace de invitación que te envió tu nutricionista.',
+    invalidCredentialsTitle: 'El email o la contraseña no coinciden.',
+    invalidCredentialsBody: 'Revisa e inténtalo de nuevo.',
+    tooManyAttemptsTitle: 'Demasiados intentos.',
+    tooManyAttemptsBody: (minutes: number) =>
+      `Por seguridad pausamos el acceso con contraseña. Podrás intentar de nuevo en ${
+        minutes === 1 ? '1 minuto' : `${minutes} minutos`
+      }.`,
+    tooManyAttemptsLater:
+      'Por seguridad pausamos el acceso con contraseña. Inténtalo de nuevo en unos minutos.',
+    createNewPassword: 'Crear una contraseña nueva ahora',
+    emailNotVerifiedTitle: 'Falta verificar tu email.',
+    emailNotVerifiedBody:
+      'Abre el enlace que te enviamos para activar tu cuenta.',
+    resendEmail: 'Reenviar enlace',
+    emailResent: 'Te enviamos un enlace nuevo. El anterior ya no funciona.',
+    resendFailed:
+      'No pudimos reenviar el enlace. Inténtalo de nuevo en unos minutos.',
+    signInFailedBody: 'No pudimos iniciar sesión. Inténtalo de nuevo.',
   },
   onboarding: {
     title: 'Crea tu consultorio',

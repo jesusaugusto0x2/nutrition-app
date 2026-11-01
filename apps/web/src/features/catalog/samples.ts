@@ -51,6 +51,8 @@ export const catalog = {
     success: '31 · Aviso de éxito',
     undo: '32 · Aviso con Deshacer',
     info: '33 · Aviso informativo',
+    formAlert: '40 · Alerta de formulario',
+    brandPanel: '42 · Panel de marca',
     empty: '34 · Estado vacío',
     comingSoonCard: '35 · Tarjeta Próximamente',
     saveBar: '36 · Barra de guardado (móvil)',

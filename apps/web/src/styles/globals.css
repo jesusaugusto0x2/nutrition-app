@@ -49,6 +49,9 @@
   --disabled: #dde5e1; /* disabled button fill, selected "No" */
   --error: #9a3412; /* field error text */
   --error-border: #b45309;
+  --error-soft: #fbeae0; /* error-suave: form alert background */
+  --error-soft-border: #e8c4ae;
+  --error-soft-foreground: #7c2d12;
   --ring: #7fb8aa; /* foco: keyboard focus ring */
 
   /* shadcn aliases, so generated components resolve to the palette above */
@@ -96,6 +99,9 @@
   --color-disabled: var(--disabled);
   --color-error: var(--error);
   --color-error-border: var(--error-border);
+  --color-error-soft: var(--error-soft);
+  --color-error-soft-border: var(--error-soft-border);
+  --color-error-soft-foreground: var(--error-soft-foreground);
   --color-ring: var(--ring);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);

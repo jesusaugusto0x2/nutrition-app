@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BackLink } from '@/components/navigation/back-link';
 import { BottomNav } from '@/components/navigation/bottom-nav';
 import { Brand } from '@/components/navigation/brand';
+import { BrandPanel } from '@/components/navigation/brand-panel';
 import { Sidebar } from '@/components/navigation/sidebar';
 import { Pagination } from '@/components/ui/pagination';
 import { SectionTabs } from '@/components/ui/section-tabs';
@@ -38,6 +39,9 @@ export function NavigationCatalog() {
             <Brand variant="inverted" />
           </div>
         </CatalogRow>
+      </CatalogSection>
+      <CatalogSection id="brand-panel" title={components.brandPanel}>
+        <BrandPanel className="min-h-[420px] rounded-card" />
       </CatalogSection>
       <CatalogSection id="sidebar" title={components.sidebar}>
         <div className="w-sidebar overflow-hidden rounded-card border">
