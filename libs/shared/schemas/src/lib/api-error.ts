@@ -11,6 +11,8 @@ export const apiErrorCodeSchema = z.enum([
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
+  /** Rate limited; the `Retry-After` header says when to try again. */
+  'TOO_MANY_REQUESTS',
   'INTERNAL_ERROR',
   'SERVICE_UNAVAILABLE',
   'HTTP_ERROR',

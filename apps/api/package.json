@@ -83,6 +83,7 @@
     "@nestjs/passport": "^12.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/serve-static": "^5.0.5",
+    "@nestjs/throttler": "6.7.1",
     "@nutri/schemas": "workspace:*",
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",

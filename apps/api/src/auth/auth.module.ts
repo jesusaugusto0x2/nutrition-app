@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { CLOCK, systemClock } from '../common/clock/clock';
+import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { MailModule } from '../mail/mail.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -8,6 +10,8 @@ import { CredentialsRepository } from './credentials/credentials.repository';
 import { LocalStrategy } from './local.strategy';
 import { PasswordHasher } from './passwords/password-hasher';
 import { PasswordResetService } from './passwords/password-reset.service';
+import { AuthThrottlerGuard } from './rate-limit/auth-throttler.guard';
+import { createThrottlerOptions } from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
 import { SessionsRepository } from './sessions/sessions.repository';
 import { SessionsService } from './sessions/sessions.service';
@@ -19,10 +23,18 @@ import { AuthTokensRepository } from './tokens/auth-tokens.repository';
 // place; it is replaced by a guard that resolves the clinic for
 // @ClinicAccess() routes, and portal access via patient_access is added.
 @Module({
-  imports: [MailModule, PassportModule],
+  imports: [
+    MailModule,
+    PassportModule,
+    ThrottlerModule.forRootAsync({
+      inject: [APP_CONFIG],
+      useFactory: (config: AppConfig) => createThrottlerOptions(config),
+    }),
+  ],
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthThrottlerGuard,
     AuthTokensRepository,
     CredentialsRepository,
     LocalStrategy,
