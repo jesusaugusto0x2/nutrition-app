@@ -30,12 +30,13 @@ async function main(): Promise<void> {
     name,
     token: 'test-verification-token',
   });
+  await mail.send('sign-up-attempt', TEST_RECIPIENT, { name });
   await mail.send('password-reset', TEST_RECIPIENT, {
     name,
     token: 'test-reset-token',
   });
   await mail.send('password-changed', TEST_RECIPIENT, { name });
-  console.log('Sent 3 test emails. Open http://localhost:8025 (Mailpit).');
+  console.log('Sent 4 test emails. Open http://localhost:8025 (Mailpit).');
 }
 
 main().catch((error: unknown) => {

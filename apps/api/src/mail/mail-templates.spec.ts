@@ -32,6 +32,16 @@ describe('renderMail', () => {
     expect(mail.html).toContain(`href="${url}"`);
   });
 
+  it('links the sign-up attempt notice to the login page without a token', () => {
+    const mail = renderMail('sign-up-attempt', { name: 'Ana' }, ORIGIN);
+
+    expect(mail.subject).toBe(mailMessages.signUpAttempt.subject);
+    expect(mail.text).toContain('Hola, Ana:');
+    expect(mail.text).toContain(mailMessages.signUpAttempt.advice);
+    expect(mail.html).toContain(`href="${ORIGIN}/login"`);
+    expect(mail.text).not.toContain('token=');
+  });
+
   it('renders the password changed notice without a link', () => {
     const mail = renderMail('password-changed', { name: 'Ana' }, ORIGIN);
 

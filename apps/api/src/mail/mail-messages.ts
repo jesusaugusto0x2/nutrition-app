@@ -16,6 +16,14 @@ export const mailMessages = {
     action: 'Confirmar mi correo',
     expiry: 'El enlace vence en 24 horas.',
   },
+  signUpAttempt: {
+    subject: 'Alguien intentó crear una cuenta con tu correo',
+    intro:
+      'Alguien intentó crear una cuenta de Mi consulta con este correo electrónico, pero ya tienes una.',
+    advice:
+      'Si fuiste tú, inicia sesión. Si no recuerdas tu contraseña, puedes restablecerla desde la página de inicio de sesión.',
+    action: 'Iniciar sesión',
+  },
   passwordReset: {
     subject: 'Restablece tu contraseña',
     intro:
