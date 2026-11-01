@@ -6,7 +6,10 @@ const USER_ID = '00000000-0000-4000-8000-000000000002';
 const CLINIC_ID = '00000000-0000-4000-8000-000000000001';
 
 describe('ClinicsService', () => {
-  const repository = { findFirstClinicIdByUser: vi.fn() };
+  const repository = {
+    findFirstClinicIdByUser: vi.fn(),
+    findAllByUser: vi.fn(),
+  };
   let service: ClinicsService;
 
   beforeEach(async () => {
@@ -31,5 +34,19 @@ describe('ClinicsService', () => {
     repository.findFirstClinicIdByUser.mockResolvedValue(null);
 
     await expect(service.findClinicIdForUser(USER_ID)).resolves.toBeNull();
+  });
+
+  it("lists the user's memberships", async () => {
+    const membership = {
+      clinicId: CLINIC_ID,
+      clinicName: 'Clinic',
+      role: 'owner',
+    };
+    repository.findAllByUser.mockResolvedValue([membership]);
+
+    await expect(service.listMembershipsForUser(USER_ID)).resolves.toEqual([
+      membership,
+    ]);
+    expect(repository.findAllByUser).toHaveBeenCalledWith(USER_ID);
   });
 });

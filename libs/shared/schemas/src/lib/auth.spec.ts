@@ -1,4 +1,5 @@
 import {
+  authMeSchema,
   authUserSchema,
   emailSchema,
   forgotPasswordSchema,
@@ -48,6 +49,63 @@ describe('authUserSchema', () => {
     });
 
     expect(result).not.toHaveProperty('passwordHash');
+  });
+});
+
+describe('authMeSchema', () => {
+  const me = {
+    user: {
+      id: '00000000-0000-4000-8000-000000000002',
+      email: 'owner@example.com',
+      name: 'Owner',
+      emailVerified: true,
+    },
+    memberships: [
+      {
+        clinicId: '00000000-0000-4000-8000-000000000001',
+        clinicName: 'Clinic',
+        role: 'owner',
+      },
+    ],
+    patientAccess: [
+      {
+        patientId: '00000000-0000-4000-8000-000000000003',
+        firstName: 'Luz',
+        lastName: 'Rojas',
+        relationship: 'guardian',
+      },
+    ],
+  };
+
+  it('strips fields that are not part of the contract', () => {
+    const result = authMeSchema.parse({
+      ...me,
+      memberships: [{ ...me.memberships[0], userId: me.user.id }],
+      patientAccess: [
+        {
+          ...me.patientAccess[0],
+          clinicId: me.memberships[0].clinicId,
+          deletedAt: null,
+        },
+      ],
+    });
+
+    expect(result).toEqual(me);
+  });
+
+  it('rejects an unknown role or relationship', () => {
+    expect(
+      authMeSchema.safeParse({
+        ...me,
+        memberships: [{ ...me.memberships[0], role: 'admin' }],
+      }).success,
+    ).toBe(false);
+    expect(
+      authMeSchema.safeParse({
+        ...me,
+        patientAccess: [{ ...me.patientAccess[0], relationship: 'friend' }],
+      }).success,
+    ).toBe(false);
   });
 });
 

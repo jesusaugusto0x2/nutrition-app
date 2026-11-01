@@ -1,5 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ClinicsService } from '../modules/clinics/clinics.service';
+import { PatientAccessService } from '../modules/portal/patient-access.service';
 import { AuthService } from './auth.service';
 import { CredentialsRepository } from './credentials/credentials.repository';
 import { PasswordHasher } from './passwords/password-hasher';
@@ -28,6 +30,8 @@ describe('AuthService', () => {
     verifyDummy: vi.fn(),
   };
   const sessions = { create: vi.fn(), revokeByToken: vi.fn() };
+  const clinics = { listMembershipsForUser: vi.fn() };
+  const patientAccess = { listForUser: vi.fn() };
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -37,6 +41,8 @@ describe('AuthService', () => {
         { provide: CredentialsRepository, useValue: credentials },
         { provide: PasswordHasher, useValue: passwordHasher },
         { provide: SessionsService, useValue: sessions },
+        { provide: ClinicsService, useValue: clinics },
+        { provide: PatientAccessService, useValue: patientAccess },
       ],
     }).compile();
     service = moduleRef.get(AuthService);
@@ -64,6 +70,36 @@ describe('AuthService', () => {
       emailVerified: false,
     });
     expect(passwordHasher.verify).toHaveBeenCalledWith('stored-hash', PASSWORD);
+  });
+
+  it('returns the user with their own memberships and patient access', async () => {
+    const user = {
+      id: USER_ID,
+      email: 'ana@example.com',
+      name: 'Ana',
+      emailVerified: true,
+    };
+    const membership = {
+      clinicId: '00000000-0000-4000-8000-00000000000b',
+      clinicName: 'Clinic',
+      role: 'owner',
+    };
+    const access = {
+      patientId: '00000000-0000-4000-8000-00000000000c',
+      firstName: 'Luz',
+      lastName: 'Rojas',
+      relationship: 'guardian',
+    };
+    clinics.listMembershipsForUser.mockResolvedValue([membership]);
+    patientAccess.listForUser.mockResolvedValue([access]);
+
+    await expect(service.getMe(user)).resolves.toEqual({
+      user,
+      memberships: [membership],
+      patientAccess: [access],
+    });
+    expect(clinics.listMembershipsForUser).toHaveBeenCalledWith(USER_ID);
+    expect(patientAccess.listForUser).toHaveBeenCalledWith(USER_ID);
   });
 
   it('looks the user up by normalized email', async () => {

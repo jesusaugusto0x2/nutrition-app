@@ -30,6 +30,45 @@ export const authUserSchema = z.object({
 
 export type AuthUser = z.infer<typeof authUserSchema>;
 
+export const membershipRoleSchema = z.enum([
+  'owner',
+  'nutritionist',
+  'assistant',
+]);
+
+export const patientRelationshipSchema = z.enum(['self', 'guardian']);
+
+/** A clinic the signed-in user works in. */
+export const authMembershipSchema = z.object({
+  clinicId: idSchema,
+  clinicName: z.string(),
+  role: membershipRoleSchema,
+});
+
+/** A patient the signed-in user can see in the portal. */
+export const authPatientAccessSchema = z.object({
+  patientId: idSchema,
+  firstName: z.string(),
+  lastName: z.string(),
+  relationship: patientRelationshipSchema,
+});
+
+/**
+ * Response of `GET /api/auth/me`: who is signed in and where the web app can
+ * send them. Lists only the user's own clinics and patients.
+ */
+export const authMeSchema = z.object({
+  user: authUserSchema,
+  memberships: z.array(authMembershipSchema),
+  patientAccess: z.array(authPatientAccessSchema),
+});
+
+export type MembershipRole = z.infer<typeof membershipRoleSchema>;
+export type PatientRelationship = z.infer<typeof patientRelationshipSchema>;
+export type AuthMembership = z.infer<typeof authMembershipSchema>;
+export type AuthPatientAccess = z.infer<typeof authPatientAccessSchema>;
+export type AuthMe = z.infer<typeof authMeSchema>;
+
 /**
  * Longest password accepted. Hashing cost grows with input length, so an
  * unbounded password would let one request burn CPU (denial of service).
