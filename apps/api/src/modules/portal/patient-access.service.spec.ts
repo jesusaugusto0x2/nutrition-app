@@ -39,6 +39,6 @@ describe('PatientAccessService', () => {
     repository.findAllByUser.mockResolvedValue([access]);
 
     await expect(service.listForUser(USER_ID)).resolves.toEqual([access]);
-    expect(repository.findAllByUser).toHaveBeenCalledWith(USER_ID);
+    expect(repository.findAllByUser).toHaveBeenCalledWith(USER_ID, undefined);
   });
 });

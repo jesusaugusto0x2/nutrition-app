@@ -10,6 +10,8 @@ export const apiErrorCodeSchema = z.enum([
   'EMAIL_NOT_VERIFIED',
   /** An emailed one-time token is unknown, expired or already used. */
   'INVALID_TOKEN',
+  /** The password was correct but the email is not verified yet. */
+  'EMAIL_NOT_VERIFIED',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',

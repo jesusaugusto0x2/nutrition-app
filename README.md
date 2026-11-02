@@ -99,6 +99,8 @@ docker run -p 3000:3000 \
   -e 'MAIL_FROM=Mi consulta <no-reply@example.com>' \
   -e APP_ORIGIN=https://app.example.com \
   -e CLIENT_IP_SOURCE=socket \
+  -e GOOGLE_CLIENT_ID=CLIENT_ID \
+  -e GOOGLE_CLIENT_SECRET=CLIENT_SECRET \
   nutri
 ```
 

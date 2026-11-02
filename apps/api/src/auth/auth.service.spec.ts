@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ClinicsService } from '../modules/clinics/clinics.service';
 import { PatientAccessService } from '../modules/portal/patient-access.service';
@@ -10,12 +10,15 @@ import { SessionsService } from './sessions/sessions.service';
 const USER_ID = '00000000-0000-4000-8000-00000000000a';
 const PASSWORD = 'correct horse battery staple';
 
-function userRow(passwordHash: string | null) {
+function userRow(
+  passwordHash: string | null,
+  emailVerifiedAt: Date | null = new Date('2026-01-01T00:00:00.000Z'),
+) {
   return {
     id: USER_ID,
     email: 'ana@example.com',
     name: 'Ana',
-    emailVerifiedAt: null,
+    emailVerifiedAt,
     passwordHash,
   };
 }
@@ -67,9 +70,34 @@ describe('AuthService', () => {
       id: USER_ID,
       email: 'ana@example.com',
       name: 'Ana',
-      emailVerified: false,
+      emailVerified: true,
     });
     expect(passwordHasher.verify).toHaveBeenCalledWith('stored-hash', PASSWORD);
+  });
+
+  it('rejects an unverified email with its own code after a correct password', async () => {
+    credentials.findByEmail.mockResolvedValue(userRow('stored-hash', null));
+    passwordHasher.verify.mockResolvedValue(true);
+
+    const error: unknown = await service
+      .validateCredentials('ana@example.com', PASSWORD)
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ForbiddenException);
+    expect((error as ForbiddenException).getResponse()).toEqual({
+      code: 'EMAIL_NOT_VERIFIED',
+      message: 'The email is not verified',
+    });
+  });
+
+  it('does not reveal that an email is unverified to a wrong password', async () => {
+    credentials.findByEmail.mockResolvedValue(userRow('stored-hash', null));
+    passwordHasher.verify.mockResolvedValue(false);
+
+    await expect(failure('ana@example.com', 'wrong')).resolves.toEqual({
+      code: 'INVALID_CREDENTIALS',
+      message: 'Invalid email or password',
+    });
   });
 
   it('returns the user with their own memberships and patient access', async () => {

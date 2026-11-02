@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { type AuthMe, type AuthUser, normalizeEmail } from '@nutri/schemas';
 import { ClinicsService } from '../modules/clinics/clinics.service';
 import { PatientAccessService } from '../modules/portal/patient-access.service';
@@ -22,6 +26,17 @@ export function invalidCredentials(): UnauthorizedException {
   });
 }
 
+/**
+ * Only thrown after a correct password, so it reveals nothing to someone who
+ * does not already hold the credentials.
+ */
+export function emailNotVerified(): ForbiddenException {
+  return new ForbiddenException({
+    code: 'EMAIL_NOT_VERIFIED',
+    message: 'The email is not verified',
+  });
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -32,7 +47,10 @@ export class AuthService {
     private readonly patientAccess: PatientAccessService,
   ) {}
 
-  /** The user for a correct email and password; otherwise `invalidCredentials`. */
+  /**
+   * The user for a correct email and password; otherwise `invalidCredentials`,
+   * or `emailNotVerified` when only the verification is missing.
+   */
   async validateCredentials(
     email: string,
     password: string,
@@ -54,6 +72,10 @@ export class AuthService {
         user.id,
         await this.passwordHasher.hash(password),
       );
+    }
+
+    if (!user.emailVerifiedAt) {
+      throw emailNotVerified();
     }
     return toAuthUser(user);
   }

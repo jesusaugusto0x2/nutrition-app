@@ -23,6 +23,8 @@ const REQUIRED_IN_PRODUCTION = [
   'MAIL_FROM',
   'APP_ORIGIN',
   'CLIENT_IP_SOURCE',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
 ] as const;
 
 const envSchema = z
@@ -54,8 +56,23 @@ const envSchema = z
     // (its hop count is not fixed, so `trust proxy` cannot be used);
     // `socket` when nothing sits in front of the API.
     CLIENT_IP_SOURCE: z.enum(['socket', 'x-real-ip']).optional(),
+    // OAuth client of type "Web application" (docs/architecture.md, "Google:
+    // OpenID Connect"). Without them the Google routes answer 404, which is
+    // only allowed outside production.
+    GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().trim().min(1).optional(),
   })
   .superRefine((env, ctx) => {
+    // One without the other is a typo, not a choice to leave Google off.
+    if (!env.GOOGLE_CLIENT_ID !== !env.GOOGLE_CLIENT_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [
+          env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_SECRET' : 'GOOGLE_CLIENT_ID',
+        ],
+        message: 'Google needs both the client id and the client secret',
+      });
+    }
     if (env.NODE_ENV !== 'production') {
       return;
     }

@@ -237,15 +237,55 @@ the hash.
 - **New email:** the user stays unverified and `EmailVerificationService` emails
   a verification link after the commit (`email_verification` token, 24 hours,
   `${APP_ORIGIN}/verify-email?token=...`). The token is stored outside the
-  transaction, so if it or the email fails the account remains; resending the
-  link is #17, which also adds the endpoint that consumes the token.
+  transaction, so if it or the email fails the account remains and the user
+  can ask for a new link (see "Email verification").
 - **Existing email** (Google-only accounts included): nothing changes and its
   owner gets the `sign-up-attempt` notice, with a link to the login page. The
   notice uses the **stored** name, never the submitted one, so a stranger cannot
   put their own text in an email to someone else. An unverified account gets
-  this notice too, not a new link: resending is #17.
+  this notice too, not a new link: `resend-verification` is the way to get one.
 - **No session is created.** The user is signed in when they verify the email.
 - Rate limited: 3 per email and 5 per IP per 15 minutes (see Rate limiting).
+
+### Email verification (implemented, #17)
+
+- `POST /api/auth/verify-email` `{ token }` (`verifyEmailSchema`) → 200 with
+  `authUserSchema` and the session cookie. In **one transaction**
+  (`CredentialsRepository.verifyEmail`): consume the token and set
+  `email_verified_at`. Then the session starts as in sign-in, revoking the one
+  of the incoming cookie, if any.
+- **`POST`, not `GET`:** link previews in WhatsApp and email clients fetch
+  `GET` URLs and would consume the token. The link opens the web page, which
+  reads the token and posts it. The token is single use, so that page (#24)
+  must post it exactly once, also under React Strict Mode, which runs effects
+  twice in development.
+- Unknown, expired, used, replaced and malformed tokens all return the same
+  400 `INVALID_TOKEN` as password reset (`tokens/invalid-token.ts`).
+- **A link for an already verified email is rejected too.** The link signs the
+  user in, so it must not outlive its purpose: otherwise one left in the inbox
+  would open a session after a password reset (which also verifies the email)
+  ended them all. The web page shows the error state, whose next step is
+  signing in.
+- `POST /api/auth/resend-verification` `{ email }`
+  (`resendVerificationSchema`) → **always 202 with an empty body.** It emails a
+  new link only if the email has an unverified account, and runs after the
+  response is sent, like forgot password, so neither the response nor its
+  timing reveal which emails have one. Failures are logged with the error name
+  only. `AuthTokensRepository.replace` deletes the earlier token, so only the
+  latest link works.
+- **Sign-in:** a correct password on an unverified email → 403
+  `EMAIL_NOT_VERIFIED`, and the web app offers to resend. It comes after the
+  password check, so a wrong password still gets the usual 401 and only
+  someone who holds the credentials learns the state of the account.
+  `SessionAuthGuard` does not check it: every way to get a session already
+  requires a verified email.
+- **Known limit, pre-registration:** someone can sign up with another person's
+  email and choose the password. If the owner clicks the verification link
+  anyway, the account is verified with that password. The email tells them to
+  ignore it if it was not them, and signing in with Google for that email
+  clears the password (see "Google: OpenID Connect").
+- Rate limited: `resend-verification` 3 per email and 10 per IP, `verify-email`
+  10 per IP, per 15 minutes (see Rate limiting).
 
 ### Email and password sign-in (implemented, #11)
 
@@ -265,8 +305,8 @@ the hash.
   it when it is a known `ApiErrorCode`.
 - **Session fixation:** sign-in always creates a new session and revokes
   the one of the incoming cookie, if any.
-- Unverified emails are not rejected yet; the email verification ticket
-  adds that check.
+- A correct password on an unverified email → 403 `EMAIL_NOT_VERIFIED` (see
+  "Email verification").
 - Implementation: `AuthController`, `AuthService`, `LocalStrategy`,
   `LocalAuthGuard`, `CredentialsRepository` (the only code that reads
   `password_hash`) and `PasswordHasher` in `apps/api/src/auth`.
@@ -321,25 +361,108 @@ the hash.
 - Rate limited (#20): `forgot-password` 3 per email and 10 per IP,
   `reset-password` 10 per IP, per 15 minutes (see Rate limiting).
 
-### Google: OpenID Connect
+### Google: OpenID Connect (implemented, #19)
 
 - **Authorization Code flow with PKCE, `state` and `nonce`, entirely
-  server-side.** `state`, `nonce` and the PKCE verifier live in a
-  short-lived `HttpOnly` cookie; the callback validates the ID token (`iss`,
-  `aud`, `exp`, `nonce`) and requires `email_verified === true`.
-- **Library:** `openid-client` (OpenID-certified) is preferred over
-  `passport-google-oauth20`, which has not been published since 2023.
-- **Account linking** (where Better Auth had an account-takeover bug):
-  1. A linked `auth_accounts` row (`google`, `sub`) → sign in. After the
-     first link, users are always matched by `sub`, never by email.
-  2. A user with the same email and a verified email → link and sign in.
-  3. A user with the same email but **unverified** → treated as a possible
-     pre-registration attack: clear its password, revoke its sessions, mark
-     the email verified, link and sign in.
-  4. Otherwise → create a verified user without a password and send them to
-     onboarding.
-- Google routes answer 404 when `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-  are not configured (optional in development).
+  server-side.** The browser only sees redirects. The ID token is read once
+  and thrown away; no Google token is stored and the app calls no Google API.
+- `GET /api/auth/google` generates the three values, keeps them in a 10-minute
+  `HttpOnly`, `SameSite=Lax` cookie (`__Host-google-flow` in production) and
+  redirects to Google with scope `openid email profile`. `Lax` because the
+  callback is a navigation from Google, which `Strict` would not send it with.
+- `GET /api/auth/google/callback` clears that cookie whatever happens, compares
+  `state`, exchanges the code and validates the ID token (`iss`, `aud`, `exp`,
+  `nonce`), requires `email_verified === true`, resolves the account and starts
+  a session as sign-in does (new session, the incoming one revoked). A new user
+  goes to `/onboarding`, anyone else to `/`, where the web app routes them.
+- **Every failure redirects to `/login?error=google`,** with no details in the
+  URL, including the user cancelling at Google and Google being unreachable. The
+  log gets a fixed reason (`state-mismatch`, `email-not-verified`,
+  `email-not-authoritative`) or the error name, never a message: those can quote
+  what Google sent.
+- **Library:** `openid-client` (OpenID-certified) functions directly, wrapped by
+  `GoogleOidcClient`, the only code that talks to Google. **Deviation from the
+  epic's "Passport strategies only":** its Passport strategy requires
+  `express-session` (`req.session`), and sessions here are our own code.
+  `passport-google-oauth20` has not been published since 2023.
+- **The ID token's signature is not checked,** which is the library's default
+  and OpenID Connect Core allows it: the token comes straight from Google's
+  token endpoint over TLS, authenticated with the client secret.
+- **Google's endpoints are discovered on first use** and kept for the life of the
+  process, so the API boots while Google is down; a failed discovery is retried
+  by the next sign-in.
+- **`redirect_uri` is `${APP_ORIGIN}/api/auth/google/callback`,** never derived
+  from `Host`, which the Vite proxy and Railway's edge rewrite. In development
+  that is the Vite origin, whose proxy carries the cookies through.
+- **Account resolution** (where Better Auth had an account-takeover bug) runs in
+  one transaction with the user's row locked (`GoogleAuthService`):
+  1. A linked `auth_accounts` row (`google`, `sub`) → sign in. After the first
+     link, users are always matched by `sub`, never by email: Google says an
+     account can have several emails over time and `sub` never changes.
+  2. A user with the same email, **only if Google is authoritative for it**
+     (see below); otherwise the sign-in is refused and nothing changes:
+     - Verified → link and sign in. The password stays.
+     - **Unverified** → a possible pre-registration attack: clear its password,
+       revoke its sessions, mark the email verified, link and sign in.
+  3. Otherwise → create a verified user without a password and go to onboarding.
+     `users.name` is Google's `name`, or the email, since that claim is never
+     guaranteed.
+- **Stricter than the ticket: linking needs Google to be authoritative.** Google
+  [says](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token)
+  it speaks for an address only for `@gmail.com` or when the token has `hd`
+  (Workspace). Anyone can open a Google account on a third-party address, and
+  `email_verified` may then be true although "ownership of the third party email
+  account may have since changed". Linking on that alone would hand an account,
+  or wipe its password, to a former owner of the address. A real user in this
+  case still signs in with their password; a new person is unaffected, as
+  there is no account to protect.
+- **What a takeover keeps:** the clinic and membership created at sign-up stay,
+  since this is also how a real user who never verified continues. If it was an
+  attacker they lose all access, but the names they typed remain until edited.
+- **Races fail closed:** two first sign-ins at once hit a unique constraint
+  (`users.email`, `auth_accounts`), which rolls back and redirects to the login
+  page; the second attempt then succeeds. `link` never uses `ON CONFLICT`, so an
+  identity can never be attached to the wrong user quietly.
+- Google routes answer 404 when `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are
+  not set, which is allowed only outside production. One without the other fails
+  on startup. A rate-limited request (20 per IP per 15 minutes, per route) gets
+  the usual 429 JSON rather than a redirect.
+
+**Setting up the client in Google** (operator steps, one project is enough for
+development and production):
+
+1. In [Google Auth Platform](https://console.cloud.google.com/auth/overview),
+   create or pick a project and register the app.
+2. **Branding:** app name, support email, developer contact. Before publishing,
+   add the production domain to **Authorized domains** and the homepage, privacy
+   policy and terms links.
+3. **Audience:** user type **External**. While in **Testing**, the consent screen
+   works for up to 100 listed test users. **Publish app** opens it to anyone, as
+   sign-up requires. These three scopes are non-sensitive, so Google does not
+   require app verification; only showing the app name and logo on the consent
+   screen does (brand verification).
+4. **Clients → Create client → Web application.** Authorized redirect URIs:
+   `http://localhost:4200/api/auth/google/callback` and
+   `https://<production domain>/api/auth/google/callback`. They must match
+   exactly (scheme, host, port, path, no trailing slash) or Google answers
+   `redirect_uri_mismatch`. No authorized JavaScript origins are needed: the
+   browser never talks to Google directly. Changes can take minutes to hours.
+5. Copy the client secret when it is created: it is not shown again. Set
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the root `.env` for
+   development and in Railway for production. Rotate with **Add secret** in the
+   client, deploy, then disable the old one.
+
+### First clinic of a Google user (implemented, #19)
+
+- `POST /api/auth/onboarding` `{ clinicName }` (`onboardingSchema`) → 204, for a
+  signed-in user with neither a membership nor portal access. Anyone else gets
+  409 `CONFLICT`. The web app reads `me` again afterwards.
+- It uses `ClinicsService.createWithOwner`, as sign-up does. The user's row is
+  locked from the check to the insert (`OnboardingService`), so a double submit
+  creates one clinic. The check reads the same data as `me`, so a grant on a
+  soft-deleted patient does not count, as in `PortalAccessGuard`.
+- It needs a session and passes `CsrfGuard` like any write. Not rate limited: a
+  user can only succeed once and a failure costs two queries.
 
 ### Route protection (implemented, #12)
 
@@ -356,7 +479,7 @@ them. Each one only reads what the one before it set:
   otherwise, and `@Public()` goes on each handler, never on a controller, so
   a new route in `AuthController` is protected too. Public today: health,
   sign-up, sign-in, sign-out (it answers 204 either way), forgot and reset
-  password.
+  password, and both Google routes.
 - **Handlers read the result** with `@CurrentUser()`, `@CurrentClinic()` and
   `@PortalPatientIds()`. The clinic never comes from the client.
 - **A route marked both `@Public()` and `@ClinicAccess()` or `@PortalAccess()`
@@ -509,8 +632,8 @@ stays disabled: the SPA and the API share one origin.
   and its own authentication.
 - **No endpoint changes state on `GET`** (checked for #13). The only writes on
   a `GET` are session bookkeeping in `SessionAuthGuard` (`last_used_at`, removing
-  an expired row), which an attacker gains nothing from. The Google callback,
-  still to come, is a `GET` protected by `state`.
+  an expired row), which an attacker gains nothing from. The Google callback
+  is a `GET` that signs in, protected by `state` and the flow cookie instead.
 - **No `Vary` header:** OWASP asks for it when a cache could reuse a response,
   and responses to these methods are not cacheable. No log-only rollout
   either: nothing was deployed before the guard.
@@ -531,9 +654,8 @@ stays disabled: the SPA and the API share one origin.
   per IP and 5 per email; sign-up 5 per IP and 3 per email (every request
   sends an email, so the per-email limit stops anyone flooding an inbox with
   notices from many IPs); forgot password 10 per IP and 3 per email; reset
-  password 10 per IP. The endpoints still to come add `@RateLimit` in their
-  own tickets, with these proposed limits: resend verification 3 per email
-  and 10 per IP; verify email 10 per IP; Google start 20 per IP.
+  password 10 per IP; resend verification 10 per IP and 3 per email; verify
+  email 10 per IP; Google start and callback 20 per IP each.
 - **Throttle, never lock accounts:** a lockout lets an attacker block a real
   user. A blocked client waits until its window ends; the account itself is
   never disabled.

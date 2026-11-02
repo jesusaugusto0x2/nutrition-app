@@ -19,18 +19,25 @@ import {
   AuthMeDto,
   AuthUserDto,
   ForgotPasswordDto,
+  OnboardingDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   SignUpDto,
+  VerifyEmailDto,
 } from './dto/auth.dto';
+import { EmailVerificationService } from './email-verification/email-verification.service';
 import { LocalAuthGuard } from './local-auth.guard';
+import { OnboardingService } from './onboarding/onboarding.service';
 import { PasswordResetService } from './passwords/password-reset.service';
 import { AuthThrottlerGuard } from './rate-limit/auth-throttler.guard';
 import {
   FORGOT_PASSWORD_RATE_LIMITS,
   RateLimit,
+  RESEND_VERIFICATION_RATE_LIMITS,
   RESET_PASSWORD_RATE_LIMITS,
   SIGN_IN_RATE_LIMITS,
   SIGN_UP_RATE_LIMITS,
+  VERIFY_EMAIL_RATE_LIMITS,
 } from './rate-limit/rate-limit';
 import { SessionCookie } from './sessions/session-cookie';
 import { SignUpService } from './sign-up/sign-up.service';
@@ -48,6 +55,8 @@ export class AuthController {
     private readonly sessionCookie: SessionCookie,
     private readonly passwordReset: PasswordResetService,
     private readonly signUpService: SignUpService,
+    private readonly onboardingService: OnboardingService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   /**
@@ -75,13 +84,42 @@ export class AuthController {
     @Req() request: SignedInRequest,
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthUser> {
-    const { token, expiresAt } = await this.authService.startSession(
-      request.user.id,
-      this.sessionCookie.read(request),
-      request.get('user-agent'),
-    );
-    this.sessionCookie.set(response, token, expiresAt);
+    await this.startSession(request.user.id, request, response);
     return request.user;
+  }
+
+  /**
+   * Verifies the email and signs the user in. A POST, not a GET: link
+   * previews in WhatsApp and email clients fetch GET URLs and would consume
+   * the token. The web page reads the token from the link and posts it.
+   */
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @RateLimit(VERIFY_EMAIL_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard)
+  @ZodSerializerDto(AuthUserDto)
+  async verifyEmail(
+    @Body() body: VerifyEmailDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthUser> {
+    const user = await this.emailVerification.verify(body.token);
+    await this.startSession(user.id, request, response);
+    return user;
+  }
+
+  /**
+   * Always 202 with no body, whether or not the email has an unverified
+   * account; the link is emailed in the background.
+   */
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RateLimit(RESEND_VERIFICATION_RATE_LIMITS)
+  @UseGuards(AuthThrottlerGuard)
+  resendVerification(@Body() body: ResendVerificationDto): void {
+    this.emailVerification.requestResend(body.email);
   }
 
   /**
@@ -92,6 +130,19 @@ export class AuthController {
   @ZodSerializerDto(AuthMeDto)
   me(@CurrentUser() user: AuthUser): Promise<AuthMe> {
     return this.authService.getMe(user);
+  }
+
+  /**
+   * 204 after creating the clinic of a user who has neither a clinic nor
+   * portal access; 409 for anyone else. The web app then reads `me` again.
+   */
+  @Post('onboarding')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async onboarding(
+    @CurrentUser() user: AuthUser,
+    @Body() body: OnboardingDto,
+  ): Promise<void> {
+    await this.onboardingService.createClinic(user.id, body.clinicName);
   }
 
   /** Always 204, also without a valid session: the outcome is the same. */
@@ -134,5 +185,18 @@ export class AuthController {
   ): Promise<void> {
     await this.passwordReset.resetPassword(body.token, body.password);
     this.sessionCookie.clear(response);
+  }
+
+  private async startSession(
+    userId: string,
+    request: Request,
+    response: Response,
+  ): Promise<void> {
+    const { token, expiresAt } = await this.authService.startSession(
+      userId,
+      this.sessionCookie.read(request),
+      request.get('user-agent'),
+    );
+    this.sessionCookie.set(response, token, expiresAt);
   }
 }

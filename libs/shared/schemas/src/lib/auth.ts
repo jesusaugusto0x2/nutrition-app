@@ -114,6 +114,11 @@ export const signUpSchema = z.object({
 
 export type SignUp = z.infer<typeof signUpSchema>;
 
+/** Body of `POST /api/auth/onboarding`. */
+export const onboardingSchema = z.object({ clinicName: signUpNameSchema });
+
+export type Onboarding = z.infer<typeof onboardingSchema>;
+
 /** Body of `POST /api/auth/forgot-password`. */
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 
@@ -137,3 +142,13 @@ export const resetPasswordSchema = z.object({
 });
 
 export type ResetPassword = z.infer<typeof resetPasswordSchema>;
+
+/** Body of `POST /api/auth/verify-email`. */
+export const verifyEmailSchema = z.object({ token: oneTimeTokenSchema });
+
+export type VerifyEmail = z.infer<typeof verifyEmailSchema>;
+
+/** Body of `POST /api/auth/resend-verification`. */
+export const resendVerificationSchema = z.object({ email: emailSchema });
+
+export type ResendVerification = z.infer<typeof resendVerificationSchema>;
