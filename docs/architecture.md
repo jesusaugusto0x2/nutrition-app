@@ -586,11 +586,10 @@ them. Each one only reads what the one before it set:
 - **Validation messages are chosen in the form,** because `signInSchema`
   messages are English: the schema decides whether a field is valid, the form
   picks the Spanish text.
-- **Written against #17 before it exists.** `EMAIL_NOT_VERIFIED` and
-  `resendVerificationSchema` are in `@nutri/schemas` as #17 specifies, and
-  `useResendVerification` posts to `/api/auth/resend-verification`. Until #17
-  ships the API never answers that 403, so the state cannot be reached and the
-  missing endpoint cannot be called.
+- **Resending the link:** `useResendVerification` posts the email the user just
+  typed, already normalized, to `/api/auth/resend-verification` (see "Email
+  verification"). The alert appears only after a correct password, so offering
+  it reveals nothing about which emails have an account.
 - **Plain `<a>` links to `/forgot-password` and `/sign-up`** until #24 and #23
   add those routes: `Link` only accepts registered routes. They show the
   not-found page until then.
