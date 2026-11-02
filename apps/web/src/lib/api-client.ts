@@ -3,11 +3,15 @@ import { z } from 'zod';
 
 const API_PREFIX = '/api';
 
-/** Thrown for any non-2xx response. `body` follows the shared ApiError shape. */
+/**
+ * Thrown for any non-2xx response. `body` follows the shared ApiError shape;
+ * `retryAfterSeconds` comes from the `Retry-After` header of a 429.
+ */
 export class ApiClientError extends Error {
   constructor(
     readonly status: number,
     readonly body: ApiError | null,
+    readonly retryAfterSeconds: number | null = null,
   ) {
     super(body?.message ?? `Request failed with status ${status}`);
     this.name = 'ApiClientError';
@@ -73,10 +77,17 @@ async function request<TSchema extends z.ZodType>(
     throw new ApiClientError(
       response.status,
       parsed.success ? parsed.data : null,
+      readRetryAfter(response),
     );
   }
 
   return schema.parse(await readJson(response));
+}
+
+/** The API sends seconds; the HTTP-date form of the header is not used. */
+function readRetryAfter(response: Response): number | null {
+  const seconds = Number(response.headers.get('Retry-After') ?? Number.NaN);
+  return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
 }
 
 async function readJson(response: Response): Promise<unknown> {

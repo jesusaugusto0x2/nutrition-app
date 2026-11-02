@@ -1,6 +1,7 @@
 import {
   changeDirection,
   formatChange,
+  formatCountdown,
   formatDate,
   formatDecimal,
   formatMeasurement,
@@ -30,6 +31,14 @@ describe('formatDate', () => {
 describe('formatShortDate', () => {
   it('formats calendar dates as dd/mm', () => {
     expect(formatShortDate('2026-03-10')).toBe('10/03');
+  });
+});
+
+describe('formatCountdown', () => {
+  it('shows minutes and two-digit seconds', () => {
+    expect(formatCountdown(872)).toBe('14:32');
+    expect(formatCountdown(65)).toBe('1:05');
+    expect(formatCountdown(9)).toBe('0:09');
   });
 });
 

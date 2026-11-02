@@ -1,4 +1,4 @@
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, CircleAlertIcon, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { t } from '@/i18n';
@@ -94,5 +94,42 @@ export function InfoNotice({
     >
       {children}
     </p>
+  );
+}
+
+/**
+ * Spec 40: above a form, for an error that is not about a single field. Keep
+ * `children` steady: a live countdown here would be read aloud every second.
+ */
+export function FormAlert({
+  title,
+  children,
+  icon: Icon = CircleAlertIcon,
+  action,
+  className,
+}: {
+  title: ReactNode;
+  children: ReactNode;
+  /** `LockIcon` while the form is blocked. */
+  icon?: LucideIcon;
+  /** Optional link or button, e.g. «Reenviar enlace». */
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      role="alert"
+      className={cn(
+        'flex items-start gap-2.5 rounded-button border border-error-soft-border bg-error-soft px-4 py-3.5 text-error-soft-foreground',
+        className,
+      )}
+    >
+      <Icon aria-hidden className="mt-px size-[22px] flex-none" />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <strong>{title}</strong>
+        <span className="text-meta">{children}</span>
+        {action && <div className="mt-1.5">{action}</div>}
+      </div>
+    </div>
   );
 }

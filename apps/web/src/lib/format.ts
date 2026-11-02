@@ -23,6 +23,13 @@ export function formatShortDate(value: string): string {
   return `${day}/${month}`;
 }
 
+/** Whole seconds as a countdown, e.g. `14:32`. */
+export function formatCountdown(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 /** Decimal number with comma separator, e.g. `74,9`. */
 export function formatDecimal(value: number, fractionDigits = 1): string {
   return withMinus(numberFormat(fractionDigits).format(value));

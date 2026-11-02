@@ -3,6 +3,7 @@ import {
   authMeSchema,
   authUserSchema,
   type ForgotPassword,
+  type ResendVerification,
   type ResetPassword,
   type SignIn,
 } from '@nutri/schemas';
@@ -17,6 +18,13 @@ import { ApiClientError, apiClient } from '@/lib/api-client';
 import type { LoginSearch } from './redirect';
 
 const LOGIN_PATH = '/login';
+
+/*
+ * Plain links until these pages exist (#24, #23): the router's `Link` only
+ * accepts registered routes. Those tickets should switch them to `Link`.
+ */
+export const FORGOT_PASSWORD_PATH = '/forgot-password';
+export const SIGN_UP_PATH = '/sign-up';
 
 export const authKeys = {
   me: ['auth', 'me'] as const,
@@ -110,6 +118,13 @@ export function useForgotPassword() {
   return useMutation({
     mutationFn: (body: ForgotPassword) =>
       apiClient.postEmpty('/auth/forgot-password', body),
+  });
+}
+
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: (body: ResendVerification) =>
+      apiClient.postEmpty('/auth/resend-verification', body),
   });
 }
 
