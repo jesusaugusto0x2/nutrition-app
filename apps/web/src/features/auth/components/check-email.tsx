@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { SuccessNotice } from '@/components/ui/notice';
 import { t } from '@/i18n';
 import { formatCountdown } from '@/lib/format';
-import { useResendVerification } from '../api';
+import { useForgotPassword, useResendVerification } from '../api';
 import { readThrottle } from '../throttle';
 import { useSecondsUntil } from '../use-seconds-until';
 
@@ -38,20 +38,47 @@ function OutcomeMessage({ outcome }: { outcome: Outcome }) {
   }
 }
 
+/** What the emailed link is for. */
+export type CheckEmailPurpose = 'verification' | 'passwordReset';
+
+const texts = {
+  verification: {
+    title: t.checkEmail.title,
+    sentTo: t.checkEmail.sentTo,
+    openIt: t.checkEmail.openIt,
+    expires: t.checkEmail.expires,
+    changeEmail: t.checkEmail.wrongEmail,
+  },
+  passwordReset: {
+    title: t.checkEmail.resetTitle,
+    sentTo: t.checkEmail.resetSentTo,
+    openIt: t.checkEmail.resetOpenIt,
+    expires: t.checkEmail.resetExpires,
+    changeEmail: t.checkEmail.otherEmail,
+  },
+} satisfies Record<CheckEmailPurpose, Record<string, string>>;
+
 /**
- * Shown after a sign-up request. It says the same whether or not the email
- * already had an account, as the API does.
+ * Shown after asking for an emailed link (sign-up, a new verification link,
+ * a password reset). It says the same whether or not the email has an
+ * account, as the API does.
  */
 export function CheckEmail({
   email,
+  purpose = 'verification',
   onChangeEmail,
 }: {
   /** As the API received it: normalized. */
   email: string;
+  purpose?: CheckEmailPurpose;
   /** Back to the form, with what the user typed. */
   onChangeEmail: () => void;
 }) {
-  const resend = useResendVerification();
+  const text = texts[purpose];
+  const resendVerification = useResendVerification();
+  const forgotPassword = useForgotPassword();
+  const resend =
+    purpose === 'verification' ? resendVerification : forgotPassword;
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [retryAt, setRetryAt] = useState<number | null>(null);
   const secondsLeft = useSecondsUntil(retryAt);
@@ -89,16 +116,16 @@ export function CheckEmail({
           tabIndex={-1}
           className="m-0 font-heading text-display font-medium outline-none lg:text-[40px] lg:leading-[1.1]"
         >
-          {t.checkEmail.title}
+          {text.title}
         </h1>
         <p className="m-0">
-          {t.checkEmail.sentTo} <strong className="break-all">{email}</strong>.{' '}
-          {t.checkEmail.openIt}
+          {text.sentTo} <strong className="break-all">{email}</strong>
+          {text.openIt}
         </p>
       </header>
 
       <ul className="m-0 flex list-none flex-col gap-2 rounded-card border bg-surface px-[18px] py-4 text-muted-foreground">
-        <li>{t.checkEmail.expires}</li>
+        <li>{text.expires}</li>
         <li>{t.checkEmail.spam}</li>
       </ul>
 
@@ -121,7 +148,7 @@ export function CheckEmail({
           className="self-center font-bold lg:self-auto"
           onClick={onChangeEmail}
         >
-          {t.checkEmail.wrongEmail}
+          {text.changeEmail}
         </Button>
       </div>
 

@@ -14,12 +14,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { t } from '@/i18n';
 import { ApiClientError } from '@/lib/api-client';
 import { formatCountdown } from '@/lib/format';
-import {
-  FORGOT_PASSWORD_PATH,
-  meQueryOptions,
-  useResendVerification,
-  useSignIn,
-} from '../api';
+import { meQueryOptions, useResendVerification, useSignIn } from '../api';
 import { homePath } from '../home-path';
 import type { LoginSearch } from '../redirect';
 import { readThrottle } from '../throttle';
@@ -90,9 +85,9 @@ function ThrottledAlert({ minutes }: { minutes: number | null }) {
       icon={LockIcon}
       title={t.auth.tooManyAttemptsTitle}
       action={
-        <a href={FORGOT_PASSWORD_PATH} className="font-bold">
+        <Link to="/forgot-password" className="font-bold">
           {t.auth.createNewPassword}
-        </a>
+        </Link>
       }
     >
       {minutes === null
@@ -241,12 +236,12 @@ export function LoginForm({ redirect, error }: LoginSearch) {
               </FormField>
             )}
           />
-          <a
-            href={FORGOT_PASSWORD_PATH}
+          <Link
+            to="/forgot-password"
             className="flex min-h-touch items-center self-end font-bold"
           >
             {t.auth.forgotPassword}
-          </a>
+          </Link>
         </div>
 
         <Button

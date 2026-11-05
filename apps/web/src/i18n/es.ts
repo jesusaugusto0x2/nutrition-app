@@ -259,7 +259,8 @@ export const es = {
   checkEmail: {
     title: 'Verifica tu email',
     sentTo: 'Te enviamos un enlace a',
-    openIt: 'Ábrelo para activar tu cuenta.',
+    /** Follows the email address. */
+    openIt: '. Ábrelo para activar tu cuenta.',
     expires: 'El enlace vence en 24 horas.',
     spam: '¿No lo ves? Revisa las carpetas de spam y de promociones.',
     resend: 'Reenviar enlace',
@@ -273,6 +274,49 @@ export const es = {
       'Ya enviamos varios enlaces. Podrás pedir otro en unos minutos.',
     wrongEmail: '¿Escribiste mal tu email? Corrígelo',
     backToSignIn: 'Volver a iniciar sesión',
+    resetTitle: 'Revisa tu email',
+    resetSentTo: 'Si hay una cuenta con',
+    resetOpenIt:
+      ', te llegará un enlace en unos minutos para crear una contraseña nueva.',
+    resetExpires: 'El enlace vence en 1 hora.',
+    otherEmail: 'Usar otro email',
+  },
+  forgotPassword: {
+    backToSignIn: 'Iniciar sesión',
+    title: 'Recuperar contraseña',
+    subtitle:
+      'Escribe el email de tu cuenta y te enviaremos un enlace para crear una contraseña nueva.',
+    submit: 'Enviar enlace',
+    googleHint:
+      'Si entras con Google, no necesitas contraseña: usa «Continuar con Google» en el inicio de sesión.',
+    failedBody: 'No pudimos enviar el enlace. Inténtalo de nuevo.',
+  },
+  resetPassword: {
+    title: 'Crea una contraseña nueva',
+    password: 'Contraseña nueva',
+    confirmation: 'Repite la contraseña',
+    confirmationRequired: 'Repite la contraseña.',
+    mismatch: 'Las dos contraseñas no son iguales.',
+    submit: 'Guardar contraseña',
+    signsOut: 'Al guardarla, se cerrará tu sesión en todos tus dispositivos.',
+    failedBody: 'No pudimos guardar tu contraseña. Inténtalo de nuevo.',
+    doneTitle: 'Listo, tu contraseña cambió',
+    doneBody: 'Ya puedes entrar con tu contraseña nueva.',
+    signIn: 'Iniciar sesión',
+  },
+  verifyEmail: {
+    verifying: 'Verificando tu email…',
+    failedTitle: 'No pudimos verificar tu email',
+    failedBody: 'Revisa tu conexión e inténtalo de nuevo.',
+    resendSubmit: 'Enviar enlace nuevo',
+    resendHint:
+      'Escribe el email con el que creaste tu cuenta y te enviaremos otro enlace.',
+  },
+  linkExpired: {
+    title: 'Este enlace ya no funciona',
+    body: 'Por seguridad, los enlaces duran poco tiempo y se usan una sola vez. Pide uno nuevo y ábrelo apenas te llegue.',
+    verifiedHint: 'Si ya activaste tu cuenta, solo inicia sesión.',
+    requestNew: 'Pedir un enlace nuevo',
   },
   google: {
     continue: 'Continuar con Google',

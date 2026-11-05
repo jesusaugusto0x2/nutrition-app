@@ -8,6 +8,7 @@ import {
   type ResetPassword,
   type SignIn,
   type SignUp,
+  type VerifyEmail,
 } from '@nutri/schemas';
 import {
   type QueryClient,
@@ -20,12 +21,6 @@ import { ApiClientError, apiClient } from '@/lib/api-client';
 import type { LoginSearch } from './redirect';
 
 const LOGIN_PATH = '/login';
-
-/*
- * A plain link until that page exists (#24): the router's `Link` only accepts
- * registered routes. That ticket should switch it to `Link`.
- */
-export const FORGOT_PASSWORD_PATH = '/forgot-password';
 
 /**
  * Starts Google sign-in. A browser navigation, never `fetch`: the API answers
@@ -144,6 +139,27 @@ export function useResendVerification() {
     mutationFn: (body: ResendVerification) =>
       apiClient.postEmpty('/auth/resend-verification', body),
   });
+}
+
+/**
+ * The API signs the user in. Whoever was signed in before (another account,
+ * maybe) loses everything cached; the caller then goes home, which reads
+ * `me` again.
+ */
+export function useVerifyEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: VerifyEmail) =>
+      apiClient.post('/auth/verify-email', body, authUserSchema),
+    onSuccess: () => queryClient.removeQueries(),
+  });
+}
+
+/** An emailed link's token is unknown, expired or already used. */
+export function isInvalidLinkToken(error: unknown): boolean {
+  return (
+    error instanceof ApiClientError && error.body?.code === 'INVALID_TOKEN'
+  );
 }
 
 export function useResetPassword() {
