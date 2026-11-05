@@ -391,6 +391,12 @@ the hash.
 - **Google's endpoints are discovered on first use** and kept for the life of the
   process, so the API boots while Google is down; a failed discovery is retried
   by the next sign-in.
+- **Connection attempts get 2 s, not Node's 250 ms** (`main.ts`,
+  `setDefaultAutoSelectFamilyAttemptTimeout`). Node tries each resolved address
+  for that long; on a network without IPv6 a slower IPv4 handshake failed every
+  call to Google, so the callback logged `TypeError` (`fetch failed`,
+  ETIMEDOUT) and redirected to the login page. It applies to every outgoing
+  connection (SMTP too) and only waits longer when a handshake is slow.
 - **`redirect_uri` is `${APP_ORIGIN}/api/auth/google/callback`,** never derived
   from `Host`, which the Vite proxy and Railway's edge rewrite. In development
   that is the Vite origin, whose proxy carries the cookies through.
