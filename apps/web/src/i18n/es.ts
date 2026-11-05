@@ -35,6 +35,12 @@ export const es = {
     patients: 'Pacientes',
     comingSoon: 'Próximamente',
   },
+  account: {
+    menu: 'Cuenta',
+    signOut: 'Cerrar sesión',
+    // Neutral wording: the staff app says «usted» and the portal «tú».
+    signOutFailed: 'No se pudo cerrar la sesión: sigue abierta.',
+  },
   comingSoon: {
     title: 'Próximamente',
     intro:

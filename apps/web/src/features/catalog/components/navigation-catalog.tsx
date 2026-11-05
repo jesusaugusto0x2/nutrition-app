@@ -1,16 +1,26 @@
 import { useState } from 'react';
 import { BackLink } from '@/components/navigation/back-link';
-import { BottomNav } from '@/components/navigation/bottom-nav';
+import {
+  BottomNav,
+  bottomNavItemClass,
+} from '@/components/navigation/bottom-nav';
 import { Brand } from '@/components/navigation/brand';
 import { BrandPanel } from '@/components/navigation/brand-panel';
 import { Sidebar } from '@/components/navigation/sidebar';
 import { Pagination } from '@/components/ui/pagination';
 import { SectionTabs } from '@/components/ui/section-tabs';
+import {
+  AccountMenu,
+  headerAccountTriggerClass,
+} from '@/features/auth/components/account-menu';
+import { AccountPanel } from '@/features/auth/components/account-panel';
 import { t } from '@/i18n';
 import { catalog } from '../samples';
 import { CatalogRow, CatalogSection } from './catalog-section';
 
 const { components, samples } = catalog;
+
+const account = { ...samples.account, onSignOut: () => undefined };
 
 type ProfileTab = 'summary' | 'history' | 'measurements' | 'notes';
 
@@ -45,13 +55,41 @@ export function NavigationCatalog() {
       </CatalogSection>
       <CatalogSection id="sidebar" title={components.sidebar}>
         <div className="w-sidebar overflow-hidden rounded-card border">
-          <Sidebar activeKey="patients" className="border-r-0" />
+          <Sidebar
+            activeKey="patients"
+            account={<AccountPanel {...account} />}
+            className="border-r-0"
+          />
         </div>
       </CatalogSection>
       <CatalogSection id="bottom-nav" title={components.bottomNav}>
         <div className="max-w-[390px] overflow-hidden rounded-card border">
-          <BottomNav activeKey="patients" className="static" />
+          <BottomNav
+            activeKey="patients"
+            account={
+              <AccountMenu {...account} triggerClassName={bottomNavItemClass} />
+            }
+            className="static"
+          />
         </div>
+      </CatalogSection>
+      <CatalogSection id="account" title={components.account}>
+        <CatalogRow label={samples.accountStates.normal}>
+          <AccountPanel {...account} className="max-w-sidebar" />
+        </CatalogRow>
+        <CatalogRow label={samples.accountStates.signingOut}>
+          <AccountPanel {...account} signingOut className="max-w-sidebar" />
+        </CatalogRow>
+        <CatalogRow label={samples.accountStates.failed}>
+          <AccountPanel {...account} failed className="max-w-sidebar" />
+        </CatalogRow>
+        <CatalogRow label={samples.accountStates.headerMenu}>
+          <AccountMenu
+            {...account}
+            side="bottom"
+            triggerClassName={headerAccountTriggerClass}
+          />
+        </CatalogRow>
       </CatalogSection>
       <CatalogSection id="back-link" title={components.backLink}>
         <BackLink to="/patients" label={t.nav.patients} />
