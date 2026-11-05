@@ -90,6 +90,15 @@ export type SignIn = z.infer<typeof signInSchema>;
 export const PASSWORD_MIN_LENGTH = 15;
 
 /**
+ * Length of a password as `passwordSchema` counts it: Unicode code points, so
+ * emoji and accents count once. Forms use it to show progress toward
+ * `PASSWORD_MIN_LENGTH`.
+ */
+export function passwordLength(password: string): number {
+  return Array.from(password).length;
+}
+
+/**
  * A new password (sign-up, password reset). Length is the only rule: NIST
  * forbids composition rules (mixtures of character types). Each code point
  * counts as one character, so emoji and accents are not penalized. Never
@@ -98,11 +107,14 @@ export const PASSWORD_MIN_LENGTH = 15;
 export const passwordSchema = z
   .string()
   .max(PASSWORD_MAX_LENGTH)
-  .refine((password) => Array.from(password).length >= PASSWORD_MIN_LENGTH, {
+  .refine((password) => passwordLength(password) >= PASSWORD_MIN_LENGTH, {
     message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
   });
 
-const signUpNameSchema = z.string().trim().min(1).max(100);
+/** Longest name or clinic name accepted at sign-up, after trimming. */
+export const SIGN_UP_NAME_MAX_LENGTH = 100;
+
+const signUpNameSchema = z.string().trim().min(1).max(SIGN_UP_NAME_MAX_LENGTH);
 
 /** Body of `POST /api/auth/sign-up`. */
 export const signUpSchema = z.object({

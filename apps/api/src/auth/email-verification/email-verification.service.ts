@@ -15,7 +15,10 @@ import {
   isWellFormedOpaqueToken,
 } from '../tokens/opaque-token';
 
-/** A verification link stops working this long after it is emailed. */
+/**
+ * A verification link stops working this long after it is emailed. The web
+ * check-your-email screen repeats it (`checkEmail.expires` in `i18n/es.ts`).
+ */
 export const EMAIL_VERIFICATION_TOKEN_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()

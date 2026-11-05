@@ -590,9 +590,9 @@ them. Each one only reads what the one before it set:
   typed, already normalized, to `/api/auth/resend-verification` (see "Email
   verification"). The alert appears only after a correct password, so offering
   it reveals nothing about which emails have an account.
-- **Plain `<a>` links to `/forgot-password` and `/sign-up`** until #24 and #23
-  add those routes: `Link` only accepts registered routes. They show the
-  not-found page until then.
+- **A plain `<a>` link to `/forgot-password`** until #24 adds that route:
+  `Link` only accepts registered routes. It shows the not-found page until
+  then. «Crear cuenta» is a `Link` to `/sign-up` (#23).
 - **Differences from the prototype, on purpose:**
   - No "te quedan N intentos": the API does not report it, and #22 asks for
     one generic message.
@@ -601,6 +601,51 @@ them. Each one only reads what the one before it set:
   - No Google button, separator or mention of Google in the subtitle yet (#25).
   - "¿Olvidaste tu contraseña?" sits under the field on desktop too, so there
     is a single link and the tab order goes through the password first.
+
+### Web app: sign-up page (implemented, #23)
+
+- `/sign-up` is `features/auth/components/sign-up-form.tsx` in the `_auth`
+  layout (prototype boards `registro` and `verifica`). It posts
+  `POST /api/auth/sign-up` through `useSignUp` with the values `signUpSchema`
+  returned: trimmed names and a normalized email.
+- **Validation is the shared schema;** the form only picks the Spanish text
+  (as on the login page). `passwordLength`, `PASSWORD_MIN_LENGTH`,
+  `PASSWORD_MAX_LENGTH` and `SIGN_UP_NAME_MAX_LENGTH` come from
+  `@nutri/schemas`, so the hint and the messages cannot drift from the rule.
+- **Password hint:** "Al menos 15 caracteres", with a check once met, plus a
+  tip that spaces are allowed. It is the field's description
+  (`aria-describedby`). The password field has `autocomplete="new-password"`.
+- **Check your email is a state of the same page, not a route.** After the 202
+  the form is replaced by `CheckEmail`, showing the normalized address. The
+  address is never put in the URL (history, logs). Reloading shows the empty
+  form again; the email already went out.
+- **It reads the same whether or not the email had an account,** as the API
+  answers: the existing owner gets the `sign-up-attempt` notice instead.
+- **«¿Escribiste mal tu email? Corrígelo»** brings back the form with
+  everything as typed (React Hook Form keeps unmounted values) and focuses the
+  email. Submitting again sends a new request (and counts toward its limit).
+- **Resend:** `useResendVerification` with the normalized email. After a
+  success the button waits 60 s (`RESEND_COOLDOWN_MS`), so a double tap does
+  not spend the 3-per-15-minutes limit. A 429 says how many minutes to wait and
+  disables the button until `Retry-After`; without the header nothing is
+  blocked. Any other failure shows the resend error. 429 handling is shared
+  with the login page through `features/auth/throttle.ts` (`readThrottle`).
+- **Sign-up failures** above the form: a 429 shows the wait in minutes (no
+  countdown or lock, unlike sign-in), anything else the generic error. The
+  form does not expect a 400: the schema already ran.
+- **Focus:** the «Verifica tu email» heading takes focus when it appears, so
+  screen readers start from it.
+- **Differences from the prototype, on purpose:**
+  - Password rules: the prototype lists 8 characters, a letter and a number.
+    `passwordSchema` follows NIST (only a 15-character minimum, no composition
+    rules), so the hint shows that one rule.
+  - No Google button or "o con tu email" separator yet (#25).
+  - No "Términos de uso" / "Política de privacidad" line: those pages do not
+    exist yet.
+  - No "‹ Iniciar sesión" back link at the top on phones: the shared `_auth`
+    layout shows the boxed brand there; the link at the bottom remains.
+  - "El enlace vence en 24 horas" is a fixed text: it must change with
+    `EMAIL_VERIFICATION_TOKEN_LIFETIME_MS` in the API.
 
 ### CSRF (implemented, #13)
 
