@@ -561,6 +561,34 @@ them. Each one only reads what the one before it set:
   can read the old "signed out". `useResetPassword` clears everything, since
   the API ends every session of the user.
 
+### Web app: account menu and sign-out (implemented, #26)
+
+- **Design is provisional.** The component spec lists "name of who signed in
+  and «Cerrar sesión» in the nutritionist app" as still to define; the
+  prototype only has it in the portal (foot of the sidebar). The staff app
+  copies that block. Revisit when the spec defines it.
+- **Where it sits:** at the foot of the desktop sidebar (`AccountPanel`: name,
+  email, «Cerrar sesión»), as a fourth «Cuenta» cell of the phone bottom bar
+  (`AccountMenu`, a Base UI popover that opens upwards), and on the right of
+  the placeholder portal header (same menu, opening downwards). The portal
+  gets its own sidebar and bottom bar (Inicio, Progreso, Mi cuenta) with its
+  screens.
+- **Layout slots, not imports:** `Sidebar` and `BottomNav` take an optional
+  `account` node, so generic navigation never reads the session. The layouts
+  pass the wired versions from `features/auth/components/signed-in-account.tsx`,
+  which read `me` from the cache (`useAccount`) and render nothing once it is
+  `null`, as happens between `endSession` marking the user signed out and the
+  layout unmounting.
+- **Sign-out reuses `useSignOut`** (see above): the button is disabled while
+  the request runs and, if the API does not confirm, the panel says the
+  session is still open and nothing is cleared. The text avoids «tú» and
+  «usted» because the panel appears in both apps.
+- `signed-in-account.spec.tsx` drives the real layouts: sign-out from the
+  sidebar, the bottom bar and the portal header ends on `/login` with the
+  patient cache cleared; a failed sign-out keeps both.
+- Not built (out of scope): the account settings page and changing the
+  password while signed in.
+
 ### Web app: login page (implemented, #22)
 
 - `/login` is `features/auth/components/login-form.tsx` inside the `_auth`
