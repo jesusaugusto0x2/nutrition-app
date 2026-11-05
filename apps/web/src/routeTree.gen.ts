@@ -12,10 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as ClinicRouteImport } from './routes/_clinic'
+import { Route as LinkRouteImport } from './routes/_link'
 import { Route as PortalRouteImport } from './routes/_portal'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
+import { Route as LinkResetPasswordRouteImport } from './routes/_link/reset-password'
+import { Route as LinkVerifyEmailRouteImport } from './routes/_link/verify-email'
 import { Route as PortalPortalRouteImport } from './routes/_portal/portal'
 import { Route as DevComponentsRouteImport } from './routes/dev/components'
 import { Route as ClinicPatientsIndexRouteImport } from './routes/_clinic/patients/index'
@@ -34,6 +38,10 @@ const ClinicRoute = ClinicRouteImport.update({
   id: '/_clinic',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LinkRoute = LinkRouteImport.update({
+  id: '/_link',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalRoute = PortalRouteImport.update({
   id: '/_portal',
   getParentRoute: () => rootRouteImport,
@@ -42,6 +50,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => AuthRoute,
 } as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
@@ -52,6 +65,16 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
   getParentRoute: () => AuthRoute,
+} as any)
+const LinkResetPasswordRoute = LinkResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => LinkRoute,
+} as any)
+const LinkVerifyEmailRoute = LinkVerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => LinkRoute,
 } as any)
 const PortalPortalRoute = PortalPortalRouteImport.update({
   id: '/portal',
@@ -77,8 +100,11 @@ const ClinicPatientsPatientIdRoute = ClinicPatientsPatientIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/reset-password': typeof LinkResetPasswordRoute
+  '/verify-email': typeof LinkVerifyEmailRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
@@ -87,8 +113,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/reset-password': typeof LinkResetPasswordRoute
+  '/verify-email': typeof LinkVerifyEmailRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
@@ -99,10 +128,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/_clinic': typeof ClinicRouteWithChildren
+  '/_link': typeof LinkRouteWithChildren
   '/_portal': typeof PortalRouteWithChildren
   '/onboarding': typeof OnboardingRoute
+  '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
+  '/_link/reset-password': typeof LinkResetPasswordRoute
+  '/_link/verify-email': typeof LinkVerifyEmailRoute
   '/_portal/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
   '/_clinic/patients/$patientId': typeof ClinicPatientsPatientIdRoute
@@ -113,8 +146,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/onboarding'
+    | '/forgot-password'
     | '/login'
     | '/sign-up'
+    | '/reset-password'
+    | '/verify-email'
     | '/portal'
     | '/dev/components'
     | '/patients/$patientId'
@@ -123,8 +159,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/onboarding'
+    | '/forgot-password'
     | '/login'
     | '/sign-up'
+    | '/reset-password'
+    | '/verify-email'
     | '/portal'
     | '/dev/components'
     | '/patients/$patientId'
@@ -134,10 +173,14 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/_clinic'
+    | '/_link'
     | '/_portal'
     | '/onboarding'
+    | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/sign-up'
+    | '/_link/reset-password'
+    | '/_link/verify-email'
     | '/_portal/portal'
     | '/dev/components'
     | '/_clinic/patients/$patientId'
@@ -148,6 +191,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   ClinicRoute: typeof ClinicRouteWithChildren
+  LinkRoute: typeof LinkRouteWithChildren
   PortalRoute: typeof PortalRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
   DevComponentsRoute: typeof DevComponentsRoute
@@ -176,6 +220,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClinicRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_link': {
+      id: '/_link'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_portal': {
       id: '/_portal'
       path: ''
@@ -190,6 +241,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth/forgot-password': {
+      id: '/_auth/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/login': {
       id: '/_auth/login'
       path: '/login'
@@ -203,6 +261,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-up'
       preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
+    }
+    '/_link/reset-password': {
+      id: '/_link/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof LinkResetPasswordRouteImport
+      parentRoute: typeof LinkRoute
+    }
+    '/_link/verify-email': {
+      id: '/_link/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof LinkVerifyEmailRouteImport
+      parentRoute: typeof LinkRoute
     }
     '/_portal/portal': {
       id: '/_portal/portal'
@@ -236,11 +308,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteChildren {
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignUpRoute: AuthSignUpRoute,
 }
@@ -260,6 +334,18 @@ const ClinicRouteChildren: ClinicRouteChildren = {
 const ClinicRouteWithChildren =
   ClinicRoute._addFileChildren(ClinicRouteChildren)
 
+interface LinkRouteChildren {
+  LinkResetPasswordRoute: typeof LinkResetPasswordRoute
+  LinkVerifyEmailRoute: typeof LinkVerifyEmailRoute
+}
+
+const LinkRouteChildren: LinkRouteChildren = {
+  LinkResetPasswordRoute: LinkResetPasswordRoute,
+  LinkVerifyEmailRoute: LinkVerifyEmailRoute,
+}
+
+const LinkRouteWithChildren = LinkRoute._addFileChildren(LinkRouteChildren)
+
 interface PortalRouteChildren {
   PortalPortalRoute: typeof PortalPortalRoute
 }
@@ -275,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   ClinicRoute: ClinicRouteWithChildren,
+  LinkRoute: LinkRouteWithChildren,
   PortalRoute: PortalRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
   DevComponentsRoute: DevComponentsRoute,
