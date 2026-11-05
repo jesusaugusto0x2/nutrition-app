@@ -527,7 +527,8 @@ them. Each one only reads what the one before it set:
   refetched and awaited before it authorizes a navigation (fresh for the
   default 30 seconds). Any failure other than a 401 shows the error page.
 - **`/onboarding` is outside `_auth`:** its user is signed in, so that layout
-  would bounce them in a loop. It is a placeholder until #25.
+  would bounce them in a loop. It shares the layout component
+  (`AuthLayout`) instead.
 - **Pages reached from an emailed link while signed in** would be sent home by
   `_auth`, so `/reset-password` and `/verify-email` (#24) need their own
   placement.
@@ -604,7 +605,6 @@ them. Each one only reads what the one before it set:
     one generic message.
   - No "mantener la sesión abierta": sessions have one lifetime and the API has
     no such option.
-  - No Google button, separator or mention of Google in the subtitle yet (#25).
   - "¿Olvidaste tu contraseña?" sits under the field on desktop too, so there
     is a single link and the tab order goes through the password first.
 
@@ -645,13 +645,53 @@ them. Each one only reads what the one before it set:
   - Password rules: the prototype lists 8 characters, a letter and a number.
     `passwordSchema` follows NIST (only a 15-character minimum, no composition
     rules), so the hint shows that one rule.
-  - No Google button or "o con tu email" separator yet (#25).
   - No "Términos de uso" / "Política de privacidad" line: those pages do not
     exist yet.
   - No "‹ Iniciar sesión" back link at the top on phones: the shared `_auth`
     layout shows the boxed brand there; the link at the bottom remains.
   - "El enlace vence en 24 horas" is a fixed text: it must change with
     `EMAIL_VERIFICATION_TOKEN_LIFETIME_MS` in the API.
+
+### Web app: Google button and onboarding (implemented, #25)
+
+- **«Continuar con Google» (spec 37) is a plain `<a href="/api/auth/google">`**
+  (`GoogleButton`, `GOOGLE_SIGN_IN_PATH`), never `fetch` or the router's
+  `Link`: the API answers with a redirect to Google, so the whole page must
+  navigate. It sits above the form on `/login` and `/sign-up`, followed by the
+  «o con tu email» separator (spec 38, `OrSeparator`); on `/sign-up` it adds
+  «Después te pediremos el nombre de tu consultorio».
+- **Google's branding rules** ([guidelines](https://developers.google.com/identity/branding-guidelines))
+  allow a custom button with the standard-colour "G", unchanged, on a white
+  background, and a localized "Continue with Google". The button is the
+  secondary style of the spec (white, `borde-campo`, 58 px, app font).
+  `src/assets/google-g.png` is the logo of Google's official sign-in assets
+  (`signin-assets.zip`, light square Android + Web button at 4x), cropped to
+  the 20 px "G" without changing it. Not the SVG: it draws the gradient with
+  `foreignObject`, which an `<img>` does not render reliably. **Deviation:**
+  Google's own buttons use Google Sans; ours keeps the app font so it matches
+  the other buttons. If Google's review ever asks for it, swap in the official
+  button image.
+- **No loading state:** the browser shows its own while it leaves the page.
+  The spec leaves this state "to be defined".
+- **`/login?error=google`** shows one generic `FormAlert` («No pudimos iniciar
+  sesión con Google»), whatever the cause; the reason is only in the API log.
+  `validateLoginSearch` keeps `error` only when it is exactly `google`. The
+  alert goes away when the user tries with their email. A Google sign-in does
+  not keep `redirect`: the API sends it to `/`, which routes by `homePath`.
+- **Without `GOOGLE_CLIENT_ID` in development** the button still shows and
+  leads to the API's 404 JSON. Production requires the credentials.
+- **`/onboarding`** (`OnboardingForm`) asks for the clinic name with the same
+  field, rules and texts as the sign-up page, and posts
+  `POST /api/auth/onboarding` through `useOnboarding`, which then removes `me`.
+  The form fetches `me` again and goes to `homePath(me)`, which is `/patients`.
+  A 409 (the account got a clinic or portal access meanwhile, e.g. from
+  another tab) goes home the same way; anything else shows the generic error.
+  Its guard (`requireNoAccount`, tested in `auth-routing.spec.tsx`) keeps out
+  everyone who has a membership or portal access.
+- **«¿No es tu cuenta? Cerrar sesión»** on `/onboarding`: someone who picked
+  the wrong Google account has no other way out of the page.
+- **Trying it against a real Google client** in development: README, "Sign in
+  with Google locally".
 
 ### CSRF (implemented, #13)
 
