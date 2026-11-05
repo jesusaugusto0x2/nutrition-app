@@ -68,7 +68,7 @@ describe('VerifyEmail', () => {
     const fetchMock = stubSignInOnVerify();
     const { router } = openApp(`/verify-email?token=${TOKEN}`);
 
-    await screen.findByText(t.onboarding.comingSoon);
+    await screen.findByRole('heading', { name: t.onboarding.title });
     expect(bodiesOf(fetchMock, VERIFY)).toEqual([{ token: TOKEN }]);
     expect(router.state.location.pathname).toBe('/onboarding');
   });
@@ -80,7 +80,7 @@ describe('VerifyEmail', () => {
     });
     openApp(`/verify-email?token=${TOKEN}`);
 
-    await screen.findByText(t.onboarding.comingSoon);
+    await screen.findByRole('heading', { name: t.onboarding.title });
     expect(bodiesOf(fetchMock, VERIFY)).toEqual([{ token: TOKEN }]);
   });
 
@@ -145,7 +145,7 @@ describe('VerifyEmail', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: t.common.retry }));
 
-    await screen.findByText(t.onboarding.comingSoon);
+    await screen.findByRole('heading', { name: t.onboarding.title });
     expect(bodiesOf(fetchMock, VERIFY)).toEqual([
       { token: TOKEN },
       { token: TOKEN },

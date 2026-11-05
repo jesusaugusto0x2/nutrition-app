@@ -138,6 +138,9 @@
   --text-value-lg: 34px;
   --text-value-lg--line-height: 1.1;
 
+  /* Elevation: only floating panels (account menu) */
+  --shadow-popover: 0 8px 24px rgb(23 48 42 / 0.14);
+
   /* Layout */
   --spacing-touch: 44px; /* minimum touch target */
   --spacing-sidebar: 240px;

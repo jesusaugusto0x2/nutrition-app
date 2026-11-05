@@ -10,10 +10,12 @@ import { Controller, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { OrSeparator } from '@/components/ui/or-separator';
 import { PasswordInput } from '@/components/ui/password-input';
 import { t } from '@/i18n';
 import { useSignUp } from '../api';
 import { CheckEmail } from './check-email';
+import { GoogleButton } from './google-button';
 import { PasswordHint, passwordError } from './password-hint';
 import {
   type RequestFailure,
@@ -78,6 +80,14 @@ export function SignUpForm() {
           unknownBody={t.signUp.failedBody}
         />
       )}
+
+      <div className="flex flex-col gap-2">
+        <GoogleButton />
+        <p className="m-0 text-center text-sm text-muted-foreground">
+          {t.google.signUpHint}
+        </p>
+      </div>
+      <OrSeparator>{t.google.orWithEmail}</OrSeparator>
 
       <form
         noValidate

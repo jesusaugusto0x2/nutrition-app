@@ -1,5 +1,6 @@
 import type { LinkProps } from '@tanstack/react-router';
 import { Link } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { Brand } from './brand';
@@ -20,18 +21,22 @@ const itemClass = [
 /**
  * Spec 2: main navigation on desktop. It is never fixed nor 100vh tall;
  * the layout puts it beside the content and, below about 800 px, above it
- * at full width (flex-wrap with a 240 px basis).
+ * at full width (flex-wrap with a 240 px basis). `account` goes at the
+ * foot, as in the portal.
  */
 export function Sidebar({
   items = mainNavItems,
   activeKey,
   comingSoonTo,
+  account,
   className,
 }: {
   items?: readonly NavItem[];
   activeKey?: NavKey;
   /** Route of the Próximamente screen, once it exists. */
   comingSoonTo?: LinkProps['to'];
+  /** Who is signed in, with «Cerrar sesión». */
+  account?: ReactNode;
   className?: string;
 }) {
   return (
@@ -81,6 +86,11 @@ export function Sidebar({
           ))}
         </ul>
       </div>
+      {account && (
+        <div className="mt-auto border-t border-divider px-3 pt-4">
+          {account}
+        </div>
+      )}
     </nav>
   );
 }

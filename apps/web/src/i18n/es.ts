@@ -35,6 +35,12 @@ export const es = {
     patients: 'Pacientes',
     comingSoon: 'Próximamente',
   },
+  account: {
+    menu: 'Cuenta',
+    signOut: 'Cerrar sesión',
+    // Neutral wording: the staff app says «usted» and the portal «tú».
+    signOutFailed: 'No se pudo cerrar la sesión: sigue abierta.',
+  },
   comingSoon: {
     title: 'Próximamente',
     intro:
@@ -185,7 +191,7 @@ export const es = {
   },
   auth: {
     title: 'Iniciar sesión',
-    subtitle: 'Entra con tu email y tu contraseña.',
+    subtitle: 'Entra con tu cuenta de Google o con tu email.',
     panelTitle: 'El seguimiento nutricional, siempre a mano.',
     panelSubtitle:
       'Para nutricionistas y sus pacientes, en el teléfono y en la computadora.',
@@ -312,9 +318,22 @@ export const es = {
     verifiedHint: 'Si ya activaste tu cuenta, solo inicia sesión.',
     requestNew: 'Pedir un enlace nuevo',
   },
+  google: {
+    continue: 'Continuar con Google',
+    orWithEmail: 'o con tu email',
+    signUpHint: 'Después te pediremos el nombre de tu consultorio.',
+    failedTitle: 'No pudimos iniciar sesión con Google.',
+    failedBody: 'Inténtalo de nuevo o entra con tu email y tu contraseña.',
+  },
   onboarding: {
     title: 'Crea tu consultorio',
-    comingSoon: 'La creación de consultorios estará disponible próximamente.',
+    subtitle:
+      'Un último paso: dinos cómo se llama tu consultorio para empezar a registrar pacientes.',
+    submit: 'Crear consultorio',
+    failedBody: 'No pudimos crear tu consultorio. Inténtalo de nuevo.',
+    otherAccount: '¿No es tu cuenta?',
+    signOut: 'Cerrar sesión',
+    signOutFailed: 'No pudimos cerrar la sesión. Inténtalo de nuevo.',
   },
   portal: {
     title: 'Portal del paciente',

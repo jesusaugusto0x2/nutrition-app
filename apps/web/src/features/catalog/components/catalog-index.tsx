@@ -11,6 +11,7 @@ const index: { family: string; sections: [id: string, title: string][] }[] = [
       ['brand-panel', components.brandPanel],
       ['sidebar', components.sidebar],
       ['bottom-nav', components.bottomNav],
+      ['account', components.account],
       ['back-link', components.backLink],
       ['tabs', components.tabs],
       ['pagination', components.pagination],
@@ -23,6 +24,8 @@ const index: { family: string; sections: [id: string, title: string][] }[] = [
       ['yes-no', components.yesNo],
       ['choice', components.choice],
       ['chips', components.chips],
+      ['google-button', components.googleButton],
+      ['or-separator', components.orSeparator],
     ],
   },
   {

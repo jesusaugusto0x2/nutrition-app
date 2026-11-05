@@ -30,16 +30,26 @@ export function safeRedirectPath(value: unknown): string | undefined {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+/**
+ * Why the API sent the browser back to the login page. Only `google` exists:
+ * every Google sign-in failure lands on `/login?error=google`, with no details.
+ */
+export type LoginError = 'google';
+
 export interface LoginSearch {
   redirect?: string;
+  error?: LoginError;
 }
 
 /**
- * Always returns the `redirect` key: the router merges this over the raw URL
- * params, so leaving it out would hand a rejected value to `useSearch()`.
+ * Always returns every key: the router merges this over the raw URL params,
+ * so leaving one out would hand a rejected value to `useSearch()`.
  */
 export function validateLoginSearch(
   search: Record<string, unknown>,
 ): LoginSearch {
-  return { redirect: safeRedirectPath(search.redirect) };
+  return {
+    redirect: safeRedirectPath(search.redirect),
+    error: search.error === 'google' ? 'google' : undefined,
+  };
 }

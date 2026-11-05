@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { AuthLayout } from '@/features/auth/components/auth-layout';
 
 /**
@@ -7,5 +7,9 @@ import { AuthLayout } from '@/features/auth/components/auth-layout';
  * password reset requested from another device, a link for another account).
  */
 export const Route = createFileRoute('/_link')({
-  component: AuthLayout,
+  component: () => (
+    <AuthLayout>
+      <Outlet />
+    </AuthLayout>
+  ),
 });

@@ -44,6 +44,21 @@ describe('validateLoginSearch', () => {
   it('overrides a redirect that leaves the app', () => {
     expect(validateLoginSearch({ redirect: '//evil.com' })).toStrictEqual({
       redirect: undefined,
+      error: undefined,
     });
   });
+
+  it('keeps the Google sign-in error', () => {
+    expect(validateLoginSearch({ error: 'google' })).toStrictEqual({
+      redirect: undefined,
+      error: 'google',
+    });
+  });
+
+  it.each([['other'], [['google']], [1]])(
+    'drops an unknown error %j',
+    (error) => {
+      expect(validateLoginSearch({ error }).error).toBeUndefined();
+    },
+  );
 });

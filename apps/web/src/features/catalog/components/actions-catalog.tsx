@@ -10,7 +10,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChoiceField } from '@/components/ui/choice-field';
 import { FilterChips } from '@/components/ui/filter-chips';
+import { OrSeparator } from '@/components/ui/or-separator';
 import { type YesNoAnswer, YesNoField } from '@/components/ui/yes-no-field';
+import { GoogleButton } from '@/features/auth/components/google-button';
+import { t } from '@/i18n';
 import { catalog } from '../samples';
 import { CatalogRow, CatalogSection } from './catalog-section';
 
@@ -23,6 +26,8 @@ export function ActionsCatalog() {
       <YesNoSection />
       <ChoiceSection />
       <ChipsSection />
+      <GoogleSection />
+      <OrSeparatorSection />
     </>
   );
 }
@@ -165,6 +170,29 @@ function ChipsSection() {
         onChange={setMeasure}
         className="max-w-[390px]"
       />
+    </CatalogSection>
+  );
+}
+
+function GoogleSection() {
+  return (
+    <CatalogSection id="google-button" title={components.googleButton}>
+      <div className="flex max-w-[440px] flex-col gap-2">
+        <GoogleButton />
+        <p className="m-0 text-center text-sm text-muted-foreground">
+          {t.google.signUpHint}
+        </p>
+      </div>
+    </CatalogSection>
+  );
+}
+
+function OrSeparatorSection() {
+  return (
+    <CatalogSection id="or-separator" title={components.orSeparator}>
+      <OrSeparator className="max-w-[440px]">
+        {t.google.orWithEmail}
+      </OrSeparator>
     </CatalogSection>
   );
 }
