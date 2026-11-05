@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type SignIn, signInSchema } from '@nutri/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from '@tanstack/react-router';
+import { Link, useRouter } from '@tanstack/react-router';
 import { LockIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -16,11 +16,11 @@ import { formatCountdown } from '@/lib/format';
 import {
   FORGOT_PASSWORD_PATH,
   meQueryOptions,
-  SIGN_UP_PATH,
   useResendVerification,
   useSignIn,
 } from '../api';
 import { homePath } from '../home-path';
+import { readThrottle } from '../throttle';
 import { useSecondsUntil } from '../use-seconds-until';
 
 type Failure =
@@ -31,16 +31,12 @@ type Failure =
   | { kind: 'unknown' };
 
 function toFailure(error: unknown, email: string): Failure {
+  const throttle = readThrottle(error);
+  if (throttle) {
+    return { kind: 'throttled', ...throttle };
+  }
   if (!(error instanceof ApiClientError)) {
     return { kind: 'unknown' };
-  }
-  if (error.status === 429) {
-    const { retryAfterSeconds: seconds } = error;
-    return {
-      kind: 'throttled',
-      retryAt: seconds === null ? null : Date.now() + seconds * 1000,
-      minutes: seconds === null ? null : Math.ceil(seconds / 60),
-    };
   }
   switch (error.body?.code) {
     case 'INVALID_CREDENTIALS':
@@ -251,9 +247,9 @@ export function LoginForm({ redirect }: { redirect?: string }) {
       <footer className="mt-auto flex flex-col gap-3 border-t pt-5 text-center lg:mt-0">
         <span>
           {t.auth.noAccount}{' '}
-          <a href={SIGN_UP_PATH} className="font-bold">
+          <Link to="/sign-up" className="font-bold">
             {t.auth.createAccount}
-          </a>
+          </Link>
         </span>
         <span className="text-meta text-muted-foreground">
           {t.auth.patientHint}

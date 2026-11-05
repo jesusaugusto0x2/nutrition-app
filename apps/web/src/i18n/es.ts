@@ -221,6 +221,53 @@ export const es = {
       'No pudimos reenviar el enlace. Inténtalo de nuevo en unos minutos.',
     signInFailedBody: 'No pudimos iniciar sesión. Inténtalo de nuevo.',
   },
+  signUp: {
+    title: 'Crear cuenta',
+    subtitle:
+      'Para nutricionistas. Tus pacientes no se registran: entran con la invitación que les envíes.',
+    name: 'Nombre y apellido',
+    namePlaceholder: 'Ej.: Carmen Rojas',
+    nameRequired: 'Escribe tu nombre.',
+    passwordMinLength: (characters: number) =>
+      `Al menos ${characters} caracteres.`,
+    passwordTip: 'Puedes usar espacios: una frase es fácil de recordar.',
+    passwordTooShort: (characters: number) =>
+      `Usa al menos ${characters} caracteres.`,
+    clinicName: 'Nombre del consultorio',
+    clinicNamePlaceholder: 'Ej.: Nutrición Rojas',
+    clinicNameHelp:
+      'Tus pacientes lo verán en sus invitaciones. Puedes cambiarlo después.',
+    clinicNameRequired: 'Escribe el nombre de tu consultorio.',
+    tooLong: (characters: number) =>
+      `Usa como máximo ${characters} caracteres.`,
+    submit: 'Crear cuenta',
+    haveAccount: '¿Ya tienes cuenta?',
+    signIn: 'Inicia sesión',
+    tooManyAttemptsBody: (minutes: number) =>
+      `Podrás intentarlo de nuevo en ${
+        minutes === 1 ? '1 minuto' : `${minutes} minutos`
+      }.`,
+    tooManyAttemptsLater: 'Inténtalo de nuevo en unos minutos.',
+    failedBody: 'No pudimos crear tu cuenta. Inténtalo de nuevo.',
+  },
+  checkEmail: {
+    title: 'Verifica tu email',
+    sentTo: 'Te enviamos un enlace a',
+    openIt: 'Ábrelo para activar tu cuenta.',
+    expires: 'El enlace vence en 24 horas.',
+    spam: '¿No lo ves? Revisa las carpetas de spam y de promociones.',
+    resend: 'Reenviar enlace',
+    resendIn: (time: string) => `Podrás reenviarlo en ${time}`,
+    resent: 'Te enviamos un enlace nuevo. El anterior ya no funciona.',
+    resendThrottled: (minutes: number) =>
+      `Ya enviamos varios enlaces. Podrás pedir otro en ${
+        minutes === 1 ? '1 minuto' : `${minutes} minutos`
+      }.`,
+    resendThrottledLater:
+      'Ya enviamos varios enlaces. Podrás pedir otro en unos minutos.',
+    wrongEmail: '¿Escribiste mal tu email? Corrígelo',
+    backToSignIn: 'Volver a iniciar sesión',
+  },
   onboarding: {
     title: 'Crea tu consultorio',
     comingSoon: 'La creación de consultorios estará disponible próximamente.',

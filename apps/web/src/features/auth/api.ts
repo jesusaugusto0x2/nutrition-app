@@ -6,6 +6,7 @@ import {
   type ResendVerification,
   type ResetPassword,
   type SignIn,
+  type SignUp,
 } from '@nutri/schemas';
 import {
   type QueryClient,
@@ -20,11 +21,10 @@ import type { LoginSearch } from './redirect';
 const LOGIN_PATH = '/login';
 
 /*
- * Plain links until these pages exist (#24, #23): the router's `Link` only
- * accepts registered routes. Those tickets should switch them to `Link`.
+ * A plain link until that page exists (#24): the router's `Link` only accepts
+ * registered routes. That ticket should switch it to `Link`.
  */
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
-export const SIGN_UP_PATH = '/sign-up';
 
 export const authKeys = {
   me: ['auth', 'me'] as const,
@@ -111,6 +111,16 @@ export function useSignOut() {
   return useMutation({
     mutationFn: () => apiClient.postEmpty('/auth/sign-out'),
     onSuccess: () => endSession(queryClient, router),
+  });
+}
+
+/**
+ * Always 202 with no body: the API answers the same whether or not the email
+ * already has an account, and never signs the user in.
+ */
+export function useSignUp() {
+  return useMutation({
+    mutationFn: (body: SignUp) => apiClient.postEmpty('/auth/sign-up', body),
   });
 }
 

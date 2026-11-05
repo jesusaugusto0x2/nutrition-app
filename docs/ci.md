@@ -73,6 +73,10 @@ Details worth knowing:
   sets a placeholder.
 - **`Test`** runs once and exits: `nx.json` sets `testMode: "watch"`, and Vitest
   disables watch mode when `CI=true`, which GitHub Actions sets.
+- **Web tests wait up to 5 s** in `findBy*` and `waitFor`
+  (`apps/web/src/test-setup.ts`). The default 1 s failed the first render of a
+  lazy route in CI and locally whenever `pnpm test` ran every project at once.
+  A passing wait still returns as soon as it can.
 - **`Generated files are committed`** runs after `Build` because the build
   regenerates committed files (`apps/web/src/routeTree.gen.ts`). Any change
   fails the step with an annotation on each file saying how to regenerate it.

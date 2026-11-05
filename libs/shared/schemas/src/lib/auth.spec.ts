@@ -7,6 +7,7 @@ import {
   onboardingSchema,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  passwordLength,
   passwordSchema,
   resetPasswordSchema,
   signInSchema,
@@ -140,6 +141,12 @@ describe('signInSchema', () => {
     { password: 'secret' },
   ])('rejects %o', (body) => {
     expect(signInSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+describe('passwordLength', () => {
+  it('counts code points, not UTF-16 code units', () => {
+    expect(passwordLength('🍎ñ a')).toBe(4);
   });
 });
 
