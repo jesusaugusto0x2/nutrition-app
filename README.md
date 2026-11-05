@@ -71,6 +71,26 @@ await fetch('/api/auth/sign-in', {
 });
 ```
 
+### Sign in with Google locally
+
+Google sign-in is optional in development: without credentials the
+«Continuar con Google» button leads to a 404. To try it end to end:
+
+1. Create an OAuth client of type **Web application** as described in
+   [Setting up the client in Google](docs/architecture.md#google-openid-connect-implemented-19),
+   with the redirect URI `http://localhost:4200/api/auth/google/callback`
+   (exactly; the Vite proxy forwards it to the API). While the app is in
+   **Testing**, add your Google account as a test user.
+2. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the root `.env` and
+   restart `pnpm dev`.
+3. Open http://localhost:4200/login and click «Continuar con Google». A new
+   account lands on `/onboarding`, where it names its clinic and then goes to
+   `/patients`; an account that already exists goes straight home.
+
+Any failure lands on `/login?error=google`. The API logs the reason as
+`Google sign-in failed (<reason>)`; `TypeError` means it could not reach
+Google.
+
 ## Scripts
 
 | Script             | What it does                             |

@@ -154,6 +154,16 @@ describe('SignUpForm', () => {
     );
   });
 
+  it('offers Google sign-up, which asks for the clinic name afterwards', async () => {
+    stubApi();
+    await openSignUp();
+
+    expect(
+      screen.getByRole('link', { name: t.google.continue }),
+    ).toHaveAttribute('href', '/api/auth/google');
+    expect(screen.getByText(t.google.signUpHint)).toBeInTheDocument();
+  });
+
   it('shows Spanish field errors and posts nothing when they are empty', async () => {
     const fetchMock = stubApi();
     await openSignUp();

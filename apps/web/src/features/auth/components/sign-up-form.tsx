@@ -15,12 +15,14 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { FormAlert } from '@/components/ui/notice';
+import { OrSeparator } from '@/components/ui/or-separator';
 import { PasswordInput } from '@/components/ui/password-input';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useSignUp } from '../api';
 import { readThrottle } from '../throttle';
 import { CheckEmail } from './check-email';
+import { GoogleButton } from './google-button';
 
 type Failure =
   { kind: 'throttled'; minutes: number | null } | { kind: 'unknown' };
@@ -127,6 +129,14 @@ export function SignUpForm() {
       </header>
 
       {failure && <FailureAlert failure={failure} />}
+
+      <div className="flex flex-col gap-2">
+        <GoogleButton />
+        <p className="m-0 text-center text-sm text-muted-foreground">
+          {t.google.signUpHint}
+        </p>
+      </div>
+      <OrSeparator>{t.google.orWithEmail}</OrSeparator>
 
       <form
         noValidate
