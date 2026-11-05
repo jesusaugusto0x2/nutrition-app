@@ -1,6 +1,10 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { BottomNav } from '@/components/navigation/bottom-nav';
 import { Sidebar } from '@/components/navigation/sidebar';
+import {
+  BottomNavAccount,
+  SidebarAccount,
+} from '@/features/auth/components/signed-in-account';
 import { requireClinicAccess } from '@/features/auth/guards';
 
 /**
@@ -17,14 +21,17 @@ export const Route = createFileRoute('/_clinic')({
 function ClinicLayout() {
   return (
     <div className="flex min-h-dvh flex-wrap">
-      <Sidebar className="hidden md:flex md:flex-[1_1_var(--spacing-sidebar)]" />
+      <Sidebar
+        account={<SidebarAccount />}
+        className="hidden md:flex md:flex-[1_1_var(--spacing-sidebar)]"
+      />
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <main className="flex-1 px-5 py-6 md:px-12 md:py-7">
           <div className="mx-auto max-w-content">
             <Outlet />
           </div>
         </main>
-        <BottomNav className="md:hidden" />
+        <BottomNav account={<BottomNavAccount />} className="md:hidden" />
       </div>
     </div>
   );
