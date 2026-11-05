@@ -1,44 +1,25 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  passwordLength,
   SIGN_UP_NAME_MAX_LENGTH,
   type SignUp,
   signUpSchema,
 } from '@nutri/schemas';
 import { Link } from '@tanstack/react-router';
-import { CheckIcon, CircleIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { FormAlert } from '@/components/ui/notice';
 import { PasswordInput } from '@/components/ui/password-input';
 import { t } from '@/i18n';
-import { cn } from '@/lib/utils';
 import { useSignUp } from '../api';
-import { readThrottle } from '../throttle';
 import { CheckEmail } from './check-email';
-
-type Failure =
-  { kind: 'throttled'; minutes: number | null } | { kind: 'unknown' };
-
-function FailureAlert({ failure }: { failure: Failure }) {
-  if (failure.kind === 'unknown') {
-    return (
-      <FormAlert title={t.common.errorTitle}>{t.signUp.failedBody}</FormAlert>
-    );
-  }
-  return (
-    <FormAlert title={t.auth.tooManyAttemptsTitle}>
-      {failure.minutes === null
-        ? t.signUp.tooManyAttemptsLater
-        : t.signUp.tooManyAttemptsBody(failure.minutes)}
-    </FormAlert>
-  );
-}
+import { PasswordHint, passwordError } from './password-hint';
+import {
+  type RequestFailure,
+  RequestFailureAlert,
+  readRequestFailure,
+} from './request-failure';
 
 /**
  * The schema decides whether a field is valid; these pick the Spanish text,
@@ -48,39 +29,9 @@ function nameError(value: string, required: string): string {
   return value.trim() ? t.signUp.tooLong(SIGN_UP_NAME_MAX_LENGTH) : required;
 }
 
-function passwordError(value: string): string {
-  return passwordLength(value) > PASSWORD_MAX_LENGTH
-    ? t.signUp.tooLong(PASSWORD_MAX_LENGTH)
-    : t.signUp.passwordTooShort(PASSWORD_MIN_LENGTH);
-}
-
-/** The requirement of `passwordSchema`, checked as the user types. */
-function PasswordHint({ password }: { password: string }) {
-  const met = passwordLength(password) >= PASSWORD_MIN_LENGTH;
-  const Icon = met ? CheckIcon : CircleIcon;
-  return (
-    <>
-      <span
-        className={cn(
-          'flex items-center gap-2',
-          met && 'font-bold text-primary',
-        )}
-      >
-        <Icon
-          aria-hidden
-          className="size-[18px] flex-none"
-          strokeWidth={met ? 2.8 : 2}
-        />
-        {t.signUp.passwordMinLength(PASSWORD_MIN_LENGTH)}
-      </span>
-      <span className="block">{t.signUp.passwordTip}</span>
-    </>
-  );
-}
-
 export function SignUpForm() {
   const signUp = useSignUp();
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const [failure, setFailure] = useState<RequestFailure | null>(null);
   /** Set once the API accepted the request: the check-your-email screen. */
   const [sentTo, setSentTo] = useState<string | null>(null);
   const { control, handleSubmit, formState, setFocus } = useForm({
@@ -95,12 +46,7 @@ export function SignUpForm() {
       await signUp.mutateAsync(values);
       setSentTo(values.email);
     } catch (error) {
-      const throttle = readThrottle(error);
-      setFailure(
-        throttle
-          ? { kind: 'throttled', minutes: throttle.minutes }
-          : { kind: 'unknown' },
-      );
+      setFailure(readRequestFailure(error));
     }
   };
 
@@ -126,7 +72,12 @@ export function SignUpForm() {
         <p className="m-0 text-muted-foreground">{t.signUp.subtitle}</p>
       </header>
 
-      {failure && <FailureAlert failure={failure} />}
+      {failure && (
+        <RequestFailureAlert
+          failure={failure}
+          unknownBody={t.signUp.failedBody}
+        />
+      )}
 
       <form
         noValidate
