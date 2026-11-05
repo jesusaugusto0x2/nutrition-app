@@ -15,6 +15,7 @@ import { Route as ClinicRouteImport } from './routes/_clinic'
 import { Route as PortalRouteImport } from './routes/_portal'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as PortalPortalRouteImport } from './routes/_portal/portal'
 import { Route as DevComponentsRouteImport } from './routes/dev/components'
 import { Route as ClinicPatientsIndexRouteImport } from './routes/_clinic/patients/index'
@@ -47,6 +48,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => AuthRoute,
+} as any)
 const PortalPortalRoute = PortalPortalRouteImport.update({
   id: '/portal',
   path: '/portal',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/login': typeof AuthLoginRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/login': typeof AuthLoginRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/_portal': typeof PortalRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/_auth/login': typeof AuthLoginRoute
+  '/_auth/sign-up': typeof AuthSignUpRoute
   '/_portal/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
   '/_clinic/patients/$patientId': typeof ClinicPatientsPatientIdRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/login'
+    | '/sign-up'
     | '/portal'
     | '/dev/components'
     | '/patients/$patientId'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/login'
+    | '/sign-up'
     | '/portal'
     | '/dev/components'
     | '/patients/$patientId'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/_portal'
     | '/onboarding'
     | '/_auth/login'
+    | '/_auth/sign-up'
     | '/_portal/portal'
     | '/dev/components'
     | '/_clinic/patients/$patientId'
@@ -185,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/sign-up': {
+      id: '/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof AuthSignUpRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_portal/portal': {
       id: '/_portal/portal'
       path: '/portal'
@@ -218,10 +237,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
+  AuthSignUpRoute: AuthSignUpRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
