@@ -85,7 +85,7 @@ apps/api/src/
   modules/<domain>/  module, controller, service, repository, mapper, dto/
 apps/web/src/
   app/            providers, query client, router
-  routes/         file routes: _clinic/, _auth/, _portal/ layouts
+  routes/         file routes: _clinic/, _auth/, _link/, _portal/ layouts
   features/<domain>/  queries (api.ts) and domain components
   components/ui/  shadcn components; components/ generic app components
   i18n/es.ts      all UI text

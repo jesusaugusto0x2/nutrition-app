@@ -517,6 +517,7 @@ them. Each one only reads what the one before it set:
   | `_portal`     | `/login?redirect=<path>` | the user's home          |
   | `/onboarding` | `/login?redirect=<path>` | home, if they have one   |
   | `_auth`       | stays                    | always the user's home   |
+  | `_link`       | stays                    | stays                    |
   | `/`           | `/login`                 | always the user's home   |
 
   The home comes from `homePath`: `/patients` with a membership, otherwise
@@ -528,9 +529,9 @@ them. Each one only reads what the one before it set:
   default 30 seconds). Any failure other than a 401 shows the error page.
 - **`/onboarding` is outside `_auth`:** its user is signed in, so that layout
   would bounce them in a loop. It is a placeholder until #25.
-- **Pages reached from an emailed link while signed in** would be sent home by
-  `_auth`, so `/reset-password` and `/verify-email` (#24) need their own
-  placement.
+- **Pages reached from an emailed link** (`/verify-email`, `/reset-password`)
+  are in `_link`, which has no guard: `_auth` would send a signed-in user home
+  and drop the token unused (see "Web app: emailed-link pages").
 - **`redirect` is validated by `safeRedirectPath`,** which parses with the
   WHATWG URL algorithm instead of matching characters, because browsers read
   `/\evil.com` as `//evil.com` and strip tabs and newlines. `/login` reads it
@@ -596,9 +597,9 @@ them. Each one only reads what the one before it set:
   typed, already normalized, to `/api/auth/resend-verification` (see "Email
   verification"). The alert appears only after a correct password, so offering
   it reveals nothing about which emails have an account.
-- **A plain `<a>` link to `/forgot-password`** until #24 adds that route:
-  `Link` only accepts registered routes. It shows the not-found page until
-  then. «Crear cuenta» is a `Link` to `/sign-up` (#23).
+- «¿Olvidaste tu contraseña?» and the 429 alert's «Crear una contraseña nueva
+  ahora» are `Link`s to `/forgot-password` (#24). «Crear cuenta» is a `Link`
+  to `/sign-up` (#23).
 - **Differences from the prototype, on purpose:**
   - No "te quedan N intentos": the API does not report it, and #22 asks for
     one generic message.
@@ -652,6 +653,74 @@ them. Each one only reads what the one before it set:
     layout shows the boxed brand there; the link at the bottom remains.
   - "El enlace vence en 24 horas" is a fixed text: it must change with
     `EMAIL_VERIFICATION_TOKEN_LIFETIME_MS` in the API.
+
+### Web app: emailed-link pages (implemented, #24)
+
+Prototype boards `recuperar`, `recuperar-enviado`, `nueva-clave` and
+`enlace-error`.
+
+- **Placement:** `/forgot-password` is in `_auth` (signed-out only).
+  `/verify-email` and `/reset-password` are in `_link`, the same
+  `AuthLayout` without a guard, so the link works while signed in (a reset
+  asked from another device, a verification link of another account).
+- **The token leaves the address bar at once.** `validateLinkSearch` keeps the
+  raw `token` param and `useLinkToken` (`features/auth/link-token.ts`) copies
+  it into component state, then navigates to the same page with no search and
+  `replace: true`: the history entry is replaced, so neither Back nor a copied
+  URL carries it. A malformed token (`oneTimeTokenSchema` fails) is removed too
+  and shown as an expired link without calling the API. The token is never put
+  in the query cache, a loader, storage or a log.
+- **No third-party requests:** the pages use the self-hosted fonts and the app
+  bundle only, so no `Referer` with the token can leave (it is gone from the
+  URL before any later request anyway).
+- **`/verify-email` posts the token as soon as it opens** (`useVerifyEmail`),
+  once: a ref stops the second effect of Strict Mode, which would fail with
+  `INVALID_TOKEN` after the first request used the token. On 200 the API set
+  the session cookie; the hook removes every cached query (the previous
+  account's, if someone was signed in) and the page goes to `/` with
+  `replace`, whose guard reads `me` and sends the user home (`/onboarding` for
+  a new account until it has a clinic).
+- **Errors on `/verify-email`:**
+
+  | API answer          | Shown                                           |
+  | ------------------- | ----------------------------------------------- |
+  | 400 `INVALID_TOKEN` | expired link + email form to send a new link    |
+  | 429                 | the wait in minutes + «Reintentar» (same token) |
+  | anything else       | generic error + «Reintentar» (same token)       |
+
+  The new-link form posts `resend-verification` and then shows `CheckEmail`.
+  It asks for the email because the API never says whose token it was. The
+  expired page adds "si ya activaste tu cuenta, solo inicia sesión": a used
+  token and an already verified email answer the same.
+
+- **`/forgot-password`** posts the normalized email (`forgotPasswordSchema`)
+  and shows `CheckEmail` with `purpose="passwordReset"`: «Si hay una cuenta
+  con …», the 1-hour expiry, resend (same 60 s cooldown, it calls
+  `forgot-password` again) and «Usar otro email», which brings the empty form
+  back with the field focused. 429 and other failures use the same alert as
+  sign-up (`request-failure.tsx`).
+- **`/reset-password`** asks for the new password twice. The confirmation only
+  exists in the form schema (`passwordSchema` + a refine); the API body is
+  `resetPasswordSchema`. The hint and messages are the sign-up ones
+  (`password-hint.tsx`). On 204 `useResetPassword` clears the cache (the API
+  ended every session) and the page says it worked, with a link to `/login`.
+  `INVALID_TOKEN` shows the expired link with «Pedir un enlace nuevo» to
+  `/forgot-password`; 429 and other failures keep the form, so the user can
+  submit again with the same token.
+- **Focus:** the heading of each new state (expired, failed, done, check your
+  email) takes focus, as on sign-up.
+- **Differences from the prototype, on purpose:**
+  - No «Para la cuenta carmen@…» on `/reset-password`: the API does not reveal
+    whose token it is before it is used.
+  - Password rules: one 15-character rule, as on sign-up (NIST), not the
+    prototype's 8 characters, a letter and a number.
+  - The expired page has no note about portal invitations: those do not exist
+    yet. It says «ya no funciona» instead of «ya venció», since the API does
+    not tell an expired token from a used one.
+  - The note under the reset button says the session ends on **all** devices:
+    the API ends this one too, not only the others.
+  - «El enlace vence en 1 hora» is fixed text: it must change with
+    `PASSWORD_RESET_TOKEN_LIFETIME_MS` in the API.
 
 ### CSRF (implemented, #13)
 
@@ -815,8 +884,9 @@ differences) used by both sides.
 ## Frontend (apps/web)
 
 - **React + Vite SPA, installable PWA** (vite-plugin-pwa), mobile-first.
-- **TanStack Router** with file-based routes and three layouts: `_clinic`
-  (staff), `_auth` and `_portal` (placeholders). Route loaders prefetch with
+- **TanStack Router** with file-based routes and four layouts: `_clinic`
+  (staff), `_auth` (signed-out pages), `_link` (pages opened from an emailed
+  link) and `_portal` (placeholder). Route loaders prefetch with
   **TanStack Query**, which owns data freshness.
 - **shadcn/ui** (Base UI primitives, `base-nova` style) and Tailwind CSS 4.
   Forms use shadcn's `Field` components with React Hook Form's `Controller`
