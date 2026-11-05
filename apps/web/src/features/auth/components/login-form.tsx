@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { FormAlert, SuccessNotice } from '@/components/ui/notice';
+import { OrSeparator } from '@/components/ui/or-separator';
 import { PasswordInput } from '@/components/ui/password-input';
 import { t } from '@/i18n';
 import { ApiClientError } from '@/lib/api-client';
@@ -20,8 +21,10 @@ import {
   useSignIn,
 } from '../api';
 import { homePath } from '../home-path';
+import type { LoginSearch } from '../redirect';
 import { readThrottle } from '../throttle';
 import { useSecondsUntil } from '../use-seconds-until';
+import { GoogleButton } from './google-button';
 
 type Failure =
   | { kind: 'credentials' }
@@ -120,12 +123,17 @@ function FailureAlert({ failure }: { failure: Failure }) {
   }
 }
 
-/** `redirect` is already validated: see `safeRedirectPath`. */
-export function LoginForm({ redirect }: { redirect?: string }) {
+/**
+ * `redirect` and `error` come from `validateLoginSearch`. A Google failure
+ * does not carry `redirect`: the API sends a successful Google sign-in to `/`.
+ */
+export function LoginForm({ redirect, error }: LoginSearch) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const signIn = useSignIn();
   const [failure, setFailure] = useState<Failure | null>(null);
+  /** Shown until the user tries again with their email. */
+  const [googleFailed, setGoogleFailed] = useState(error === 'google');
   const { control, handleSubmit, formState } = useForm({
     resolver: zodResolver(signInSchema),
     defaultValues: { email: '', password: '' },
@@ -139,6 +147,7 @@ export function LoginForm({ redirect }: { redirect?: string }) {
 
   const onSubmit = async (values: SignIn) => {
     setFailure(null);
+    setGoogleFailed(false);
     try {
       await signIn.mutateAsync(values);
       const me = await queryClient.fetchQuery(meQueryOptions());
@@ -162,6 +171,14 @@ export function LoginForm({ redirect }: { redirect?: string }) {
       </header>
 
       {shownFailure && <FailureAlert failure={shownFailure} />}
+      {googleFailed && (
+        <FormAlert title={t.google.failedTitle}>
+          {t.google.failedBody}
+        </FormAlert>
+      )}
+
+      <GoogleButton />
+      <OrSeparator>{t.google.orWithEmail}</OrSeparator>
 
       <form
         noValidate

@@ -3,6 +3,7 @@ import {
   authMeSchema,
   authUserSchema,
   type ForgotPassword,
+  type Onboarding,
   type ResendVerification,
   type ResetPassword,
   type SignIn,
@@ -25,6 +26,13 @@ const LOGIN_PATH = '/login';
  * registered routes. That ticket should switch it to `Link`.
  */
 export const FORGOT_PASSWORD_PATH = '/forgot-password';
+
+/**
+ * Starts Google sign-in. A browser navigation, never `fetch`: the API answers
+ * with a redirect to Google, which comes back to the API and then to `/`,
+ * `/onboarding` or `/login?error=google`.
+ */
+export const GOOGLE_SIGN_IN_PATH = '/api/auth/google';
 
 export const authKeys = {
   me: ['auth', 'me'] as const,
@@ -145,5 +153,19 @@ export function useResetPassword() {
       apiClient.postEmpty('/auth/reset-password', body),
     // The API ends every session of the user, including this one.
     onSuccess: () => clearSessionData(queryClient),
+  });
+}
+
+/**
+ * Creates the first clinic of a signed-in user who has none (a new Google
+ * account). 204 with no body; `me` is removed so the next read sees the new
+ * membership.
+ */
+export function useOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Onboarding) =>
+      apiClient.postEmpty('/auth/onboarding', body),
+    onSettled: () => queryClient.removeQueries({ queryKey: authKeys.me }),
   });
 }

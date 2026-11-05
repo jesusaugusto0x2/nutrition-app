@@ -163,6 +163,49 @@ describe('LoginForm', () => {
     ).toHaveAttribute('href', '/sign-up');
   });
 
+  it('starts Google sign-in with a full-page navigation to the API', async () => {
+    stubApi(() => json(200, user));
+    await openLogin();
+
+    expect(
+      screen.getByRole('link', { name: t.google.continue }),
+    ).toHaveAttribute('href', '/api/auth/google');
+  });
+
+  it('says nothing about Google without an error in the URL', async () => {
+    stubApi(() => json(200, user));
+    await openLogin();
+
+    expect(screen.queryByText(t.google.failedTitle)).not.toBeInTheDocument();
+  });
+
+  it('shows a generic message when Google sign-in failed', async () => {
+    stubApi(() => json(200, user));
+    await openLogin('/login?error=google');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(t.google.failedTitle);
+    expect(screen.getByText(t.google.failedBody)).toBeInTheDocument();
+  });
+
+  it('ignores an unknown error in the URL', async () => {
+    stubApi(() => json(200, user));
+    await openLogin('/login?error=%3Cb%3Eoops%3C%2Fb%3E');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('replaces the Google message with the outcome of an email sign-in', async () => {
+    stubApi(() => json(401, apiError(401, 'INVALID_CREDENTIALS')));
+    await openLogin('/login?error=google');
+
+    submit();
+
+    expect(
+      await screen.findByText(t.auth.invalidCredentialsTitle),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(t.google.failedTitle)).not.toBeInTheDocument();
+  });
+
   it('shows Spanish field errors and posts nothing when they are empty', async () => {
     const fetchMock = stubApi(() => json(200, user));
     await openLogin();

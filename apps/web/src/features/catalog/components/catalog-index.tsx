@@ -23,6 +23,8 @@ const index: { family: string; sections: [id: string, title: string][] }[] = [
       ['yes-no', components.yesNo],
       ['choice', components.choice],
       ['chips', components.chips],
+      ['google-button', components.googleButton],
+      ['or-separator', components.orSeparator],
     ],
   },
   {
