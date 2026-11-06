@@ -15,7 +15,7 @@ import { users } from './users';
 // and are not clinical records: expired sessions and used or expired tokens
 // may be physically deleted. Tokens are stored only as SHA-256 hashes, never
 // raw. Constraint names are explicit: drizzle does not apply snake_case to
-// generated ones. See "Authentication" in docs/architecture.md.
+// generated ones. See docs/authentication.md.
 
 /** Longest `User-Agent` kept; longer values are truncated before insert. */
 export const USER_AGENT_MAX_LENGTH = 512;
