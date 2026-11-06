@@ -97,7 +97,7 @@ once the project does (owner role name, restore test) are in
 
 | Setting        | Value                                       |
 | -------------- | ------------------------------------------- |
-| Project        | `mi-consulta`, Neon **Free** plan           |
+| Project        | `nutrition-app`, Neon **Free** plan         |
 | Region         | AWS US East (N. Virginia), `aws-us-east-1`  |
 | Postgres       | 18, the same major as Docker Compose and CI |
 | Branch         | `production` (the root branch)              |
@@ -191,7 +191,7 @@ Do this once. Keep every password only in the password manager and in
 Railway variables (#40): never in the repository, an issue, a pull request or
 a chat. Run it from the repository root, which has `scripts/neon/`.
 
-1. **Create the project** in the Neon Console: name `mi-consulta`, Postgres
+1. **Create the project** in the Neon Console: name `nutrition-app`, Postgres
    18, AWS, US East (N. Virginia), database name `nutri`. Note the owner role
    Neon creates (Roles page) in [Production record](#production-record).
 2. **Save the owner's direct connection string** in the password manager as
