@@ -10,6 +10,7 @@ per-clinic data isolation. The UI is in Spanish.
 - `libs/shared/utils`: shared pure calculations (`@nutri/utils`)
 
 See [docs/architecture.md](docs/architecture.md) for the design,
+[docs/authentication.md](docs/authentication.md) for sign-in and accounts,
 [docs/deployment.md](docs/deployment.md) for production,
 [docs/ci.md](docs/ci.md) for CI and quality checks and
 [CLAUDE.md](CLAUDE.md) for development rules.
@@ -47,29 +48,21 @@ Every email the API sends in development lands in Mailpit at
 http://localhost:8025; nothing leaves your machine. `pnpm mail:test` sends
 one email of each template there to preview them.
 
-Every route except health and the sign-in family requires a session. Sign in
-(`POST /api/auth/sign-in`) with these seed users (development only; the seed
-refuses to run in production):
+### Sign in
 
-| User                 | Password             | Kind                                         |
-| -------------------- | -------------------- | -------------------------------------------- |
-| `owner@example.com`  | `nutri-dev-password` | Staff: owner of the seed clinic              |
-| `portal@example.com` | `nutri-dev-password` | Portal: guardian of the patient Valentina R. |
+The seed creates two verified users (development only; the seed refuses to
+run in production):
 
-The web app has no login page yet (#22), so its clinic screens answer 401 until
-you sign in. Run this in the browser console on http://localhost:4200, then
-reload:
+| User                 | Password             | Lands on                                                      |
+| -------------------- | -------------------- | ------------------------------------------------------------- |
+| `owner@example.com`  | `nutri-dev-password` | `/patients`: owner of the seed clinic                         |
+| `portal@example.com` | `nutri-dev-password` | `/portal`: guardian of the patient Valentina R. (placeholder) |
 
-```js
-await fetch('/api/auth/sign-in', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({
-    email: 'owner@example.com',
-    password: 'nutri-dev-password',
-  }),
-});
-```
+Open http://localhost:4200/login and sign in with either one. To try the
+whole sign-up flow instead, register at http://localhost:4200/sign-up with any
+address and open the verification link from Mailpit. Every route except
+health and the sign-in family needs a session; how it all works is in
+[docs/authentication.md](docs/authentication.md).
 
 ### Sign in with Google locally
 
@@ -77,7 +70,7 @@ Google sign-in is optional in development: without credentials the
 «Continuar con Google» button leads to a 404. To try it end to end:
 
 1. Create an OAuth client of type **Web application** as described in
-   [Setting up the client in Google](docs/architecture.md#google-openid-connect-implemented-19),
+   [Setting up the client in Google](docs/authentication.md#setting-up-the-client-in-google),
    with the redirect URI `http://localhost:4200/api/auth/google/callback`
    (exactly; the Vite proxy forwards it to the API). While the app is in
    **Testing**, add your Google account as a test user.
@@ -140,8 +133,12 @@ DATABASE_URL="postgres://nutri:nutri@host.docker.internal:5432/nutri?sslmode=dis
 
 ## Troubleshooting
 
-- **Clinic routes return 503 "Development clinic not found"**: run
-  `pnpm db:seed`.
+- **Signing in with a seed user fails**: run `pnpm db:seed` (it resets the
+  local data and both passwords). Too many attempts answer 429; wait 15
+  minutes or restart `pnpm dev`.
+- **No email arrives in Mailpit**: check `docker compose up -d` and the API
+  log; see
+  [Read emails locally](docs/authentication.md#read-emails-locally-mailpit).
 - **Nx reports "The workspace is out of sync"**: run `pnpm nx sync` (needed
   after adding a dependency between workspace projects).
 - **Tests ignore a tsconfig change**: run `pnpm exec vitest --clearCache`

@@ -40,7 +40,7 @@ Container ──SMTP──> Resend ──> patients and staff
 - **Neon:** the production database.
 - **Domain:** pending, see #41.
 - **Resend:** transactional email over SMTP (chosen in
-  [docs/architecture.md](architecture.md#email-implemented-15)).
+  [docs/authentication.md](authentication.md#email-15)).
 
 How a change reaches production: a merge to `main` triggers CI on the push;
 Railway waits for that run, builds the image, runs pending migrations in a
@@ -306,7 +306,7 @@ It runs inside the API process every day at 03:00 UTC and physically deletes:
 A session is otherwise deleted only when its token comes back, so rows of a
 cleared browser or a lost device would stay forever. They are auth data, not
 clinical records, so physical deletion is correct (see
-[Auth data and soft delete](architecture.md#auth-data-and-soft-delete)).
+[Auth data and soft delete](authentication.md#auth-data-and-soft-delete)).
 
 Why in-process with `@nestjs/schedule`:
 
@@ -484,14 +484,14 @@ questions.
 
 **Google sign-in answers `redirect_uri_mismatch`.** The client at Google does
 not list `${APP_ORIGIN}/api/auth/google/callback` exactly. Add it, and change it
-together with the domain. See "Google: OpenID Connect" in
-[architecture.md](architecture.md), which has the console steps.
+together with the domain. See
+[Register a new Google redirect URI](authentication.md#register-a-new-google-redirect-uri).
 
 **Every sign-in or save answers 403, but pages load.** `APP_ORIGIN` does not
 match the address in the browser: `CsrfGuard` logs `Rejected POST <route>`
 for each one. Set it to the exact public origin (scheme, host and port), and
-change it together with the domain. See the CSRF section of
-[architecture.md](architecture.md).
+change it together with the domain. See
+[CSRF](authentication.md#csrf-13).
 
 **Do we need an index on `expires_at` for the cleanup job?** No. It scans
 `sessions` and `auth_tokens` once a day, and both tables stay small because

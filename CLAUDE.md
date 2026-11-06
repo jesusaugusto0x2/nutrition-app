@@ -16,6 +16,7 @@ isolation and not leaking data are non-negotiable.**
 Docs live in `docs/`: [architecture.md](docs/architecture.md) holds
 cross-cutting design, and each epic has one `docs/<topic>.md` with its details
 (decisions, how to operate it, runbooks, FAQ), such as
+[authentication.md](docs/authentication.md),
 [deployment.md](docs/deployment.md) and [ci.md](docs/ci.md).
 
 ## 2. Language rules
@@ -149,7 +150,7 @@ Tooling notes:
   methods always take `clinicId` and also filter `deleted_at IS NULL`.
 - Every route requires a session by default (global `SessionAuthGuard`).
   Only routes meant for signed-out callers use `@Public()`, on each handler,
-  never on a controller.
+  never on a controller, and the PR must say why the route is public.
 - Only `GET`, `HEAD` and `OPTIONS` skip the global `CsrfGuard`, so a safe
   method never changes state. Writes must come from `APP_ORIGIN`; `@Public()`
   does not exempt them.
@@ -164,8 +165,10 @@ Tooling notes:
   `@nutri/schemas`, so undeclared fields (`clinicId`, `deletedAt`) never
   leave the API.
 - Clinical records use soft delete (`deleted_at`); never delete physically.
+  Sessions and one-time auth tokens are auth data, not clinical records, and
+  are physically deleted when they end (daily cleanup job).
 - Never log patient data or secrets (no bodies, no DB error messages, no
-  env values, no email recipients or email content).
+  env values, no tokens or cookies, no email addresses, no email content).
 - Every change that touches clinic isolation ships with a test proving it.
 - The service worker must never cache or handle `/api`.
 - In production the app connects as `nutri_app`, a data-only role (no DDL),

@@ -66,7 +66,7 @@ const envSchema = z
     // (its hop count is not fixed, so `trust proxy` cannot be used);
     // `socket` when nothing sits in front of the API.
     CLIENT_IP_SOURCE: z.enum(['socket', 'x-real-ip']).optional(),
-    // OAuth client of type "Web application" (docs/architecture.md, "Google:
+    // OAuth client of type "Web application" (docs/authentication.md, "Google:
     // OpenID Connect"). Without them the Google routes answer 404, which is
     // only allowed outside production.
     GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),

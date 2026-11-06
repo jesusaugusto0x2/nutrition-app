@@ -39,7 +39,7 @@ export interface ActiveSessionRow {
 }
 
 // Sessions are not clinic-scoped and are not clinical records: revoked and
-// expired sessions are physically deleted (see docs/architecture.md).
+// expired sessions are physically deleted (see docs/authentication.md).
 @Injectable()
 export class SessionsRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
