@@ -12,7 +12,7 @@ export type NewAuthToken = Pick<
 >;
 
 // One-time tokens are not clinic-scoped and are not clinical records:
-// replaced tokens are physically deleted (see docs/architecture.md).
+// replaced tokens are physically deleted (see docs/authentication.md).
 @Injectable()
 export class AuthTokensRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
