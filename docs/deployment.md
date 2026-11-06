@@ -87,11 +87,200 @@ Sources, checked on 2026-11-01:
 
 ## Database (Neon)
 
-Pending, see #38 (project, region, roles, restore window, restore test).
+**Status: designed and rehearsed locally (#38); the Neon project is set up
+by hand with the runbook below.** The scripts were run end to end on a scratch
+local Postgres 18 with a non-superuser owner role. The facts that only exist
+once the project does (owner role name, restore test) are in
+[Production record](#production-record).
+
+### What is set up
+
+| Setting        | Value                                       |
+| -------------- | ------------------------------------------- |
+| Project        | `mi-consulta`, Neon **Free** plan           |
+| Region         | AWS US East (N. Virginia), `aws-us-east-1`  |
+| Postgres       | 18, the same major as Docker Compose and CI |
+| Branch         | `production` (the root branch)              |
+| Database       | `nutri`                                     |
+| Owner role     | created with the project; runs migrations   |
+| App role       | `nutri_app`, created with SQL; data only    |
+| Restore window | 6 hours (Free plan maximum, up to 1 GB)     |
+
+**Region.** Railway offers four regions (California, Virginia, Amsterdam,
+Singapore) and Neon eight AWS regions. Railway's `us-east4-eqdc4a`
+(Virginia) and Neon's `aws-us-east-1` (N. Virginia) are in the same area, so
+every query pays the least round-trip time, and the users are in the
+Americas. #40 must put the Railway service in `us-east4-eqdc4a`. Rejected:
+Amsterdam + Frankfurt (`aws-eu-central-1`), close to each other but far from
+the users. Both lists were checked on 2026-11-05.
+
+**Plan.** Free, chosen by the owner for now. What it means in production:
+
+- **Restore window of 6 hours** (and at most 1 GB of changes). A mistake
+  noticed the next day cannot be undone from Neon. See
+  [Open questions and debt](#open-questions-and-debt).
+- **Scale to zero after 5 minutes idle, and it cannot be turned off.** The
+  first query after a quiet period waits for the compute to start (usually
+  well under a second). `GET /api/health` is also slower then.
+- 1 GB of storage and 100 CU-hours a month per project, 10 branches
+  (counting `production`). Check usage in the Neon Console before inviting
+  more clinics.
+
+### Roles
+
+Two roles, least privilege:
+
+- **Owner role** (created with the project, a member of `neon_superuser`).
+  Owns every table, because migrations create them. Used only by migrations
+  (`DATABASE_MIGRATION_URL`, #39) and by a person following a runbook, over the
+  direct connection.
+- **`nutri_app`**: the app's role (`DATABASE_URL`). `SELECT`, `INSERT`,
+  `UPDATE` and `DELETE` on the tables in `public`, `USAGE`/`SELECT` on its
+  sequences, nothing else: no DDL, no `TRUNCATE`, no temporary tables, no
+  access to the `drizzle` schema (the migrations journal).
+
+Why `nutri_app` is created with SQL: roles created in the Neon Console, API
+or CLI join `neon_superuser`, which can read and write every table (it has
+`pg_read_all_data` and `pg_write_all_data`), bypass row-level security, and
+create roles and databases. A role created with SQL gets only what is granted
+to it.
+
+`scripts/neon/create-app-role.sql` grants on the tables that exist now and
+sets `ALTER DEFAULT PRIVILEGES`, so tables and sequences created later **by
+the owner role** get the same grants. Default privileges belong to the role
+that created the object: a table created by any other role gets no grants,
+and `check-app-role.sql` then fails with `missing data privileges on <table>`.
+So migrations must always run as the owner role.
+
+What the app needs, checked in the code: plain reads and writes and
+`SELECT ... FOR UPDATE` (needs `UPDATE`). No session-level `SET`,
+`LISTEN`/`NOTIFY`, SQL `PREPARE` or advisory locks, which the pooler would
+break anyway.
+
+### Connection strings
+
+Copy them from **Connect** in the Neon Console (choose the `production`
+branch, the `nutri` database, then the role; "Connection pooling" on for the
+app, off for the owner). Then change the query string as shown:
+
+```text
+DATABASE_URL            postgresql://nutri_app:<password>@<endpoint>-pooler.<region>.aws.neon.tech/nutri?sslmode=verify-full
+DATABASE_MIGRATION_URL  postgresql://<owner>:<password>@<endpoint>.<region>.aws.neon.tech/nutri?sslmode=verify-full
+```
+
+- **`sslmode=verify-full`, not Neon's `sslmode=require`.** With our `pg`
+  (8.23, `pg-connection-string` 2.14), `require` already means `verify-full`,
+  but it prints a security warning: pg 9 adopts libpq's meaning, where
+  `require` encrypts without checking the certificate. `verify-full` keeps
+  the check across that upgrade. Neon's certificates come from a public CA,
+  which Node trusts by default, so no `sslrootcert` is needed.
+- **Production refuses to boot without it.** `loadConfig` rejects a
+  `DATABASE_URL` whose `sslmode` is not `verify-full`, or `disable` (accepted
+  only because the CI smoke test runs the production image against a local
+  Postgres without TLS; it is visible in review). A missing `sslmode` is
+  rejected too.
+- **Drop `channel_binding=require`.** `pg` ignores that parameter (channel
+  binding is a client option, `enableChannelBinding`, which we do not set);
+  `verify-full` already prevents a man in the middle.
+- Passwords are generated URL-safe (see the runbook), so they need no
+  percent-encoding.
+
+### Runbook: set up the project
+
+Do this once. Keep every password only in the password manager and in
+Railway variables (#40): never in the repository, an issue, a pull request or
+a chat. Run it from the repository root, which has `scripts/neon/`.
+
+1. **Create the project** in the Neon Console: name `mi-consulta`, Postgres
+   18, AWS, US East (N. Virginia), database name `nutri`. Note the owner role
+   Neon creates (Roles page) in [Production record](#production-record).
+2. **Save the owner's direct connection string** in the password manager as
+   `DATABASE_MIGRATION_URL`, with `sslmode=verify-full` as shown above.
+3. **Generate the app role's password** and copy it to the clipboard
+   without printing it:
+
+   ```bash
+   openssl rand -base64 33 | tr '+/' '-_' | tr -d '\n' | pbcopy
+   ```
+
+   Save it in the password manager right away (it is 44 URL-safe characters,
+   well above Neon's 60-bit entropy minimum).
+
+4. **Create `nutri_app`.** With the app password still in the clipboard, run
+   the script as the owner over the direct host. psql asks for the owner's
+   password without echoing it:
+
+   ```bash
+   APP_PASSWORD="$(pbpaste)" docker run --rm -it -e APP_PASSWORD \
+     -v "$PWD/scripts/neon:/sql:ro" postgres:18-alpine \
+     psql "host=<endpoint>.<region>.aws.neon.tech dbname=nutri user=<owner> sslmode=verify-full sslrootcert=system" \
+     -f /sql/create-app-role.sql
+   ```
+
+   It prints `nutri_app created.` It runs in one transaction, so a failure
+   changes nothing. Neon rejects a weak password at this step. Clear the
+   clipboard afterwards.
+
+5. **Build `DATABASE_URL`** for `nutri_app` over the pooled host (`-pooler`)
+   and save it in the password manager.
+6. **After the first migration** (#39), prove the app role's limits with
+   the next runbook.
+
+### Runbook: check the app role
+
+Run it after the first migration and after anything that touches roles or
+grants. It connects as `nutri_app` over the pooled host, as the app does, and
+asks for its password:
+
+```bash
+docker run --rm -it -v "$PWD/scripts/neon:/sql:ro" postgres:18-alpine \
+  psql "host=<endpoint>-pooler.<region>.aws.neon.tech dbname=nutri user=nutri_app sslmode=verify-full sslrootcert=system" \
+  -f /sql/check-app-role.sql
+```
+
+It reads no rows and changes nothing. Expected output, one `NOTICE` each:
+no role attributes or memberships; the four data privileges on every
+`public` table; `CREATE TABLE`, `CREATE SCHEMA`, `CREATE TEMPORARY TABLE`,
+`ALTER TABLE`, `DROP TABLE` and `TRUNCATE` denied; the migrations journal not
+readable; `All checks passed.` Any failure stops with `FAIL: <what>`. If it
+says `missing data privileges`, a table was created by a role other than the
+owner: fix it with a `GRANT` as the owner and find out how it happened.
+
+### Runbook: test a restore
+
+The acceptance test for #38, and a drill worth repeating before go-live
+(#45). It never touches `production`:
+
+1. Write down the current time (UTC). Within the restore window (6 hours),
+   create a branch: **Branches → New branch**, parent `production`, **Past
+   data**, a time a few minutes earlier, auto-delete after 1 hour.
+2. Connect to the branch's own host (it differs from `production`'s) as the
+   owner, for example with the `psql` command above, and confirm the schema
+   and the expected rows: `SELECT count(*) FROM drizzle.__drizzle_migrations;`
+   and a row count on a table you changed after that time. Do not copy
+   patient data out of it.
+3. Delete the branch (or let auto-delete do it) and fill in
+   [Production record](#production-record).
+
+Restoring `production` itself is [Restore the database](#restore-the-database).
+
+### Production record
+
+Fill this in as the steps are done; names and dates only, never secrets.
+
+- Project created: pending.
+- Owner role name: pending.
+- `nutri_app` created and `check-app-role.sql` passing: pending (needs the
+  first migration, #39).
+- Migrations applied with the owner role: pending (#39).
+- Restore to a branch tested: pending.
 
 ## Migrations
 
 Pending, see #39 (entry point `migrate.js`, `DATABASE_MIGRATION_URL`).
+#39 must validate `DATABASE_MIGRATION_URL` with the same `sslmode` rule as
+`DATABASE_URL` and run as the owner role, which the app role's default
+privileges depend on ([Roles](#roles)).
 
 ## Railway service
 
@@ -171,7 +360,7 @@ app.
 | `NODE_ENV`               | `production`; turns on required variables           | App        | `Dockerfile`          |
 | `WEB_DIST_DIR`           | Path of the built web app                           | App        | `Dockerfile`          |
 | `PORT`                   | Port the API listens on                             | App        | `Dockerfile`; see #40 |
-| `DATABASE_URL`           | Pooled connection, application role                 | App        | Railway (secret)      |
+| `DATABASE_URL`           | Pooled connection, `nutri_app`; `verify-full`       | App        | Railway (secret)      |
 | `DATABASE_MIGRATION_URL` | Direct connection, owner role (added by #39)        | Pre-deploy | Railway (secret)      |
 | `SMTP_URL`               | SMTP server with credentials                        | App        | Railway (secret)      |
 | `MAIL_FROM`              | Sender of every email, on the verified domain       | App        | Railway               |
@@ -214,11 +403,16 @@ fix forward with a new migration.
 
 ### Restore the database
 
-Draft until #38 tests it.
+Draft until it has been used once. Act fast: the restore window is **6
+hours** on the Free plan ([Database (Neon)](#database-neon)); after that,
+the past is gone.
 
 1. Try to avoid restoring production: within the history window, create a
-   branch at the point in time and read from it to confirm the right moment.
-2. If production must go back, use Neon's instant restore. It **discards
+   branch at the point in time and read from it to confirm the right moment
+   ([Runbook: test a restore](#runbook-test-a-restore) has the steps).
+2. If production must go back, use Neon's instant restore: select the
+   `production` branch, **Backup & Restore → Restore from history**, pick the
+   time, **Next**, review, **Restore**. It **discards
    every change after that point in all databases on the branch**, and keeps
    the prior state in a backup branch `{branch_name}_old_{head_timestamp}`,
    which is how a restore is undone.
@@ -227,13 +421,28 @@ Draft until #38 tests it.
 
 ### Rotate credentials
 
-Draft until #38 and #42 are done. Never paste a value in an issue, a pull
-request or a chat.
+Draft until #42 is done and each part has been used once. Never paste a
+value in an issue, a pull request or a chat.
 
-- **Neon:** reset the role's password in Neon, then update `DATABASE_URL`
-  (application role) or `DATABASE_MIGRATION_URL` (owner role) in Railway and
-  deploy. New app connections fail between the two steps, so expect a short
-  outage when rotating the application role.
+- **Neon, `nutri_app`:** it was created with SQL, so change its password with
+  SQL too (Neon does not document the Console's reset for such roles).
+  Generate a password and copy it as in step 3 of
+  [Runbook: set up the project](#runbook-set-up-the-project), save it in the
+  password manager, then run, as the owner over the direct host:
+
+  ```bash
+  APP_PASSWORD="$(pbpaste)" docker run --rm -it -e APP_PASSWORD \
+    -v "$PWD/scripts/neon:/sql:ro" postgres:18-alpine \
+    psql "host=<endpoint>.<region>.aws.neon.tech dbname=nutri user=<owner> sslmode=verify-full sslrootcert=system" \
+    -f /sql/rotate-app-password.sql
+  ```
+
+  Then update `DATABASE_URL` in Railway and deploy. Connections already open
+  keep working; new ones fail until the deploy, so expect a short outage.
+
+- **Neon, owner role:** reset its password in the Neon Console (Roles →
+  Reset password), then update `DATABASE_MIGRATION_URL` in Railway. Only the
+  next deploy's migrations use it, so there is no outage.
 - **SMTP:** create a new Resend API key, update `SMTP_URL` in Railway and
   deploy, confirm an email arrives, then delete the old key. There is no
   outage in this order.
@@ -298,7 +507,45 @@ and touches only those two tables.
 **Does the job keep Neon awake?** No. If the compute has scaled to zero, the
 job wakes it once a day for one short query.
 
+**The app logs `permission denied for table <name>` after a deploy.** The
+table was created by a role other than the owner, so the default privileges
+did not apply. Run `check-app-role.sql` to list every such table, grant on
+them as the owner (`GRANT SELECT, INSERT, UPDATE, DELETE ON <table> TO
+nutri_app;`), and make sure migrations run with `DATABASE_MIGRATION_URL`.
+
+**Why not run the role script in the Neon SQL Editor?** The editor keeps a
+history of what was run, and the script contains a password. psql in a
+throwaway container reads it from an environment variable filled from the
+clipboard, so it is never displayed or stored.
+
+**Why does the app role not get `CREATE` on `public` explicitly revoked?**
+Since Postgres 15, `PUBLIC` has only `USAGE` on `public`, and roles created
+with SQL on Neon get nothing more; `check-app-role.sql` proves it. Temporary
+tables are the one default that had to be revoked (`REVOKE TEMPORARY ... FROM
+PUBLIC`).
+
+**Can a branch or a restore leak data?** A branch is a full copy of
+production, patient data included, with the same roles and passwords. Create
+one only for a restore check, read counts rather than rows, and let it
+auto-delete.
+
+**Is the seed ever run on Neon?** Never. It refuses to run with
+`NODE_ENV=production`, and the runbooks never call it.
+
+**Rehearsing the role scripts locally.** Use a scratch database and a
+non-superuser owner with `CREATEROLE`, never the dev database. In the
+Docker Compose Postgres, connections over `localhost` inside the container
+are trusted without a password (the image's `pg_hba.conf`), so test
+passwords from another container through `host.docker.internal`.
+
 ## Open questions and debt
+
+- **The restore window is 6 hours (Neon Free).** For clinical data that is a
+  short margin: a mistake noticed the next morning cannot be undone, and
+  nothing else backs up the database. Decide before the first real user
+  (#45): move to Launch (pay as you go) and raise the window to 7 days
+  (history is billed per GB-month), or add a scheduled logical backup.
+  Recorded on 2026-11-05, when the owner chose Free to start.
 
 - **The first deploy needs variables owned by later tickets.** #40 comes
   before the domain (#41) and the mail records (#42), but the app cannot boot
