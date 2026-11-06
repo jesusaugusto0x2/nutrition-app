@@ -112,7 +112,10 @@ a migrated schema. The script waits up to 60 s for the image's own
 
 On failure it prints the container logs; it always removes the container.
 `DATABASE_URL` is forwarded with `--env`, so its value never appears on a command
-line. `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`, `CLIENT_IP_SOURCE`,
+line. It ends in `?sslmode=disable`: in production the app accepts only an
+explicit `verify-full` or `disable`
+([Database (Neon)](deployment.md#database-neon)), and the service container
+has no TLS. `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`, `CLIENT_IP_SOURCE`,
 `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` default to placeholders (nothing
 is emailed, and Google is never called), and `SMOKE_PORT` (default 3100) sets the host
 port. To run it locally, see
@@ -264,7 +267,9 @@ be committed, add it to `.gitignore`.
 **CI fails on `Smoke test`.** The job log ends with the container logs. Reproduce
 it with the local command in the README. `container exited before becoming
 healthy` usually means the app refused to start, for example because a new
-required production variable is not set in `scripts/smoke-test-image.sh`.
+required production variable is not set in `scripts/smoke-test-image.sh`, or
+`DATABASE_URL: Must set sslmode=verify-full in production` when the smoke
+test's `DATABASE_URL` lost its `?sslmode=disable`.
 
 ### Pull requests with no result
 

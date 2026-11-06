@@ -27,6 +27,16 @@ const REQUIRED_IN_PRODUCTION = [
   'GOOGLE_CLIENT_SECRET',
 ] as const;
 
+/**
+ * `sslmode` values a production `DATABASE_URL` may state. `verify-full` is
+ * the real one (Neon, docs/deployment.md "Database (Neon)"): pg 8 treats
+ * `require` as `verify-full` with a warning, but pg 9 adopts libpq's meaning
+ * and would stop checking the certificate, so `require` is rejected.
+ * `disable` exists for the CI smoke test, which runs the production image
+ * against a local Postgres without TLS; it is visible in review.
+ */
+const PRODUCTION_SSL_MODES = new Set(['verify-full', 'disable']);
+
 const envSchema = z
   .object({
     NODE_ENV: z
@@ -84,6 +94,16 @@ const envSchema = z
           message: 'Required in production',
         });
       }
+    }
+    const sslMode = URL.canParse(env.DATABASE_URL)
+      ? new URL(env.DATABASE_URL).searchParams.get('sslmode')
+      : null;
+    if (!sslMode || !PRODUCTION_SSL_MODES.has(sslMode)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATABASE_URL'],
+        message: 'Must set sslmode=verify-full in production',
+      });
     }
   })
   .transform((env) => ({
