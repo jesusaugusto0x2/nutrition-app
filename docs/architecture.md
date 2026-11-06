@@ -220,6 +220,17 @@ apps, keeps only the API's production dependencies (Nx `prune`) and runs Nest
 as the `node` user. Database: Neon. Not yet set up; decisions, variables and
 runbooks are in [docs/deployment.md](deployment.md).
 
+- **Region: US East (Virginia) for both.** Neon `aws-us-east-1` (N.
+  Virginia) and Railway `us-east4-eqdc4a` (Virginia) are the closest pair
+  the two providers offer, so the app's queries pay the least latency, and
+  the users are in the Americas. Health data is therefore stored in the
+  United States. Rejected: Railway Amsterdam + Neon Frankfurt (close to each
+  other, far from the users). Details:
+  [Database (Neon)](deployment.md#database-neon).
+- **The app connects with a data-only role** (`nutri_app`: no DDL); only
+  migrations use the owner role. Production requires `sslmode=verify-full`
+  on `DATABASE_URL` (`loadConfig`).
+
 CI builds this image on every run and smoke-tests it, without ever pushing it;
 what the smoke test checks and why the job ignores Nx `affected` are in
 [docs/ci.md](ci.md#job-build-and-smoke-test-the-docker-image).

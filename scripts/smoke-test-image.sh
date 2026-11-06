@@ -4,7 +4,7 @@
 # unknown API routes, running as the `node` user, that the native argon2
 # module works, and that writes are accepted only from APP_ORIGIN.
 #
-# Usage: DATABASE_URL=postgres://... scripts/smoke-test-image.sh <image>
+# Usage: DATABASE_URL="postgres://...?sslmode=disable" scripts/smoke-test-image.sh <image>
 #
 # The database must be reachable from the container: for one published on
 # the host (Docker Compose, a CI service container) use host.docker.internal.

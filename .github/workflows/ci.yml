@@ -173,5 +173,5 @@ jobs:
 
       - name: Smoke test
         env:
-          DATABASE_URL: postgres://nutri:nutri@host.docker.internal:5432/nutri
+          DATABASE_URL: postgres://nutri:nutri@host.docker.internal:5432/nutri?sslmode=disable
         run: scripts/smoke-test-image.sh nutri:ci

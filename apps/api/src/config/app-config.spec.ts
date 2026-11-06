@@ -49,6 +49,8 @@ describe('loadConfig', () => {
     const productionEnv = {
       ...validEnv,
       NODE_ENV: 'production',
+      DATABASE_URL:
+        'postgresql://app:secret-password@db.example.com/db?sslmode=verify-full',
       WEB_DIST_DIR: '/web',
       SMTP_URL: 'smtps://resend:secret-api-key@smtp.resend.com:465',
       MAIL_FROM: 'Mi consulta <no-reply@example.com>',
@@ -81,6 +83,33 @@ describe('loadConfig', () => {
         new RegExp(`${key}: Required in production`),
       );
     });
+
+    it.each(['', '?sslmode=require', '?sslmode=prefer', '?sslmode=no-verify'])(
+      'rejects a DATABASE_URL with %j instead of sslmode=verify-full',
+      (query) => {
+        const url = `postgresql://app:secret-password@db.example.com/db${query}`;
+        let message = '';
+        try {
+          loadConfig({ ...productionEnv, DATABASE_URL: url });
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message).toMatch(/DATABASE_URL: Must set sslmode=verify-full/);
+        expect(message).not.toMatch(/secret-password/);
+      },
+    );
+
+    it('accepts sslmode=disable, used by the CI smoke test', () => {
+      const url = 'postgres://ci:ci@localhost:5432/db?sslmode=disable';
+
+      expect(
+        loadConfig({ ...productionEnv, DATABASE_URL: url }).DATABASE_URL,
+      ).toBe(url);
+    });
+  });
+
+  it('accepts a DATABASE_URL without sslmode outside production', () => {
+    expect(loadConfig(validEnv).DATABASE_URL).toBe(validEnv.DATABASE_URL);
   });
 
   it('rejects an SMTP_URL that is not smtp or smtps without echoing it', () => {
