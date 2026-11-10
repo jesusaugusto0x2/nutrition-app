@@ -87,11 +87,10 @@ Sources, checked on 2026-11-01:
 
 ## Database (Neon)
 
-**Status: designed and rehearsed locally (#38); the Neon project is set up
-by hand with the runbook below.** The scripts were run end to end on a scratch
-local Postgres 18 with a non-superuser owner role. The facts that only exist
-once the project does (owner role name, restore test) are in
-[Production record](#production-record).
+**Status: the Neon project and `nutri_app` exist (#38); the database is
+still empty.** What is done and what is left is in
+[Production record](#production-record). The scripts were also rehearsed end
+to end on a scratch local Postgres 18 with a non-superuser owner role.
 
 ### What is set up
 
@@ -267,13 +266,27 @@ Restoring `production` itself is [Restore the database](#restore-the-database).
 ### Production record
 
 Fill this in as the steps are done; names and dates only, never secrets.
+The endpoint host is not written here either (the repository is public): copy
+it from **Connect** in the Neon Console.
 
-- Project created: pending.
-- Owner role name: pending.
-- `nutri_app` created and `check-app-role.sql` passing: pending (needs the
-  first migration, #39).
-- Migrations applied with the owner role: pending (#39).
-- Restore to a branch tested: pending.
+- **Project created: 2026-11-06.** `nutrition-app`, in a Neon-managed
+  organization: the owner's first organization is managed by Vercel, where
+  projects can only be created from Vercel. AWS `aws-us-east-1`, Postgres 18,
+  history window 6 hours (21600 s), root branch `production`, database
+  `nutri`.
+- **Owner role: `neondb_owner`** (created with the project).
+- **`nutri_app` created: 2026-11-09**, with `create-app-role.sql`. Checked
+  the same day in the catalogs, connected as the owner: `LOGIN` only, not a
+  member of `neon_superuser`, no `CREATE` on `public`, no `TEMPORARY`; default
+  privileges from `neondb_owner` are `arwd` on tables and `rU` on sequences.
+- **`check-app-role.sql` passing: pending.** It needs the migrated schema, so
+  run it after #39's first migration.
+- **Migrations applied with the owner role: pending (#39).**
+- **Restore to a branch tested: pending.** Do it after #39, when there is a
+  schema to compare.
+- Passwords: both are in the owner's password manager; the full connection
+  strings are built from them as shown in
+  [Connection strings](#connection-strings), and go to Railway in #40.
 
 ## Migrations
 
@@ -546,6 +559,10 @@ passwords from another container through `host.docker.internal`.
   (#45): move to Launch (pay as you go) and raise the window to 7 days
   (history is billed per GB-month), or add a scheduled logical backup.
   Recorded on 2026-11-05, when the owner chose Free to start.
+- **Rotate `neondb_owner`'s password before the first real user (#45).** It
+  left the password manager during setup (2026-11-09). The database is still
+  empty, so the owner chose to keep it for now. Follow
+  [Rotate credentials](#rotate-credentials).
 
 - **The first deploy needs variables owned by later tickets.** #40 comes
   before the domain (#41) and the mail records (#42), but the app cannot boot
