@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# Smoke test for the production image: starts a container, waits for its
-# HEALTHCHECK and checks that Nest serves the API, the SPA and JSON 404s for
-# unknown API routes, running as the `node` user, that the native argon2
-# module works, and that writes are accepted only from APP_ORIGIN.
+# Smoke test for the production image. First it runs the migration entry
+# point (`node migrate.js`, Railway's pre-deploy command): it must migrate
+# the database, do nothing on a second run, and exit non-zero without
+# applying anything when a migration is broken. Then it starts a container,
+# waits for its HEALTHCHECK and checks that Nest serves the API, the SPA and
+# JSON 404s for unknown API routes, running as the `node` user, that the
+# native argon2 module works, and that writes are accepted only from
+# APP_ORIGIN.
 #
 # Usage: DATABASE_URL="postgres://...?sslmode=disable" scripts/smoke-test-image.sh <image>
+#
+# DATABASE_MIGRATION_URL defaults to DATABASE_URL (in CI both are the
+# Postgres service's owner). Use an empty or scratch database: it is migrated.
 #
 # The database must be reachable from the container: for one published on
 # the host (Docker Compose, a CI service container) use host.docker.internal.
@@ -17,6 +24,7 @@ set -euo pipefail
 image="${1:?Usage: $0 <image>}"
 : "${DATABASE_URL:?DATABASE_URL is required}"
 port="${SMOKE_PORT:-3100}"
+export DATABASE_MIGRATION_URL="${DATABASE_MIGRATION_URL:-$DATABASE_URL}"
 export SMTP_URL="${SMTP_URL:-smtp://smtp.invalid:587}"
 export MAIL_FROM="${MAIL_FROM:-Mi consulta <no-reply@example.com>}"
 export APP_ORIGIN="${APP_ORIGIN:-http://127.0.0.1:${port}}"
@@ -26,15 +34,19 @@ export GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-smoke-test-client-secret}"
 container="nutri-smoke-$$"
 base_url="http://127.0.0.1:${port}"
 body="$(mktemp)"
+migration_log="$(mktemp)"
+broken_migrations="$(mktemp -d)"
 
 cleanup() {
   local status=$?
   if [ "$status" -ne 0 ]; then
+    echo '--- migration output ---'
+    cat "$migration_log" 2>/dev/null || true
     echo '--- container logs ---'
     docker logs "$container" 2>&1 || true
   fi
   docker rm --force "$container" >/dev/null 2>&1 || true
-  rm -f "$body"
+  rm -rf "$body" "$migration_log" "$broken_migrations"
   exit "$status"
 }
 trap cleanup EXIT
@@ -47,6 +59,62 @@ fail() {
 pass() {
   echo "ok: $*"
 }
+
+# migrate [docker run options]: runs `node migrate.js` as Railway's
+# pre-deploy command does (same image, only its variable). Output goes to
+# $migration_log; sets `migrate_status`.
+migrate() {
+  migrate_status=0
+  docker run --rm \
+    --add-host host.docker.internal:host-gateway \
+    --env DATABASE_MIGRATION_URL \
+    "$@" "$image" node migrate.js >"$migration_log" 2>&1 ||
+    migrate_status=$?
+}
+
+migrate
+[ "$migrate_status" = 0 ] ||
+  fail "node migrate.js exited ${migrate_status} on the first run"
+pass 'node migrate.js migrates the database'
+
+migrate
+[ "$migrate_status" = 0 ] ||
+  fail "node migrate.js exited ${migrate_status} on the second run"
+grep --quiet 'No pending migrations' "$migration_log" ||
+  fail 'a second node migrate.js run was not a no-op'
+pass 'a second node migrate.js run changes nothing'
+
+# A copy of the image's migrations plus a broken one (a table, then a
+# statement that fails), mounted over the image's folder. The image's own
+# node writes the copy, so this needs nothing on the host.
+docker run --rm --user "$(id -u):$(id -g)" \
+  --volume "${broken_migrations}:/out" "$image" node -e "
+    const fs = require('node:fs');
+    fs.cpSync('migrations', '/out', { recursive: true });
+    const file = '/out/meta/_journal.json';
+    const journal = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const last = journal.entries.at(-1);
+    journal.entries.push({ ...last, idx: last.idx + 1,
+      when: last.when + 1, tag: '9999_smoke_broken' });
+    fs.writeFileSync(file, JSON.stringify(journal));
+    fs.writeFileSync('/out/9999_smoke_broken.sql',
+      'CREATE TABLE smoke_partial (id integer);\n--> statement-breakpoint\n' +
+      'ALTER TABLE smoke_missing_table ADD COLUMN x integer;');
+  "
+chmod -R a+rX "$broken_migrations"
+migrate --volume "${broken_migrations}:/app/api/migrations:ro"
+[ "$migrate_status" != 0 ] ||
+  fail 'node migrate.js exited 0 with a broken migration'
+grep --quiet 'code: 42P01' "$migration_log" ||
+  fail 'a failed migration did not log its error code'
+if grep --quiet 'smoke_' "$migration_log"; then
+  fail 'a failed migration logged its SQL'
+fi
+broken_status="$migrate_status"
+migrate
+grep --quiet 'No pending migrations' "$migration_log" ||
+  fail 'a broken migration was recorded as applied'
+pass "a broken migration exits ${broken_status} and applies nothing"
 
 # `--env NAME` forwards a variable without putting its value (a secret) on
 # the command line. `host-gateway` makes host.docker.internal

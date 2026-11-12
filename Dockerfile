@@ -45,9 +45,14 @@ ENV NODE_ENV=production \
 WORKDIR /app/api
 COPY --from=prod-deps /app/api ./
 COPY --from=build /app/apps/web/dist /app/web
+# SQL files and meta/ (the journal) for `node migrate.js`, the pre-deploy
+# command; migrate.js looks for them next to itself.
+COPY --from=build /app/apps/api/src/database/migrations ./migrations
 
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + process.env.PORT + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+# Migrations are a separate command (`node migrate.js`, Railway pre-deploy),
+# never part of startup: docs/deployment.md "Migrations".
 CMD ["node", "main.js"]
