@@ -93,11 +93,21 @@ The job ignores `nx affected` because the image stages (`api:prune`,
 `prod-deps`, runtime) can break without `pnpm build` failing: a dependency
 missing from the pruned lockfile, or a native module that fails on Alpine.
 
-`scripts/smoke-test-image.sh` starts the image against a `postgres:18-alpine`
-service container (the same version as Docker Compose), needed because
-`GET /api/health` pings the database. The database stays empty: no check needs
-a migrated schema. The script waits up to 60 s for the image's own
-`HEALTHCHECK`, then checks that:
+`scripts/smoke-test-image.sh` runs the image against a `postgres:18-alpine`
+service container (the same version as Docker Compose), which starts empty.
+First it runs the migration entry point the way Railway's pre-deploy command
+does (`node migrate.js`, [Migrations](deployment.md#migrations)) and checks
+that:
+
+- the first run migrates the empty database and exits 0;
+- a second run logs `No pending migrations` and exits 0;
+- with a broken migration added (a copy of the image's migrations mounted over
+  its folder: one statement that works, then one that fails), it exits
+  non-zero, logs the SQLSTATE (`42P01`) but not the SQL, and a following run
+  still finds nothing pending, so nothing was recorded.
+
+Then it starts the app against the migrated database, waits up to 60 s for
+the image's own `HEALTHCHECK`, and checks that:
 
 - the image config sets `USER node`, and inside the container the process runs
   as `node`, not root;
@@ -110,9 +120,10 @@ a migrated schema. The script waits up to 60 s for the image's own
 - `POST /api/auth/sign-out` answers 204 with `Origin` set to `APP_ORIGIN` and 403
   with any other origin, so CSRF protection is active in the built image.
 
-On failure it prints the container logs; it always removes the container.
-`DATABASE_URL` is forwarded with `--env`, so its value never appears on a command
-line. It ends in `?sslmode=disable`: in production the app accepts only an
+On failure it prints the last migration output and the container logs; it
+always removes the container. `DATABASE_URL` and `DATABASE_MIGRATION_URL` (which
+defaults to `DATABASE_URL`: in CI both are the service's owner) are forwarded
+with `--env`, so their values never appear on a command line. It ends in `?sslmode=disable`: in production the app accepts only an
 explicit `verify-full` or `disable`
 ([Database (Neon)](deployment.md#database-neon)), and the service container
 has no TLS. `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`, `CLIENT_IP_SOURCE`,
@@ -269,7 +280,11 @@ it with the local command in the README. `container exited before becoming
 healthy` usually means the app refused to start, for example because a new
 required production variable is not set in `scripts/smoke-test-image.sh`, or
 `DATABASE_URL: Must set sslmode=verify-full in production` when the smoke
-test's `DATABASE_URL` lost its `?sslmode=disable`.
+test's `DATABASE_URL` lost its `?sslmode=disable`. A failure in
+`node migrate.js` prints the migration output instead: a SQLSTATE such as
+`42P01` means a new migration does not apply to an empty database (generate it
+again with `pnpm db:generate`), and `ECONNREFUSED` means the container did not
+reach the Postgres service.
 
 ### Pull requests with no result
 

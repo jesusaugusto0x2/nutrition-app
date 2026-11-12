@@ -75,7 +75,8 @@ Where things live:
 ```
 apps/api/src/
   config/         env validated with Zod (APP_CONFIG)
-  database/       Drizzle client, schema/, migrations/, seed/, testing/
+  database/       Drizzle client, schema/, migrations/, seed/, testing/,
+                  migrate.ts (production migrations, `node migrate.js`)
   common/         decorators, guards, filters, request types, clock
   health/         GET /api/health
   auth/           sign-in/out, sign-up/, email-verification/, password reset,

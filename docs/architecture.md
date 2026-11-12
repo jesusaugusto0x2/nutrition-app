@@ -230,6 +230,11 @@ runbooks are in [docs/deployment.md](deployment.md).
 - **The app connects with a data-only role** (`nutri_app`: no DDL); only
   migrations use the owner role. Production requires `sslmode=verify-full`
   on `DATABASE_URL` (`loadConfig`).
+- **Migrations run from the image, before each deploy:** `node migrate.js`
+  (`src/database/migrate.ts`, drizzle-orm's migrator) reads only
+  `DATABASE_MIGRATION_URL`, with the same `sslmode` rule. drizzle-kit stays a
+  dev tool (`pnpm db:generate`, `pnpm db:migrate`). Details:
+  [Migrations](deployment.md#migrations).
 
 CI builds this image on every run and smoke-tests it, without ever pushing it;
 what the smoke test checks and why the job ignores Nx `affected` are in
@@ -313,11 +318,3 @@ resolved.
   API (k-anonymity: only the first 5 characters of the SHA-1 hash leave the
   server). The check belongs in the API (sign-up and reset), not only in the
   shared schema.
-
-### Production migrations
-
-- **Status:** pending, part of the deployment work.
-- **Why:** migrations run with drizzle-kit (`pnpm db:migrate`), a dev tool
-  that is not in the production image, and deployment is out of scope.
-- **Resolve when:** setting up Railway + Neon. Options: a release command
-  that runs `drizzle-kit migrate` from the build stage, or a small migration
