@@ -1,0 +1,64 @@
+# Applies .railway/railway.ts (Railway Infrastructure as Code) to the
+# production environment. A pull request that touches .railway/ gets a plan
+# comment; merging it applies exactly that plan. Railway never reads
+# .railway/ during deploys, so this is the only way the file takes effect.
+# Details: docs/deployment.md "Railway service" and docs/ci.md.
+name: Railway config
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+    paths: ['.railway/**']
+
+# One plan or apply at a time: Railway rejects an apply whose plan is stale,
+# and never cancel an apply halfway.
+concurrency:
+  group: railway-config
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+
+jobs:
+  plan:
+    name: Plan Railway config
+    # Fork pull requests get no secrets.
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Plan
+        uses: railwayapp/config@v1
+        with:
+          command: plan
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          cli-version: 5.71.0
+
+  apply:
+    name: Apply Railway config
+    if: github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Apply
+        uses: railwayapp/config@v1
+        with:
+          command: apply
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+          cli-version: 5.71.0

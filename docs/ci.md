@@ -40,6 +40,16 @@ Other settings that apply to the whole workflow:
 - **No secrets:** repository tests run on PGlite and the build does not read
   `DATABASE_URL`. The only database URLs in the workflow are throwaway values.
 
+A second workflow, `Railway config`
+([.github/workflows/railway-config.yml](../.github/workflows/railway-config.yml)),
+runs only on pull requests that touch `.railway/`: job `Plan Railway config`
+comments the Railway plan on the pull request, and `Apply Railway config`
+applies it when the pull request is merged. It is the only workflow with a
+secret (`RAILWAY_TOKEN`), it is not a required check, and Railway's Wait for
+CI does not see it (it never runs on the push to `main`). How it works and
+how to recover when it fails:
+[Railway service](deployment.md#railway-service).
+
 ## Checks
 
 The first column is the exact step name in `ci.yml`, which is what the Actions
@@ -54,6 +64,7 @@ log and the failure annotations show.
 | `Drizzle schema and migrations` | Both            | The schema matches the committed migrations           | `pnpm db:generate` must create no migration         |
 | `Lint`                          | Both (affected) | ESLint, including Nx module boundaries                | `pnpm lint`                                         |
 | `Typecheck`                     | Both (affected) | TypeScript                                            | `pnpm typecheck`                                    |
+| `Typecheck Railway IaC`         | Both            | `.railway/railway.ts` against the `railway` SDK       | `pnpm railway:typecheck`                            |
 | `Test`                          | Both (affected) | Vitest                                                | `pnpm test`                                         |
 | `Build`                         | Both (affected) | Every project builds                                  | `pnpm build`                                        |
 | `Generated files are committed` | Both            | The steps above left `git status` clean               | `pnpm build`, then `git status`                     |
@@ -111,6 +122,11 @@ the image's own `HEALTHCHECK`, and checks that:
 
 - the image config sets `USER node`, and inside the container the process runs
   as `node`, not root;
+- `node` is PID 1 (it receives `SIGTERM` directly) and its environment has no
+  `DATABASE_MIGRATION_URL`, although the container is started with it, as
+  Railway does: the image's `CMD` removes it with `env -u`
+  ([Railway service](deployment.md#railway-service)). Only variable names are
+  read, never values;
 - `argon2`, a native module, hashes and verifies inside the image, proving its
   prebuilt binary loads on Alpine (musl);
 - `GET /api/health` returns 200 JSON with `"status":"ok"`;

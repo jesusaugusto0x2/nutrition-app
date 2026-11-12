@@ -13,6 +13,7 @@
     "build": "nx run-many -t build",
     "lint": "nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
+    "railway:typecheck": "tsc -p .railway/tsconfig.json",
     "test": "nx run-many -t test",
     "format": "prettier --write .",
     "db:generate": "pnpm --filter @nutri/api exec drizzle-kit generate",
@@ -62,6 +63,7 @@
     "lint-staged": "^17.6.0",
     "nx": "23.3.0",
     "prettier": "^3.9.10",
+    "railway": "3.16.0",
     "tslib": "^2.8.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.58.0",
@@ -70,6 +72,5 @@
     "webpack": "~5.110.0",
     "webpack-cli": "^7.0.0",
     "webpack-dev-server": "^5.2.1"
-  },
-  "dependencies": {}
+  }
 }
