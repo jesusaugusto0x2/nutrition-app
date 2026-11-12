@@ -26,6 +26,11 @@ module.exports = {
       target: 'node',
       compiler: 'tsc',
       main: './src/main.ts',
+      // `node migrate.js`: the production migration entry point, run by
+      // Railway's pre-deploy command (docs/deployment.md "Migrations").
+      additionalEntryPoints: [
+        { entryName: 'migrate', entryPath: './src/database/migrate.ts' },
+      ],
       tsConfig: './tsconfig.app.json',
       assets: ['./src/assets'],
       optimization: false,
