@@ -402,7 +402,208 @@ deploys.
 
 ## Railway service
 
-Pending, see #40 (service, `.railway/railway.ts`, Wait for CI, region).
+**Status (#40): configuration written, not applied yet.** The service exists
+but still has Railway's defaults (Railpack, no Wait for CI, no domain, no
+variables); every merge since the repository was connected built with
+Railpack and crashed, without a public URL, so nothing was ever exposed.
+[Runbook: first deploy](#runbook-first-deploy) lists what is left, in order,
+and [Service record](#service-record) what has been done.
+
+### What is set up
+
+Everything below lives in
+[`.railway/railway.ts`](../.railway/railway.ts), the source of truth for the
+service (CLAUDE.md §6). Never change these settings in the dashboard: the
+next apply fails on the drift (see below), or undoes the change.
+
+| Setting           | Value                                                       | Why                                                                                                                        |
+| ----------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Project / service | `nutrition-app` / `nutrition-app`, environment `production` | One service: Nest serves the API and the web app ([Decisions](#decisions))                                                 |
+| Source            | `jesusaugusto0x2/nutrition-app`, branch `main`              | Autodeploy from `main` only                                                                                                |
+| Wait for CI       | On (`checkSuites: true`)                                    | Only commits whose workflows passed deploy                                                                                 |
+| Build             | `DOCKERFILE`, `Dockerfile`                                  | The image smoke-tested in CI; Railway's default is Railpack                                                                |
+| Pre-deploy        | `node migrate.js`                                           | [Migrations](#migrations); a failure stops the deploy                                                                      |
+| Healthcheck       | `/api/health`, timeout 120 s                                | The new version takes traffic only once it answers 200; 120 s leaves room for Neon to wake up (Railway's default is 300 s) |
+| Restart policy    | `ON_FAILURE`, at most 10 retries                            | A crash restarts the container; a crash loop stops instead of retrying forever                                             |
+| App Sleeping      | Off (`sleepApplication: false`)                             | The daily cleanup job needs the process awake ([Scheduled jobs](#scheduled-jobs))                                          |
+| Region, replicas  | `us-east4-eqdc4a` (Virginia), 1                             | Next to Neon ([Database (Neon)](#database-neon)); one replica because of the in-memory rate limiter                        |
+| Domain            | `nutrition-app-production.up.railway.app` → port 3000       | Railway's own domain until #41                                                                                             |
+| Variables         | See below and [Variables](#variables)                       | Literals for non-secrets, `preserve()` for secrets                                                                         |
+
+Sources, checked on 2026-11-11: the `railway` SDK 3.16.0 types
+(`DeployConfig`, `BuildConfig`, `ServiceSource`; the reference pages do not
+list every field yet), `railway config --help` in CLI 5.71.0,
+[Railway IaC](https://docs.railway.com/infrastructure-as-code),
+[IaC reference](https://docs.railway.com/infrastructure-as-code/reference),
+[railwayapp/config](https://github.com/railwayapp/config),
+[Railway healthchecks](https://docs.railway.com/deployments/healthchecks),
+[Railway GitHub autodeploys](https://docs.railway.com/deployments/github-autodeploys).
+
+**Port.** Railway injects `PORT` into the container and probes the
+healthcheck on it; the app listens on `PORT` (`loadConfig`). The file sets
+`PORT=3000`, the image's own default, so the variable, the healthcheck and the
+domain's target port are all visibly the same number. Without it Railway
+picks a port itself (8080 by default), which also works but hides the value
+the domain has to match.
+
+**Variables.** Literals in the file: `PORT`, `APP_ORIGIN`
+(`https://` + the Railway domain), `CLIENT_IP_SOURCE=x-real-ip`, and two
+placeholders until email delivery (#42): `SMTP_URL=smtp://smtp.invalid:587`
+(nothing resolves there, so every email fails and only the error name is
+logged) and `MAIL_FROM`. Secrets are `preserve()`: the file names them, and
+their values exist only in Railway and the password manager. `DATABASE_URL`,
+`DATABASE_MIGRATION_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set
+by hand ([Runbook: set the secrets](#runbook-set-the-secrets)). `NODE_ENV` and
+`WEB_DIST_DIR` come from the image.
+
+**The app never sees the owner role.** Railway gives the pre-deploy command
+and the app the same variables, so `DATABASE_MIGRATION_URL` reaches the app's
+container too. The image starts with
+`CMD ["env", "-u", "DATABASE_MIGRATION_URL", "node", "main.js"]`: `env` removes
+it and execs node, which stays PID 1 and receives Railway's `SIGTERM` itself.
+The smoke test proves both. The value is still stored in the service's
+variables and visible to anyone with access to the Railway project; what this
+removes is the app process (and anything that dumps its environment) holding
+the owner's credentials.
+
+### How the file is applied
+
+Railway does not read `.railway/` during deploys. The `Railway config` workflow
+([.github/workflows/railway-config.yml](../.github/workflows/railway-config.yml))
+uses Railway's `railwayapp/config` action:
+
+1. A pull request that touches `.railway/` runs `Plan Railway config`, which
+   evaluates the file with the pinned CLI (5.71.0) and comments the diff on the
+   pull request, marking destructive changes. Values are shown as `«hidden»`.
+2. Review the comment like code. Merging is the approval.
+3. On merge, `Apply Railway config` applies **the plan from the pull request**,
+   not a new one.
+
+It authenticates with `RAILWAY_TOKEN`, a Railway **project token** for the
+`production` environment, stored as a repository secret
+([Runbook: the Railway token](#runbook-the-railway-token)). Fork pull requests
+get no secrets, so they are never planned.
+
+The apply fails, by design, when:
+
+- **the environment changed after the plan** (a dashboard edit, a variable set
+  by hand, another apply): push a commit or close and reopen the pull request
+  to plan again, then merge. A merged pull request cannot be re-planned: open a
+  new one that touches `.railway/` (a comment change is enough);
+- **`.railway/` changed between the plan and the merge**, or there is no plan
+  for the merged head: same fix.
+
+`pnpm railway:typecheck` (also a CI step) type-checks the file against the
+SDK; the plan itself is the real test.
+
+**A merge that changes both code and `.railway/`.** The apply and the deploy
+start from the same merge, but the deploy waits for CI (minutes) and the
+apply takes seconds, so the deploy normally uses the new settings. Check the
+deployment's settings if it matters, and use **Deploy Latest Commit** after
+the apply when in doubt.
+
+**Running the CLI locally** (to `railway config pull` or `plan` before a pull
+request): install `@railway/cli` 5.71.0, `railway login`, `railway link` to
+this project and the `production` environment, then `railway config plan`.
+Never `railway config apply` by hand: apply only through the workflow, so
+every change has a reviewed pull request.
+
+### Runbook: the Railway token
+
+1. Railway → project `nutrition-app` → **Settings → Tokens → Create**, name
+   `github-railway-config`, environment `production`. Copy it once.
+2. GitHub → repository → **Settings → Secrets and variables → Actions → New
+   repository secret**, name `RAILWAY_TOKEN`, paste it. Keep no other copy
+   (it can always be replaced), and never paste it in a chat, issue or log.
+3. To rotate: create a new token, replace the secret, delete the old token.
+
+### Runbook: set the secrets
+
+Values come from the password manager ([Connection strings](#connection-strings)
+and [Google](authentication.md#register-a-new-google-redirect-uri)); never
+paste them anywhere else. In Railway → service `nutrition-app` →
+**Variables**, add or edit:
+
+- `DATABASE_URL`: pooled host, `nutri_app`, `sslmode=verify-full`;
+- `DATABASE_MIGRATION_URL`: direct host (no `-pooler`), `neondb_owner`,
+  `sslmode=verify-full`;
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: the existing Web client (one
+  client serves development and production).
+
+The dashboard stages the change: deploy it from the banner. Do it **before**
+a pull request is planned (or plan again afterwards), since a variable edit
+makes an older plan stale. These are the only service settings changed in the
+dashboard, because the file marks them `preserve()`.
+
+### Runbook: first deploy
+
+Each step depends on the previous one. Record the dates in
+[Service record](#service-record).
+
+1. **Token:** [Runbook: the Railway token](#runbook-the-railway-token).
+2. **Secrets:** [Runbook: set the secrets](#runbook-set-the-secrets).
+3. **Google:** add
+   `https://nutrition-app-production.up.railway.app/api/auth/google/callback`
+   to the Web client's redirect URIs
+   ([Register a new Google redirect URI](authentication.md#register-a-new-google-redirect-uri)).
+4. **Plan:** push to (or reopen) the #40 pull request and read the plan
+   comment. Expect the build to change to `DOCKERFILE`, Wait for CI on, the
+   pre-deploy command, healthcheck, restart policy, the domain and the literal
+   variables, and probably the project name, from `charming-cooperation`
+   (the name Railway generated) to `nutrition-app`. Nothing destructive: if
+   the plan marks anything destructive, stop and find out why. If the
+   domain is taken, choose another `*.up.railway.app` name, update
+   `RAILWAY_DOMAIN` and step 3, and plan again.
+5. **Merge.** The apply runs. The merge's own deploy may already have started
+   with the old settings (no Wait for CI yet); once the apply succeeds, run
+   **Deploy Latest Commit** (`Cmd + K`) if the active deployment was not
+   built from the `Dockerfile`.
+6. **Check the deploy:** the pre-deploy log shows `Applying N migration(s)...`
+   then one `Applied <name>` per migration, and the deployment becomes active
+   after the healthcheck passes.
+7. **Check the service** (the smoke test's checks, against the public URL):
+
+   ```bash
+   base=https://nutrition-app-production.up.railway.app
+   curl -si "$base/api/health"            # 200 {"status":"ok",...}
+   curl -si "$base/" | head -n 1          # 200, the SPA
+   curl -si "$base/patients" | head -n 1  # 200, the SPA (deep link)
+   curl -si "$base/api/does-not-exist"    # 404 JSON, code NOT_FOUND
+   curl -si "$base/api/clinic/patients"   # 401: no session
+   curl -si -X POST -H "Origin: $base" "$base/api/auth/sign-out"                # 204
+   curl -si -X POST -H 'Origin: https://evil.example' "$base/api/auth/sign-out" # 403
+   ```
+
+   The two `POST`s prove `Origin` crosses Railway's edge and `CsrfGuard` sees
+   it. Then sign in with Google in a browser and create a clinic: the
+   onboarding is a `POST` from the real browser (with `Sec-Fetch-Site`).
+
+8. **Check the logs:** no request bodies, emails, patient data or variable
+   values; Nest's startup lines and route map only. The HTTP log stream shows
+   paths and status codes, which carry no patient data (ids are uuids).
+9. **Database follow-ups (#38):** run [check-app-role.sql](#runbook-check-the-app-role)
+   now that the schema exists, and [test a restore](#runbook-test-a-restore).
+10. **Wait for CI:** confirm the next merge goes through `WAITING` before
+    deploying, and that a commit whose CI fails is `SKIPPED` (watch the next
+    red run on `main`, if one happens; never break `main` on purpose).
+11. **Cleanup job (#43):** after 03:00 UTC, look for the `AuthCleanupJob`
+    line ([Scheduled jobs](#scheduled-jobs)).
+
+### Service record
+
+Names and dates only.
+
+- **Project and service created: before 2026-11-05**, connected to the
+  repository, region `us-east4-eqdc4a` (Virginia), one replica. Railway named
+  the project `charming-cooperation`; the file names it `nutrition-app`.
+- **`.railway/railway.ts` applied: pending** (first apply on the #40 merge).
+- **`RAILWAY_TOKEN` created: pending.**
+- **Secrets set: pending.**
+- **Google redirect URI for the Railway domain: pending.**
+- **First successful deploy and first migration: pending.**
+- **Checks of step 7–8: pending.**
+- **Deploy Latest Commit and Wait for CI:** pending; record whether a manual
+  deploy waits for CI (Railway's docs do not say).
 
 ## Domain and HTTPS
 
@@ -470,22 +671,27 @@ Pending, see #45 (end-to-end check before the first real user).
 
 Names only. A new variable gets a row here in the same pull request.
 "Railway" means the value lives in Railway variables, with secrets also kept
-in a password manager. The pre-deploy command sees the same variables as the
-app.
+in a password manager; non-secret Railway values are literals in
+`.railway/railway.ts` ("IaC"), secrets are `preserve()` there. Today
+`SMTP_URL` and `MAIL_FROM` are placeholder literals (#42), and `APP_ORIGIN`
+is the Railway domain (#41). The pre-deploy command sees the same variables as
+the app, except that the app's `CMD` removes `DATABASE_MIGRATION_URL`
+([Railway service](#railway-service)).
 
-| Variable                 | Purpose                                             | Used by    | Managed in            |
-| ------------------------ | --------------------------------------------------- | ---------- | --------------------- |
-| `NODE_ENV`               | `production`; turns on required variables           | App        | `Dockerfile`          |
-| `WEB_DIST_DIR`           | Path of the built web app                           | App        | `Dockerfile`          |
-| `PORT`                   | Port the API listens on                             | App        | `Dockerfile`; see #40 |
-| `DATABASE_URL`           | Pooled connection, `nutri_app`; `verify-full`       | App        | Railway (secret)      |
-| `DATABASE_MIGRATION_URL` | Direct connection, owner role; `verify-full`        | Pre-deploy | Railway (secret)      |
-| `SMTP_URL`               | SMTP server with credentials                        | App        | Railway (secret)      |
-| `MAIL_FROM`              | Sender of every email, on the verified domain       | App        | Railway               |
-| `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF  | App        | Railway               |
-| `CLIENT_IP_SOURCE`       | `x-real-ip` on Railway; client IP for rate limiting | App        | Railway               |
-| `GOOGLE_CLIENT_ID`       | OAuth client for Google sign-in                     | App        | Railway               |
-| `GOOGLE_CLIENT_SECRET`   | Its secret                                          | App        | Railway (secret)      |
+| Variable                 | Purpose                                             | Used by    | Managed in        |
+| ------------------------ | --------------------------------------------------- | ---------- | ----------------- |
+| `NODE_ENV`               | `production`; turns on required variables           | App        | `Dockerfile`      |
+| `WEB_DIST_DIR`           | Path of the built web app                           | App        | `Dockerfile`      |
+| `PORT`                   | Port the API listens on: 3000                       | App        | `Dockerfile`, IaC |
+| `DATABASE_URL`           | Pooled connection, `nutri_app`; `verify-full`       | App        | Railway (secret)  |
+| `DATABASE_MIGRATION_URL` | Direct connection, owner role; `verify-full`        | Pre-deploy | Railway (secret)  |
+| `RAILWAY_TOKEN`          | Project token; applies `.railway/railway.ts`        | GitHub     | GitHub secret     |
+| `SMTP_URL`               | SMTP server with credentials                        | App        | Railway (secret)  |
+| `MAIL_FROM`              | Sender of every email, on the verified domain       | App        | Railway           |
+| `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF  | App        | Railway           |
+| `CLIENT_IP_SOURCE`       | `x-real-ip` on Railway; client IP for rate limiting | App        | Railway           |
+| `GOOGLE_CLIENT_ID`       | OAuth client for Google sign-in                     | App        | Railway           |
+| `GOOGLE_CLIENT_SECRET`   | Its secret                                          | App        | Railway (secret)  |
 
 ## Runbooks
 
@@ -504,8 +710,11 @@ was cancelled and none succeeded.
 1. Find out why first. If CI failed, fix it with a new pull request; do not
    deploy around it.
 2. If CI passed or was only cancelled, open the Railway Command Palette
-   (`Cmd + K`) and run **Deploy Latest Commit**. Railway's docs do not say
-   whether this waits for CI, so watch the result (confirm in #40).
+   (`Cmd + K`) and run **Deploy Latest Commit**. It deploys the latest commit
+   of `main`. Railway's docs do not say whether it waits for CI, so watch the
+   result and write it in [Service record](#service-record) the first time.
+3. If the deploy is not in the history at all, click **Show Skipped**: a
+   skipped deploy says why.
 
 ### Roll back
 
@@ -578,9 +787,28 @@ statements from the driver work over the pooler.
 **Why no `railway.toml`?** Railway deprecated it: new services cannot use it
 and existing files stop being read on 2026-12-01.
 
-**Does a merge apply `.railway/railway.ts`?** No. Railway does not read
-`.railway/` during deploys; only `railway config apply` or the
-`railwayapp/config` GitHub Action does. #40 decides which one we use.
+**Does a merge apply `.railway/railway.ts`?** Not by itself: Railway does
+not read `.railway/` during deploys. The `Railway config` workflow applies it
+when a pull request that touches `.railway/` is merged
+([How the file is applied](#how-the-file-is-applied)).
+
+**The `Railway config` apply failed after a merge.** Usually the environment
+changed after the plan (someone edited the dashboard or a variable). Nothing
+was applied. Open a new pull request that touches `.railway/` to plan again.
+
+**Why is a secret `preserve()` instead of written in the file?** The
+repository is public. `preserve()` tells the apply to keep whatever value
+Railway has, so the value is set once by hand and never leaves Railway and
+the password manager.
+
+**Does the `Railway config` workflow block a deploy?** No. Wait for CI looks
+at workflows on the deployed commit (the push to `main`); `Railway config`
+runs on `pull_request` events only.
+
+**Why `nutrition-app-production.up.railway.app`?** It is a Railway domain
+declared in the file (Railway's usual `<service>-<environment>` pattern), so
+`APP_ORIGIN` and the Google redirect URI can be written down before the first
+deploy. #41 adds the custom domain.
 
 **Does CI have to run on `push`?** Yes. Wait for CI needs a workflow with an
 `on: push` trigger for the deployed branch, and it watches workflows as a
@@ -597,8 +825,14 @@ image, in a separate container with no volumes. It is not retried on failure.
 **Does the API boot with only the database variables?** No. In production it
 refuses to start without `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`,
 `CLIENT_IP_SOURCE`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
-(`apps/api/src/config/app-config.ts`), so see the first deploy under open
-questions.
+(`apps/api/src/config/app-config.ts`). Until #41 and #42, `.railway/railway.ts`
+sets the Railway domain and email placeholders
+([Railway service](#railway-service)).
+
+**Sign-up and password reset emails never arrive.** Expected until #42:
+`SMTP_URL` is a placeholder, so sending fails and the log shows only
+`Could not process a sign-up request (<error name>)` or similar. Sign in with
+Google meanwhile.
 
 **Google sign-in answers `redirect_uri_mismatch`.** The client at Google does
 not list `${APP_ORIGIN}/api/auth/google/callback` exactly. Add it, and change it
@@ -693,23 +927,19 @@ passwords from another container through `host.docker.internal`.
   empty, so the owner chose to keep it for now. Follow
   [Rotate credentials](#rotate-credentials).
 
-- **The first deploy needs variables owned by later tickets.** #40 comes
-  before the domain (#41) and the mail records (#42), but the app cannot boot
-  without `APP_ORIGIN`, `SMTP_URL`, `MAIL_FROM`, `CLIENT_IP_SOURCE`,
-  `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. #40 must set temporary values
-  (the Railway URL as `APP_ORIGIN`, with its callback registered at Google),
-  and #41 and #42 replace them.
-- **CSRF behind Railway's edge is unverified.** OWASP warns that proxies can
-  strip `Origin` or `Sec-*` headers, which would turn every write into a 403.
-  #40 must sign in through the Railway URL after the first deploy.
-- **The owner-role string is visible to the app.** Pre-deploy shares the
-  service's variables, so `DATABASE_MIGRATION_URL` is also in the running
-  container's environment. The app never reads it, but this weakens the
-  least-privilege split. #40 should check whether it can be avoided, or
-  record that it is accepted.
-- **Which settings `.railway/railway.ts` covers.** Railway's overview shows
-  the healthcheck; #40 must confirm the pre-deploy command, restart policy
-  and Wait for CI in the IaC reference.
+- **Temporary values until #41 and #42.** `APP_ORIGIN` is the Railway
+  domain (its Google callback is registered too), and `SMTP_URL`/`MAIL_FROM`
+  are placeholders, so no email is delivered. #41 replaces the origin and the
+  callback, #42 the mail variables (as `preserve()` for `SMTP_URL`). Recorded
+  on 2026-11-11 (#40).
+- **CSRF behind Railway's edge is unverified until the first deploy.** OWASP
+  warns that proxies can strip `Origin` or `Sec-*` headers, which would turn
+  every write into a 403. Step 7 of
+  [Runbook: first deploy](#runbook-first-deploy) checks it.
+- **The owner role's string is still a service variable.** The app process
+  no longer has it (`env -u` in the image's `CMD`), but anyone with access to
+  the Railway project can read it, as with every other variable. Railway has
+  no variables scoped to the pre-deploy command. Accepted on 2026-11-11.
 
 Known technical debt that affects production
 ([docs/architecture.md](architecture.md#known-technical-debt)):
