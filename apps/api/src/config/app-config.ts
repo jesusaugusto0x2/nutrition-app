@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { checkProductionSslMode, databaseUrlSchema, parseEnv } from './env';
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
 
@@ -27,23 +28,13 @@ const REQUIRED_IN_PRODUCTION = [
   'GOOGLE_CLIENT_SECRET',
 ] as const;
 
-/**
- * `sslmode` values a production `DATABASE_URL` may state. `verify-full` is
- * the real one (Neon, docs/deployment.md "Database (Neon)"): pg 8 treats
- * `require` as `verify-full` with a warning, but pg 9 adopts libpq's meaning
- * and would stop checking the certificate, so `require` is rejected.
- * `disable` exists for the CI smoke test, which runs the production image
- * against a local Postgres without TLS; it is visible in review.
- */
-const PRODUCTION_SSL_MODES = new Set(['verify-full', 'disable']);
-
 const envSchema = z
   .object({
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    DATABASE_URL: databaseUrlSchema,
     // Absolute path to the built web app (apps/web/dist). Served by the API
     // in production only.
     WEB_DIST_DIR: z.string().min(1).optional(),
@@ -95,16 +86,7 @@ const envSchema = z
         });
       }
     }
-    const sslMode = URL.canParse(env.DATABASE_URL)
-      ? new URL(env.DATABASE_URL).searchParams.get('sslmode')
-      : null;
-    if (!sslMode || !PRODUCTION_SSL_MODES.has(sslMode)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['DATABASE_URL'],
-        message: 'Must set sslmode=verify-full in production',
-      });
-    }
+    checkProductionSslMode(env.DATABASE_URL, 'DATABASE_URL', ctx);
   })
   .transform((env) => ({
     ...env,
@@ -123,12 +105,5 @@ export type AppConfig = z.infer<typeof envSchema>;
  * secrets.
  */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const result = envSchema.safeParse(env);
-  if (!result.success) {
-    const problems = result.error.issues
-      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
-      .join('\n');
-    throw new Error(`Invalid environment configuration:\n${problems}`);
-  }
-  return result.data;
+  return parseEnv(envSchema, env);
 }
