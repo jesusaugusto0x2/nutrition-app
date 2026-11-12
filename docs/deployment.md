@@ -222,7 +222,7 @@ a chat. Run it from the repository root, which has `scripts/neon/`.
 
 5. **Build `DATABASE_URL`** for `nutri_app` over the pooled host (`-pooler`)
    and save it in the password manager.
-6. **After the first migration** (#39), prove the app role's limits with
+6. **After the first migration** (the first deploy, #40), prove the app role's limits with
    the next runbook.
 
 ### Runbook: check the app role
@@ -280,20 +280,125 @@ it from **Connect** in the Neon Console.
   member of `neon_superuser`, no `CREATE` on `public`, no `TEMPORARY`; default
   privileges from `neondb_owner` are `arwd` on tables and `rU` on sequences.
 - **`check-app-role.sql` passing: pending.** It needs the migrated schema, so
-  run it after #39's first migration.
-- **Migrations applied with the owner role: pending (#39).**
-- **Restore to a branch tested: pending.** Do it after #39, when there is a
-  schema to compare.
+  run it after the first migration, which the first deploy's pre-deploy
+  command runs (#40). Migrations are never run by hand against production.
+- **Migrations applied with the owner role: pending.** `node migrate.js`
+  exists (#39); the first deploy (#40) runs it with `DATABASE_MIGRATION_URL`.
+- **Restore to a branch tested: pending.** Do it after the first migration,
+  when there is a schema to compare.
 - Passwords: both are in the owner's password manager; the full connection
   strings are built from them as shown in
   [Connection strings](#connection-strings), and go to Railway in #40.
 
 ## Migrations
 
-Pending, see #39 (entry point `migrate.js`, `DATABASE_MIGRATION_URL`).
-#39 must validate `DATABASE_MIGRATION_URL` with the same `sslmode` rule as
-`DATABASE_URL` and run as the owner role, which the app role's default
-privileges depend on ([Roles](#roles)).
+**Status: built and tested in CI (#39); not run in production yet.** #40
+sets the Railway pre-deploy command to `node migrate.js`.
+
+### What is set up
+
+- **Entry point:** `apps/api/src/database/migrate.ts`, built to `migrate.js`
+  next to `main.js` (a second webpack entry, `additionalEntryPoints` in
+  `apps/api/webpack.config.js`). It calls `migrate(db, { migrationsFolder })`
+  from `drizzle-orm/node-postgres/migrator`, the runtime migrator that is
+  already a production dependency; `migration-runner.ts` wraps it with the
+  logging and checks below.
+- **Its own variable:** it reads only `DATABASE_MIGRATION_URL` (the owner
+  role's direct connection), validated by `loadMigrationConfig`
+  (`src/config/migration-config.ts`) with the same `sslmode` rule as
+  `DATABASE_URL`: in production only `verify-full`, or `disable` for the CI
+  smoke test. The image sets `NODE_ENV=production`. It never falls back to
+  `DATABASE_URL`, and the app never reads `DATABASE_MIGRATION_URL`.
+- **Migrations in the image:** the `Dockerfile` copies
+  `apps/api/src/database/migrations` (SQL files and `meta/`, whose
+  `_journal.json` lists them) to `/app/api/migrations`, next to `migrate.js`.
+- **Owner role, always.** Tables created by any other role miss the app
+  role's default privileges ([Roles](#roles)).
+- **Local development keeps drizzle-kit** (`pnpm db:migrate`). Both use the
+  same journal table, `drizzle.__drizzle_migrations`, so a database migrated
+  by either one is up to date for the other.
+
+Sources, checked on 2026-11-11: the installed drizzle-orm 0.45.4
+(`node-postgres/migrator.js`, `pg-core/dialect.js`),
+[Drizzle migrations](https://orm.drizzle.team/docs/migrations),
+[Railway pre-deploy command](https://docs.railway.com/deployments/pre-deploy-command).
+
+### How it behaves
+
+- **What runs:** Drizzle creates the `drizzle` schema and the journal table
+  if they are missing, then applies every migration in `_journal.json` whose
+  `when` is newer than the newest `created_at` in the table. Order is the
+  journal's.
+- **All or nothing:** every pending migration runs in **one transaction**. If
+  one statement fails, none of them is applied or recorded.
+- **Out-of-order migrations are refused.** Drizzle compares timestamps only,
+  so a migration older than the last applied one would be skipped without a
+  word (two branches that generated migrations in parallel, merged in the
+  other order). `migrate.js` fails instead, before touching anything, naming
+  it. Fix: regenerate it on top of `main` so its `when` is the newest.
+- **Exit codes:** `0` when the database is up to date (migrations applied, or
+  nothing pending); `1` for an invalid variable, a failed connection, a
+  failed or out-of-order migration. Railway does not retry a failed
+  pre-deploy command: the deploy stops and the previous version keeps
+  serving.
+- **Logs:** only `Applying N migration(s)...`, `Applied <name>` for each one,
+  `No pending migrations (N applied).`, or `Migrations failed, none applied
+(code: <code>).` The code is a Postgres SQLSTATE (`42P01`), a Node network
+  code (`ECONNREFUSED`, `ETIMEDOUT`, `ENOTFOUND`) or the error's class. The
+  error message is never logged: it carries SQL, values or connection
+  details (CLAUDE.md §6). Configuration errors name the variable only.
+- **Connection:** one connection, 30 s connect timeout (Neon may take a few
+  seconds to wake a suspended compute).
+
+What CI proves on every run (empty database, second run is a no-op, a broken
+migration exits non-zero and leaves nothing behind) is in
+[docs/ci.md](ci.md#job-build-and-smoke-test-the-docker-image). The
+PGlite tests in `migration-runner.spec.ts` cover the same cases plus an
+older database and the out-of-order refusal. On 2026-11-11 the image was
+also run by hand against a scratch database migrated by drizzle-kit and
+holding `main`'s seed: nothing pending, then an extra migration applied with
+the seeded rows intact.
+
+### Runbook: a migration failed before a deploy
+
+Draft until it has been used once.
+
+1. The Railway deployment shows the pre-deploy command failed; its log ends
+   with `Migrations failed, none applied (code: <code>)`. Nothing was
+   applied and the previous version is still serving: there is no outage.
+2. Read the code:
+   - `28P01` (wrong password) or `28000`: `DATABASE_MIGRATION_URL` is out of
+     date, for example after an owner password reset. Update it in Railway
+     and redeploy.
+   - `ECONNREFUSED`, `ETIMEDOUT`, `ENOTFOUND`: network or host. Check the
+     host is the direct one (no `-pooler`) and Neon's status, then redeploy.
+   - `Invalid environment configuration`: the variable is missing or has no
+     `sslmode=verify-full`.
+   - Any other SQLSTATE (see Postgres' "Error codes" appendix): the
+     migration itself failed. Common ones: `23502` (a new `NOT NULL` column
+     without a default on a table with rows), `23505` (a new unique index
+     over duplicate rows), `42P01`/`42703` (a missing table or column).
+   - "older than the last applied migration": regenerate it (see above).
+3. For a failing migration, reproduce it locally: `pnpm db:seed` (fictional
+   data), then `pnpm db:migrate`. Never run migrations by hand against
+   production (CLAUDE.md §6).
+4. Fix forward with a pull request. The failed migration applied nothing in
+   production, so correcting that migration's SQL is allowed; anyone who
+   applied the old version locally recreates their database. If it is data
+   dependent (step 2), write the migration so it handles existing rows (a
+   default, a backfill before `NOT NULL`).
+
+### Changing the schema safely
+
+The old version keeps serving while the pre-deploy command runs, and serves
+against the new schema if a deploy is rolled back
+([Roll back](#roll-back)). So every migration must work with the version
+before it: add columns as nullable or with a default; remove or rename in two
+releases. Statements that cannot run inside a transaction
+(`CREATE INDEX CONCURRENTLY`) do not work with this migrator, and a new enum
+value cannot be used by a later statement of the same deploy (Postgres
+requires the `ADD VALUE` to commit first): split such changes across two
+deploys.
 
 ## Railway service
 
@@ -374,7 +479,7 @@ app.
 | `WEB_DIST_DIR`           | Path of the built web app                           | App        | `Dockerfile`          |
 | `PORT`                   | Port the API listens on                             | App        | `Dockerfile`; see #40 |
 | `DATABASE_URL`           | Pooled connection, `nutri_app`; `verify-full`       | App        | Railway (secret)      |
-| `DATABASE_MIGRATION_URL` | Direct connection, owner role (added by #39)        | Pre-deploy | Railway (secret)      |
+| `DATABASE_MIGRATION_URL` | Direct connection, owner role; `verify-full`        | Pre-deploy | Railway (secret)      |
 | `SMTP_URL`               | SMTP server with credentials                        | App        | Railway (secret)      |
 | `MAIL_FROM`              | Sender of every email, on the verified domain       | App        | Railway               |
 | `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF  | App        | Railway               |
@@ -542,6 +647,30 @@ production, patient data included, with the same roles and passwords. Create
 one only for a restore check, read counts rather than rows, and let it
 auto-delete.
 
+**Does `node migrate.js` need the app's variables?** No. It reads only
+`DATABASE_MIGRATION_URL`; the app's required production variables
+(`SMTP_URL`, `APP_ORIGIN`...) are not checked, so a missing one fails the
+app's start, not the migrations.
+
+**Why not `drizzle-kit migrate` in the image?** drizzle-kit is a dev
+dependency (it generates migrations), not in the pruned production install.
+drizzle-orm's migrator is already a runtime dependency, applies the same
+folder and records in the same table.
+
+**Can two migration runs collide?** Railway runs the pre-deploy command once
+per deploy. If two deploys overlapped, the second run would wait on the
+first one's locks and then fail (for example `42P07`, the table already
+exists) without applying anything; its deploy stops, and the next deploy
+finds nothing pending. There is no advisory lock.
+
+**Why does the smoke test use `DATABASE_URL` as `DATABASE_MIGRATION_URL`?**
+In CI the Postgres service has one user, which owns the database. In
+production they are two roles over two hosts.
+
+**What if the folder or journal is missing from the image?** `migrate.js`
+fails with `code: ENOENT` and the deploy stops. The smoke test would catch it
+first, since its first run must migrate an empty database.
+
 **Is the seed ever run on Neon?** Never. It refuses to run with
 `NODE_ENV=production`, and the runbooks never call it.
 
@@ -585,8 +714,6 @@ passwords from another container through `host.docker.internal`.
 Known technical debt that affects production
 ([docs/architecture.md](architecture.md#known-technical-debt)):
 
-- [Production migrations](architecture.md#production-migrations), resolved
-  by #39.
 - [Rate-limit counters in memory](architecture.md#rate-limit-counters-in-memory):
   blocks running more than one replica.
 - [Compromised password blocklist](architecture.md#compromised-password-blocklist):

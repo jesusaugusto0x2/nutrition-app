@@ -118,17 +118,27 @@ docker run -p 3000:3000 \
 ```
 
 The container runs only Nest: the API under `/api` and the web app on every
-other route. Migrations are not run by the image yet (see
-[Known technical debt](docs/architecture.md#known-technical-debt)).
+other route. Migrations are a separate command from the same image, which
+Railway runs before each deploy
+([Migrations](docs/deployment.md#migrations)):
+
+```bash
+docker run --rm \
+  -e "DATABASE_MIGRATION_URL=postgres://owner:password@host:5432/db?sslmode=verify-full" \
+  nutri node migrate.js
+```
 
 CI builds the image and smoke-tests it on every pull request and push to `main`
 ([what it checks](docs/ci.md#job-build-and-smoke-test-the-docker-image)). To run
-the same smoke test locally against the Docker Compose database:
+the same smoke test locally, use a scratch database in the Docker Compose
+Postgres (the smoke test migrates it), never the dev database:
 
 ```bash
 docker build -t nutri .
-DATABASE_URL="postgres://nutri:nutri@host.docker.internal:5432/nutri?sslmode=disable" \
+docker compose exec postgres createdb -U nutri nutri_smoke
+DATABASE_URL="postgres://nutri:nutri@host.docker.internal:5432/nutri_smoke?sslmode=disable" \
   scripts/smoke-test-image.sh nutri
+docker compose exec postgres dropdb -U nutri nutri_smoke
 ```
 
 ## Troubleshooting
