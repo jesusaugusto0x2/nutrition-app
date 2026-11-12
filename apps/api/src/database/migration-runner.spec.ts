@@ -8,10 +8,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
-import { drizzle } from 'drizzle-orm/pglite';
+import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import type { Database } from './client';
+import type { Mock } from 'vitest';
 import { errorCode, runMigrations } from './migration-runner';
+import * as schema from './schema';
 
 const MIGRATIONS = resolve(__dirname, 'migrations');
 
@@ -26,10 +27,10 @@ const allTags = journal.entries.map((entry) => entry.tag);
 
 describe('runMigrations', () => {
   let client: PGlite;
-  let db: Database;
+  let db: PgliteDatabase<typeof schema>;
   let logger: {
-    log: ReturnType<typeof vi.fn>;
-    error: ReturnType<typeof vi.fn>;
+    log: Mock<(message: string) => void>;
+    error: Mock<(message: string) => void>;
   };
   let folders: string[];
 
@@ -38,8 +39,11 @@ describe('runMigrations', () => {
     // Closing a PGlite that never started hangs (the missing-folder test
     // never queries it).
     await client.waitReady;
-    db = drizzle({ client, casing: 'snake_case' });
-    logger = { log: vi.fn(), error: vi.fn() };
+    db = drizzle({ client, schema, casing: 'snake_case' });
+    logger = {
+      log: vi.fn<(message: string) => void>(),
+      error: vi.fn<(message: string) => void>(),
+    };
     folders = [];
   });
 
