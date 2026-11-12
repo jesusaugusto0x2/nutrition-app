@@ -4,9 +4,9 @@
 # the database, do nothing on a second run, and exit non-zero without
 # applying anything when a migration is broken. Then it starts a container,
 # waits for its HEALTHCHECK and checks that Nest serves the API, the SPA and
-# JSON 404s for unknown API routes, running as the `node` user, that the
-# native argon2 module works, and that writes are accepted only from
-# APP_ORIGIN.
+# JSON 404s for unknown API routes, running as the `node` user and as PID 1
+# without DATABASE_MIGRATION_URL in its environment, that the native argon2
+# module works, and that writes are accepted only from APP_ORIGIN.
 #
 # Usage: DATABASE_URL="postgres://...?sslmode=disable" scripts/smoke-test-image.sh <image>
 #
@@ -124,6 +124,7 @@ docker run --detach --name "$container" \
   --add-host host.docker.internal:host-gateway \
   --publish "127.0.0.1:${port}:3000" \
   --env DATABASE_URL \
+  --env DATABASE_MIGRATION_URL \
   --env SMTP_URL \
   --env MAIL_FROM \
   --env APP_ORIGIN \
@@ -156,6 +157,20 @@ pass 'container is healthy'
 [ "$(docker exec "$container" id -u)" != 0 ] ||
   fail 'container process runs as root'
 pass 'runs as the node user'
+
+# Railway passes the service's variables to the app too, as above; the image's
+# CMD removes the owner role's string, and node must stay PID 1 for SIGTERM.
+# `comm` is node's thread name (MainThread); the command line names the binary.
+[ "$(docker exec "$container" sh -c "tr '\0' '\n' </proc/1/cmdline | head -n 1")" = node ] ||
+  fail 'node is not PID 1'
+# Variable names only: the values are secrets.
+app_env="$(docker exec "$container" sh -c "tr '\0' '\n' </proc/1/environ | cut -d= -f1")"
+grep --quiet --line-regexp DATABASE_URL <<<"$app_env" ||
+  fail 'could not read the app process environment'
+if grep --quiet --line-regexp DATABASE_MIGRATION_URL <<<"$app_env"; then
+  fail 'the app process can read DATABASE_MIGRATION_URL'
+fi
+pass 'the app runs as PID 1 without DATABASE_MIGRATION_URL'
 
 # argon2 is a native module: prove its prebuilt binary loads on Alpine (musl)
 # and hashes, without needing a migrated database.
