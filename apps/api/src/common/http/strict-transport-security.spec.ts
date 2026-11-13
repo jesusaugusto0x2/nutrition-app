@@ -8,8 +8,12 @@ describe('strictTransportSecurity', () => {
   function run(appOrigin: string) {
     const middleware = strictTransportSecurity(appOrigin);
     const setHeader = vi.fn();
-    const next = vi.fn<NextFunction>();
-    middleware?.({} as Request, { setHeader } as unknown as Response, next);
+    const next = vi.fn();
+    middleware?.(
+      {} as Request,
+      { setHeader } as unknown as Response,
+      next as NextFunction,
+    );
     return { middleware, setHeader, next };
   }
 
