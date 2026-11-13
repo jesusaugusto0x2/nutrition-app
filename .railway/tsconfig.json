@@ -1,0 +1,18 @@
+{
+  // Type-checks the Railway IaC file against the `railway` SDK
+  // (`pnpm railway:typecheck`). Node runs it with type stripping, so only
+  // erasable TypeScript syntax is allowed.
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2022",
+    "lib": ["es2022"],
+    "types": []
+  },
+  "files": ["railway.ts"]
+}

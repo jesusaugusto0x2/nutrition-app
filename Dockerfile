@@ -55,4 +55,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:' + process.env.PORT + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 # Migrations are a separate command (`node migrate.js`, Railway pre-deploy),
 # never part of startup: docs/deployment.md "Migrations".
-CMD ["node", "main.js"]
+# Railway gives the pre-deploy command and the app the same variables, so
+# `env -u` drops the owner role's connection string before the app starts;
+# `env` execs node, which stays PID 1 and receives SIGTERM directly
+# (docs/deployment.md "Railway service").
+CMD ["env", "-u", "DATABASE_MIGRATION_URL", "node", "main.js"]

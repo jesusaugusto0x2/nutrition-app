@@ -101,6 +101,11 @@ jobs:
       - name: Typecheck
         run: pnpm nx "$NX_RUN" -t typecheck
 
+      # .railway/ is not an Nx project; the "Railway config" workflow plans
+      # it only on pull requests that touch it.
+      - name: Typecheck Railway IaC
+        run: pnpm railway:typecheck
+
       # Vitest disables watch mode when CI=true (set by GitHub Actions), so
       # the `testMode: "watch"` target runs once and exits.
       - name: Test

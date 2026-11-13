@@ -177,8 +177,10 @@ Tooling notes:
   widen its grants for a feature (docs/deployment.md, "Database (Neon)").
 - Never run migrations or the seed by hand against production: migrations
   run only from the Railway pre-deploy command, and the seed never runs there.
-- The Railway IaC file (`.railway/railway.ts`, added by #40) is the source of
-  truth for the service; do not change its settings in the dashboard.
+- The Railway IaC file (`.railway/railway.ts`) is the source of truth for the
+  service; do not change its settings in the dashboard. Only a merged pull
+  request applies it (workflow `railway-config.yml`); secrets are
+  `preserve()` there, never values (docs/deployment.md, "Railway service").
 
 ## 7. Data and validation
 
