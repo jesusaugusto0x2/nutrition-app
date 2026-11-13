@@ -5,8 +5,10 @@
 // What each setting is for: docs/deployment.md "Railway service".
 import { defineRailway, github, preserve, service } from 'railway/iac';
 
-/** Railway's own domain until the custom domain (#41). */
-const RAILWAY_DOMAIN = 'nutrition-app-production.up.railway.app';
+/** Railway's own domain until the custom domain (#41). Railway names it, so
+ * it was generated once in the dashboard (2026-11-12); IaC cannot create one
+ * with a chosen name. Its target port is declared below. */
+const RAILWAY_DOMAIN = 'nutrition-app-production-4e0504a0.up.railway.app';
 
 /** Virginia, next to Neon's aws-us-east-1 (docs/deployment.md "Region"). */
 const REGION = 'us-east4-eqdc4a';

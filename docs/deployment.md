@@ -416,19 +416,19 @@ Everything below lives in
 service (CLAUDE.md §6). Never change these settings in the dashboard: the
 next apply fails on the drift (see below), or undoes the change.
 
-| Setting           | Value                                                       | Why                                                                                                                        |
-| ----------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Project / service | `nutrition-app` / `nutrition-app`, environment `production` | One service: Nest serves the API and the web app ([Decisions](#decisions))                                                 |
-| Source            | `jesusaugusto0x2/nutrition-app`, branch `main`              | Autodeploy from `main` only                                                                                                |
-| Wait for CI       | On (`checkSuites: true`)                                    | Only commits whose workflows passed deploy                                                                                 |
-| Build             | `DOCKERFILE`, `Dockerfile`                                  | The image smoke-tested in CI; Railway's default is Railpack                                                                |
-| Pre-deploy        | `node migrate.js`                                           | [Migrations](#migrations); a failure stops the deploy                                                                      |
-| Healthcheck       | `/api/health`, timeout 120 s                                | The new version takes traffic only once it answers 200; 120 s leaves room for Neon to wake up (Railway's default is 300 s) |
-| Restart policy    | `ON_FAILURE`, at most 10 retries                            | A crash restarts the container; a crash loop stops instead of retrying forever                                             |
-| App Sleeping      | Off (`sleepApplication: false`)                             | The daily cleanup job needs the process awake ([Scheduled jobs](#scheduled-jobs))                                          |
-| Region, replicas  | `us-east4-eqdc4a` (Virginia), 1                             | Next to Neon ([Database (Neon)](#database-neon)); one replica because of the in-memory rate limiter                        |
-| Domain            | `nutrition-app-production.up.railway.app` → port 3000       | Railway's own domain until #41                                                                                             |
-| Variables         | See below and [Variables](#variables)                       | Literals for non-secrets, `preserve()` for secrets                                                                         |
+| Setting           | Value                                                          | Why                                                                                                                        |
+| ----------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Project / service | `nutrition-app` / `nutrition-app`, environment `production`    | One service: Nest serves the API and the web app ([Decisions](#decisions))                                                 |
+| Source            | `jesusaugusto0x2/nutrition-app`, branch `main`                 | Autodeploy from `main` only                                                                                                |
+| Wait for CI       | On (`checkSuites: true`)                                       | Only commits whose workflows passed deploy                                                                                 |
+| Build             | `DOCKERFILE`, `Dockerfile`                                     | The image smoke-tested in CI; Railway's default is Railpack                                                                |
+| Pre-deploy        | `node migrate.js`                                              | [Migrations](#migrations); a failure stops the deploy                                                                      |
+| Healthcheck       | `/api/health`, timeout 120 s                                   | The new version takes traffic only once it answers 200; 120 s leaves room for Neon to wake up (Railway's default is 300 s) |
+| Restart policy    | `ON_FAILURE`, at most 10 retries                               | A crash restarts the container; a crash loop stops instead of retrying forever                                             |
+| App Sleeping      | Off (`sleepApplication: false`)                                | The daily cleanup job needs the process awake ([Scheduled jobs](#scheduled-jobs))                                          |
+| Region, replicas  | `us-east4-eqdc4a` (Virginia), 1                                | Next to Neon ([Database (Neon)](#database-neon)); one replica because of the in-memory rate limiter                        |
+| Domain            | `nutrition-app-production-4e0504a0.up.railway.app` → port 3000 | Railway's own domain until #41                                                                                             |
+| Variables         | See below and [Variables](#variables)                          | Literals for non-secrets, `preserve()` for secrets                                                                         |
 
 Sources, checked on 2026-11-11: the `railway` SDK 3.16.0 types
 (`DeployConfig`, `BuildConfig`, `ServiceSource`; the reference pages do not
@@ -543,17 +543,15 @@ Each step depends on the previous one. Record the dates in
 1. **Token:** [Runbook: the Railway token](#runbook-the-railway-token).
 2. **Secrets:** [Runbook: set the secrets](#runbook-set-the-secrets).
 3. **Google:** add
-   `https://nutrition-app-production.up.railway.app/api/auth/google/callback`
+   `https://nutrition-app-production-4e0504a0.up.railway.app/api/auth/google/callback`
    to the Web client's redirect URIs
    ([Register a new Google redirect URI](authentication.md#register-a-new-google-redirect-uri)).
 4. **Plan:** push to (or reopen) the #40 pull request and read the plan
    comment. Expect the build to change to `DOCKERFILE`, Wait for CI on, the
-   pre-deploy command, healthcheck, restart policy, the domain and the literal
-   variables, and probably the project name, from `charming-cooperation`
-   (the name Railway generated) to `nutrition-app`. Nothing destructive: if
-   the plan marks anything destructive, stop and find out why. If the
-   domain is taken, choose another `*.up.railway.app` name, update
-   `RAILWAY_DOMAIN` and step 3, and plan again.
+   pre-deploy command, healthcheck, restart policy and the literal
+   variables. Nothing destructive: if the plan marks anything destructive,
+   stop and find out why. The domain shows no change when it already matches
+   (see the FAQ).
 5. **Merge.** The apply runs. The merge's own deploy may already have started
    with the old settings (no Wait for CI yet); once the apply succeeds, run
    **Deploy Latest Commit** (`Cmd + K`) if the active deployment was not
@@ -564,7 +562,7 @@ Each step depends on the previous one. Record the dates in
 7. **Check the service** (the smoke test's checks, against the public URL):
 
    ```bash
-   base=https://nutrition-app-production.up.railway.app
+   base=https://nutrition-app-production-4e0504a0.up.railway.app
    curl -si "$base/api/health"            # 200 {"status":"ok",...}
    curl -si "$base/" | head -n 1          # 200, the SPA
    curl -si "$base/patients" | head -n 1  # 200, the SPA (deep link)
@@ -595,9 +593,15 @@ Names and dates only.
 
 - **Project and service created: before 2026-11-05**, connected to the
   repository, region `us-east4-eqdc4a` (Virginia), one replica. Railway named
-  the project `charming-cooperation`; the file names it `nutrition-app`.
+  the project `charming-cooperation`; it is now `nutrition-app`, as in the
+  file.
+- **Railway domain generated: 2026-11-12**,
+  `nutrition-app-production-4e0504a0.up.railway.app`, port 3000, in the
+  dashboard (see the FAQ). Railway renamed the project `nutrition-app` the
+  same week.
 - **`.railway/railway.ts` applied: pending** (first apply on the #40 merge).
-- **`RAILWAY_TOKEN` created: pending.**
+- **`RAILWAY_TOKEN` created: 2026-11-12** (project token, `production`); the
+  first plan on #70 passed the same day.
 - **Secrets set: pending.**
 - **Google redirect URI for the Railway domain: pending.**
 - **First successful deploy and first migration: pending.**
@@ -805,10 +809,14 @@ the password manager.
 at workflows on the deployed commit (the push to `main`); `Railway config`
 runs on `pull_request` events only.
 
-**Why `nutrition-app-production.up.railway.app`?** It is a Railway domain
-declared in the file (Railway's usual `<service>-<environment>` pattern), so
-`APP_ORIGIN` and the Google redirect URI can be written down before the first
-deploy. #41 adds the custom domain.
+**Why was the Railway domain generated in the dashboard?** Railway names
+`*.up.railway.app` domains itself (`<service>-<environment>-<suffix>`). A
+name declared in `.railway/railway.ts` that does not exist yet is ignored by
+the plan: on 2026-11-12, `nutrition-app-production.up.railway.app` produced no
+change at all. So the domain was generated once (service → **Settings →
+Networking → Generate Domain**, port 3000, or `railway domain --port 3000`),
+and the file declares the generated name with its port, which `APP_ORIGIN`
+and the Google redirect URI use. #41 adds the custom domain.
 
 **Does CI have to run on `push`?** Yes. Wait for CI needs a workflow with an
 `on: push` trigger for the deployed branch, and it watches workflows as a
