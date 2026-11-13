@@ -38,7 +38,8 @@ Container ──SMTP──> Resend ──> patients and staff
 - **Railway:** one service, one container. Nest serves the API under `/api`
   and the web app on every other route.
 - **Neon:** the production database.
-- **Domain:** pending, see #41.
+- **Domain:** Railway's own `*.up.railway.app` domain, HTTPS with HSTS; the
+  custom domain is postponed (#41, [Domain and HTTPS](#domain-and-https)).
 - **Resend:** transactional email over SMTP (chosen in
   [docs/authentication.md](authentication.md#email-15)).
 
@@ -611,7 +612,111 @@ Names and dates only.
 
 ## Domain and HTTPS
 
-Pending, see #41 (domain, certificate, `APP_ORIGIN`, HSTS).
+**Status (#41): HTTPS and HSTS are done on Railway's domain; the custom
+domain is postponed.** On 2026-11-13 the owner chose to keep serving from
+`nutrition-app-production-4e0504a0.up.railway.app` for now. #41 stays open
+until [Runbook: add the custom domain](#runbook-add-the-custom-domain) has
+been followed.
+
+### What is set up
+
+- **Origin:** `https://nutrition-app-production-4e0504a0.up.railway.app`,
+  declared in [`.railway/railway.ts`](../.railway/railway.ts) as the service
+  domain and as `APP_ORIGIN`. It is what the session cookie, `CsrfGuard`,
+  email links and the Google callback rely on.
+- **Certificate:** issued and renewed by Railway's edge; TLS ends there and
+  the edge talks plain HTTP to the container.
+- **HTTP to HTTPS:** Railway's edge answers every `http://` request with
+  `301` to the same `https://` URL. Nothing in the app does it.
+- **HSTS:** the app sends `Strict-Transport-Security: max-age=31536000` on
+  every response, API and web app alike
+  (`apps/api/src/common/http/strict-transport-security.ts`, mounted first in
+  `main.ts`), only when `APP_ORIGIN` is `https://`. With an `http://` origin
+  (local development, the image smoke test) the header is not sent.
+- **Cookies:** in production the session cookie is `__Host-session` and
+  the Google flow cookie `__Host-google-flow`, both `Secure; HttpOnly;
+SameSite=Lax; Path=/`, with no `Domain` (see
+  [docs/authentication.md](authentication.md)). The `__Host-` prefix makes
+  the browser drop them on anything but HTTPS.
+
+### Decisions
+
+- **The app sends HSTS, not Railway's edge.** Checked on 2026-11-13 against
+  the live service: the edge (`server: railway-hikari`) adds no
+  `Strict-Transport-Security`, and Railway documents no setting for it. The
+  app is the only sender, so the header is never sent twice. If a proxy that
+  can add HSTS (for example Cloudflare's proxied mode) is ever put in front,
+  turn one of them off.
+- **A hand-written middleware, not Helmet.** One header was needed. Helmet's
+  defaults also set a Content-Security-Policy and other headers that need
+  their own review against the SPA (inline styles, Google's button); that is
+  a separate decision (see [Open questions and debt](#open-questions-and-debt)).
+- **`max-age=31536000` without `includeSubDomains` or `preload`.** One year
+  is OWASP's recommended value, and the service has only ever been reachable
+  over HTTPS, so there is no need to ramp it up. `includeSubDomains` would add
+  nothing on Railway's host, and on a custom domain it could force HTTPS onto
+  hosts this app does not serve; the `__Host-` cookies already stop sibling
+  subdomains from planting cookies. `preload` takes months to undo and needs
+  the apex domain; reconsider it only after a custom apex domain exists.
+- **Browsers ignore HSTS over plain HTTP** (RFC 6797), so sending it on
+  the container's HTTP hop is harmless; only the HTTPS response through the
+  edge counts.
+
+Sources, checked on 2026-11-13:
+[OWASP HTTP Strict Transport Security cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html),
+[RFC 6797](https://www.rfc-editor.org/rfc/rfc6797),
+[Railway domains](https://docs.railway.com/networking/domains/working-with-domains),
+[Railway SSL troubleshooting](https://docs.railway.com/networking/troubleshooting/ssl),
+the `railway` SDK 3.16.0 types (`customDomains`).
+
+### Runbook: check HTTPS
+
+```bash
+base=https://nutrition-app-production-4e0504a0.up.railway.app
+curl -sI "http://${base#https://}/" | head -n 2   # 301, location: https://...
+curl -sI "$base/" | grep -i strict-transport       # max-age=31536000
+curl -sI "$base/api/health" | grep -i strict-transport
+```
+
+Then sign in in a browser and check the cookie in the developer tools
+(Application → Cookies): `__Host-session`, `Secure`, `HttpOnly`,
+`SameSite=Lax`, `Path=/`, no domain.
+
+### Runbook: add the custom domain
+
+For when a domain is chosen. Every step is a pull request or a DNS change;
+nothing is changed in the Railway dashboard (CLAUDE.md §6).
+
+1. **Choose the name.** Prefer a subdomain (`app.<domain>`): a plain CNAME
+   works with any DNS provider. An apex domain needs CNAME flattening or an
+   ALIAS record, which Railway supports but not every provider offers. Record
+   the domain and its DNS provider in [docs/architecture.md](architecture.md)
+   and in this section.
+2. **Declare it** in `.railway/railway.ts`, under `networking.customDomains`
+   with `{ port: 3000 }` (the SDK's `domains` shorthand defaults to 8080,
+   which is wrong here). Keep `APP_ORIGIN` on the Railway domain in this pull
+   request. Merge after reading the plan.
+3. **DNS:** Railway shows two records for the domain (service → Settings →
+   Networking, or `railway domain`): a `CNAME` to a `*.up.railway.app`
+   target and a `TXT` that proves ownership. Both are required. If the DNS is
+   on Cloudflare, use **DNS only** (grey cloud) so Railway's edge issues the
+   certificate and Cloudflare adds no HSTS of its own.
+4. **Wait for the certificate:** the domain shows as verified, and
+   `curl -sI https://<domain>/api/health` answers 200 with a valid
+   certificate.
+5. **Google:** add `https://<domain>/api/auth/google/callback` to the Web
+   client's redirect URIs and the domain to the authorized domains
+   ([Register a new Google redirect URI](authentication.md#register-a-new-google-redirect-uri)).
+   Keep the Railway callback until step 7.
+6. **Switch the origin:** a pull request sets `APP_ORIGIN` to
+   `https://<domain>` in `.railway/railway.ts` and updates the docs. After
+   the deploy, everyone has to sign in again: the session cookie is
+   host-only, so the old host's cookie does not reach the new one.
+7. **Check** with [Runbook: check HTTPS](#runbook-check-https) against the
+   new domain, sign in with Google, then remove the Railway callback from
+   Google.
+8. **The Railway domain stays reachable** (see the FAQ). Decide then whether
+   to remove it from `serviceDomains`.
 
 ## Email delivery
 
@@ -818,6 +923,18 @@ Networking → Generate Domain**, port 3000, or `railway domain --port 3000`),
 and the file declares the generated name with its port, which `APP_ORIGIN`
 and the Google redirect URI use. #41 adds the custom domain.
 
+**Is the `*.up.railway.app` domain still reachable after the custom domain
+is added?** Yes, as long as it stays in `serviceDomains`; Railway has no
+redirect from one domain to another. That is acceptable: it serves the same
+app over HTTPS with HSTS, but `CsrfGuard` rejects writes whose `Origin` is not
+`APP_ORIGIN`, and Google redirects only to registered callbacks, so nobody can
+sign in or change anything there. Removing it from the file removes the
+domain (check the plan says so).
+
+**Why is there no `Strict-Transport-Security` in local development?** The
+app sends it only when `APP_ORIGIN` is `https://`. To see it locally, start
+the built API with `APP_ORIGIN=https://app.example.com`.
+
 **Does CI have to run on `push`?** Yes. Wait for CI needs a workflow with an
 `on: push` trigger for the deployed branch, and it watches workflows as a
 whole, not individual jobs. `ci.yml` has one.
@@ -940,6 +1057,15 @@ passwords from another container through `host.docker.internal`.
   are placeholders, so no email is delivered. #41 replaces the origin and the
   callback, #42 the mail variables (as `preserve()` for `SMTP_URL`). Recorded
   on 2026-11-11 (#40).
+- **The custom domain is postponed (#41).** The owner chose on 2026-11-13 to
+  keep Railway's domain for now; HTTPS and HSTS already work on it.
+  [Runbook: add the custom domain](#runbook-add-the-custom-domain) is what
+  remains. Decide before the first real user (#45), since changing the
+  origin later signs everyone out.
+- **No Content-Security-Policy or other security headers yet.** Only HSTS
+  is sent. A CSP (and `X-Content-Type-Options`, `Referrer-Policy`, frame
+  protection) needs its own review against the SPA; recorded on 2026-11-13
+  (#41).
 - **CSRF behind Railway's edge is unverified until the first deploy.** OWASP
   warns that proxies can strip `Origin` or `Sec-*` headers, which would turn
   every write into a 403. Step 7 of
