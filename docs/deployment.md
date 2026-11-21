@@ -88,8 +88,9 @@ Sources, checked on 2026-11-01:
 
 ## Database (Neon)
 
-**Status: the Neon project and `nutri_app` exist (#38); the database is
-still empty.** What is done and what is left is in
+**Status (#38): the Neon project and `nutri_app` exist and production is
+migrated and verified** — role limits checked and a restore to a branch
+tested on 2026-11-21. What is done and what is left is in
 [Production record](#production-record). The scripts were also rehearsed end
 to end on a scratch local Postgres 18 with a non-superuser owner role.
 
@@ -280,21 +281,27 @@ it from **Connect** in the Neon Console.
   the same day in the catalogs, connected as the owner: `LOGIN` only, not a
   member of `neon_superuser`, no `CREATE` on `public`, no `TEMPORARY`; default
   privileges from `neondb_owner` are `arwd` on tables and `rU` on sequences.
-- **`check-app-role.sql` passing: pending.** It needs the migrated schema, so
-  run it after the first migration, which the first deploy's pre-deploy
-  command runs (#40). Migrations are never run by hand against production.
-- **Migrations applied with the owner role: pending.** `node migrate.js`
-  exists (#39); the first deploy (#40) runs it with `DATABASE_MIGRATION_URL`.
-- **Restore to a branch tested: pending.** Do it after the first migration,
-  when there is a schema to compare.
+- **`check-app-role.sql` passing: 2026-11-21** (evidence on #38): no
+  superuser attributes or memberships; SELECT, INSERT, UPDATE, DELETE on
+  every public table (9); CREATE TABLE, CREATE SCHEMA, CREATE TEMPORARY
+  TABLE, ALTER TABLE, DROP TABLE and TRUNCATE denied; the migrations journal
+  not readable. Run again after anything that touches roles or grants.
+- **Migrations applied with the owner role: 2026-11-13.** The first deploy's
+  pre-deploy command ran them with `DATABASE_MIGRATION_URL`; the 2026-11-18
+  and 2026-11-21 deploy logs read `No pending migrations (2 applied).`
+  (#40).
+- **Restore to a branch tested: 2026-11-21** (evidence on #38): branch from
+  `production` with past data, `drizzle.__drizzle_migrations` count 2 and a
+  queryable schema on the branch, auto-deleted after 1 hour.
 - Passwords: both are in the owner's password manager; the full connection
   strings are built from them as shown in
   [Connection strings](#connection-strings), and go to Railway in #40.
 
 ## Migrations
 
-**Status: built and tested in CI (#39); not run in production yet.** #40
-sets the Railway pre-deploy command to `node migrate.js`.
+**Status (#39): built and tested in CI; running in production since the
+first deploy (2026-11-13).** The Railway pre-deploy command is
+`node migrate.js`.
 
 ### What is set up
 
