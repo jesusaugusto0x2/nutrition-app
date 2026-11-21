@@ -56,10 +56,12 @@ export default defineRailway((_ctx, project) =>
           CLIENT_IP_SOURCE: 'x-real-ip',
           GOOGLE_CLIENT_ID: preserve(),
           GOOGLE_CLIENT_SECRET: preserve(),
-          // Placeholders until email delivery (#42): the API needs both to
-          // boot, and nothing listens there, so every email fails to send.
-          SMTP_URL: 'smtp://smtp.invalid:587',
-          MAIL_FROM: 'Mi consulta <no-reply@example.com>',
+          // Email via Resend (#42, sandbox phase): the API key is a secret
+          // set by hand in Railway; MAIL_FROM is Resend's shared test
+          // address, which only delivers to the Resend account owner until
+          // a domain is verified.
+          SMTP_URL: preserve(),
+          MAIL_FROM: 'Mi consulta <onboarding@resend.dev>',
         },
       }),
     ],
