@@ -61,3 +61,4 @@ vitest.config.*.timestamp*
 
 # test output
 test-output
+.neon

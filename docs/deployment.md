@@ -534,8 +534,9 @@ paste them anywhere else. In Railway → service `nutrition-app` →
 - `DATABASE_URL`: pooled host, `nutri_app`, `sslmode=verify-full`;
 - `DATABASE_MIGRATION_URL`: direct host (no `-pooler`), `neondb_owner`,
   `sslmode=verify-full`;
-- `SMTP_URL`: `smtps://resend:<API key>@smtp.resend.com:465` (the Resend
-  key, #42);
+- `SMTP_URL`: `smtps://resend:<API key>@smtp.resend.com:2465` (the Resend
+  key, #42; port 2465 because Railway blocks the standard SMTP ports, see
+  [Email delivery](#email-delivery));
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: the existing Web client (one
   client serves development and production).
 
@@ -760,7 +761,7 @@ same code in every environment, Mailpit locally).
 ### What is set up
 
 - **Transport:** Resend over SMTP
-  (`smtps://resend:<API key>@smtp.resend.com:465`). Development keeps
+  (`smtps://resend:<API key>@smtp.resend.com:2465`). Development keeps
   using Mailpit; switching providers is a configuration change
   (`SMTP_URL`, `MAIL_FROM`), never code.
 - **`SMTP_URL` is a secret:** `preserve()` in `.railway/railway.ts`, set
@@ -786,6 +787,16 @@ same code in every environment, Mailpit locally).
 - **`MAIL_FROM` stays a literal, `SMTP_URL` a secret:** the sender
   address is not sensitive and must be reviewed in pull requests; the API
   key must not be.
+- **Port 2465, not 465 or 587** (checked 2026-11-21): Railway blocks
+  outbound SMTP on the standard ports (25, 465, 587) on Hobby plans to
+  fight spam, at the platform network level — no app, DNS or Resend
+  change gets past it, and the symptom is a ~2-minute connect timeout
+  before `MailDeliveryError`. Resend also listens on `2465` (implicit
+  TLS, what we use) and `2587` (STARTTLS) for exactly this situation,
+  and Railway leaves those open. Rejected: upgrading Railway to Pro just
+  for SMTP, and moving to Resend's HTTP API (port 443) — a code change
+  in `apps/api/src/mail/`, kept as the fallback if 2465 is ever blocked
+  too.
 - No SPF/DKIM/DMARC records of ours exist in this phase: Resend
   authenticates the shared `resend.dev` domain itself, so messages pass
   header checks at the destination. Our DNS records wait for our own
@@ -848,6 +859,14 @@ Real recipients wait for a verified domain (runbook above).
 restriction on the shared test domain, not a bug and not a credential
 problem. The app logs `Could not send the "<template>" email` with the
 error class only.
+
+**Emails fail with `MailDeliveryError` after ~2 minutes, from
+production only.** Railway is dropping the outbound SMTP connection: the
+standard ports (25/465/587) are blocked on Hobby plans and the connect
+times out. We send through port `2465`
+([Decisions](#decisions)); if even that starts failing, the fallback is
+Resend's HTTP API (port 443, never blocked), which needs a new transport
+in `apps/api/src/mail/`.
 
 **Do emails pass SPF/DKIM/DMARC checks in the sandbox?** Yes: Resend
 publishes those records for `resend.dev` itself. Our own records only
