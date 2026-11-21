@@ -108,7 +108,7 @@ Run a target for one project with Nx, e.g. `pnpm nx test api`.
 docker build -t nutri .
 docker run -p 3000:3000 \
   -e "DATABASE_URL=postgres://user:password@host:5432/db?sslmode=verify-full" \
-  -e SMTP_URL=smtps://resend:API_KEY@smtp.resend.com:465 \
+  -e SMTP_URL=smtps://resend:API_KEY@smtp.resend.com:2465 \
   -e 'MAIL_FROM=Mi consulta <no-reply@example.com>' \
   -e APP_ORIGIN=https://app.example.com \
   -e CLIENT_IP_SOURCE=socket \

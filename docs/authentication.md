@@ -835,7 +835,9 @@ stays disabled: the SPA and the API share one origin.
   template name and nodemailer's error code (such as `EAUTH`), because SMTP
   error messages can echo the recipient. Callers decide whether a failure
   fails their request.
-- **Provider: Resend** (`smtps://resend:<API key>@smtp.resend.com:465`).
+- **Provider: Resend** (`smtps://resend:<API key>@smtp.resend.com:2465`;
+  port 2465, not 465: Railway blocks the standard SMTP ports on Hobby
+  plans — see [Email delivery](deployment.md#email-delivery)).
   Compared on 2026-10-28 from each provider's pricing page:
 
   | Provider   | Free tier                          | First paid tier          | Notes                                                            |
