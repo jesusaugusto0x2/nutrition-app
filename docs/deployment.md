@@ -600,15 +600,37 @@ Names and dates only.
   `nutrition-app-production-4e0504a0.up.railway.app`, port 3000, in the
   dashboard (see the FAQ). Railway renamed the project `nutrition-app` the
   same week.
-- **`.railway/railway.ts` applied: pending** (first apply on the #40 merge).
+- **`.railway/railway.ts` applied: 2026-11-13**, by the `Railway config`
+  workflow on the merge of #70.
 - **`RAILWAY_TOKEN` created: 2026-11-12** (project token, `production`); the
   first plan on #70 passed the same day.
-- **Secrets set: pending.**
-- **Google redirect URI for the Railway domain: pending.**
-- **First successful deploy and first migration: pending.**
-- **Checks of step 7–8: pending.**
-- **Deploy Latest Commit and Wait for CI:** pending; record whether a manual
-  deploy waits for CI (Railway's docs do not say).
+- **Secrets set: 2026-11-13**, by hand in the dashboard before the apply
+  (runbook: set the secrets). Confirmed working: the first migration ran
+  with the owner role that day and `GET /api/health` reports
+  `database: up`.
+- **Google redirect URI for the Railway domain: registered** (runbook step 3,
+  before the first deploy). `GET /api/auth/google` answers 302 to
+  accounts.google.com with the Railway callback as `redirect_uri` (checked
+  2026-11-21); the full sign-in flow is exercised at go-live (#45).
+- **First successful deploy and first migration: 2026-11-13**, on the merge
+  of #70 (the first deploy whose pre-deploy command was `node migrate.js`).
+  The deploy logs of 2026-11-18 and 2026-11-21 read
+  `No pending migrations (2 applied).`
+- **Checks of step 7–8: done 2026-11-21.** `GET /api/health` → 200
+  `{"status":"ok","database":"up"}`; `/` and `/patients` → 200 `text/html`;
+  unknown `/api/*` → 404 JSON (`code: NOT_FOUND`); `/api/clinic/patients`
+  without a session → 401; `POST /api/auth/sign-out` with the app's `Origin`
+  → 204, with another origin → 403 (`CsrfGuard` sees `Origin` through the
+  edge); HSTS on every response and HTTP → HTTPS 301 at the edge (#71). The
+  logs of the 2026-11-18 and 2026-11-21 deployments show only Nest startup
+  lines, the route map, migration counts, the cleanup job's counts and HTTP
+  method/path/status — no request bodies, no patient data, no variable
+  values.
+- **Wait for CI: confirmed on autodeploys.** On 2026-11-21 the deployment was
+  created at 01:09:48Z and the container started at 01:12:36Z, after the CI
+  run on the commit finished at 01:11:43Z. **Deploy Latest Commit:** not used
+  yet; whether a manual deploy waits for CI stays open (Railway's docs do
+  not say).
 
 ## Domain and HTTPS
 
