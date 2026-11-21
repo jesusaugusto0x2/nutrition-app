@@ -6,6 +6,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { strictTransportSecurity } from './common/http/strict-transport-security';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 
 export const API_PREFIX = 'api';
@@ -29,13 +30,19 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const config = app.get<AppConfig>(APP_CONFIG);
   app.disable('x-powered-by');
+  // First, so it also covers the web app, which ServeStaticModule mounts
+  // when the app starts listening.
+  const hsts = strictTransportSecurity(config.APP_ORIGIN);
+  if (hsts) {
+    app.use(hsts);
+  }
   // Fills req.cookies for the session cookie (unsigned: the token is opaque).
   app.use(cookieParser());
   app.setGlobalPrefix(API_PREFIX);
   app.enableShutdownHooks();
 
-  const config = app.get<AppConfig>(APP_CONFIG);
   await app.listen(config.PORT);
   Logger.log(
     `API listening on http://localhost:${config.PORT}/${API_PREFIX} (${config.NODE_ENV})`,
