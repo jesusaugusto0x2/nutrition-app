@@ -455,14 +455,13 @@ picks a port itself (8080 by default), which also works but hides the value
 the domain has to match.
 
 **Variables.** Literals in the file: `PORT`, `APP_ORIGIN`
-(`https://` + the Railway domain), `CLIENT_IP_SOURCE=x-real-ip`, and two
-placeholders until email delivery (#42): `SMTP_URL=smtp://smtp.invalid:587`
-(nothing resolves there, so every email fails and only the error name is
-logged) and `MAIL_FROM`. Secrets are `preserve()`: the file names them, and
-their values exist only in Railway and the password manager. `DATABASE_URL`,
-`DATABASE_MIGRATION_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set
-by hand ([Runbook: set the secrets](#runbook-set-the-secrets)). `NODE_ENV` and
-`WEB_DIST_DIR` come from the image.
+(`https://` + the Railway domain), `CLIENT_IP_SOURCE=x-real-ip`, and
+`MAIL_FROM` (Resend's shared test address until #42 verifies a domain).
+Secrets are `preserve()`: the file names them, and their values exist only
+in Railway and the password manager. `DATABASE_URL`,
+`DATABASE_MIGRATION_URL`, `SMTP_URL`, `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are set by hand ([Runbook: set the secrets](#runbook-set-the-secrets)).
+`NODE_ENV` and `WEB_DIST_DIR` come from the image.
 
 **The app never sees the owner role.** Railway gives the pre-deploy command
 and the app the same variables, so `DATABASE_MIGRATION_URL` reaches the app's
@@ -535,6 +534,8 @@ paste them anywhere else. In Railway → service `nutrition-app` →
 - `DATABASE_URL`: pooled host, `nutri_app`, `sslmode=verify-full`;
 - `DATABASE_MIGRATION_URL`: direct host (no `-pooler`), `neondb_owner`,
   `sslmode=verify-full`;
+- `SMTP_URL`: `smtps://resend:<API key>@smtp.resend.com:465` (the Resend
+  key, #42);
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: the existing Web client (one
   client serves development and production).
 
@@ -749,7 +750,113 @@ nothing is changed in the Railway dashboard (CLAUDE.md §6).
 
 ## Email delivery
 
-Pending, see #42 (SPF, DKIM, DMARC, `SMTP_URL`, `MAIL_FROM`).
+**Status (#42): the Resend sandbox is live — production sends through
+Resend's shared test domain, which delivers only to the Resend account
+owner's inbox. Emailing any real user waits for a verified domain**
+(chosen with #41). The provider and the in-app design were decided in
+[docs/authentication.md](authentication.md#email-15) (nodemailer over SMTP,
+same code in every environment, Mailpit locally).
+
+### What is set up
+
+- **Transport:** Resend over SMTP
+  (`smtps://resend:<API key>@smtp.resend.com:465`). Development keeps
+  using Mailpit; switching providers is a configuration change
+  (`SMTP_URL`, `MAIL_FROM`), never code.
+- **`SMTP_URL` is a secret:** `preserve()` in `.railway/railway.ts`, set
+  by hand in Railway on 2026-11-21
+  ([Runbook: set the secrets](#runbook-set-the-secrets)). The API key
+  also lives in the owner's password manager.
+- **`MAIL_FROM` = `Mi consulta <onboarding@resend.dev>`**, a literal in
+  the file: Resend's shared test address, no DNS setup needed.
+- **The sandbox restriction is by design:** Resend accepts sends from
+  `onboarding@resend.dev` only to the email address of the Resend
+  account; any other recipient is rejected with a 403, which the app
+  reports as `MailDeliveryError` carrying the template name only. Links
+  in the emails are built from `APP_ORIGIN` (the Railway domain until
+  #41), so verification and reset links work from the owner's inbox.
+
+### Decisions
+
+- **Sandbox before domain** (owner, 2026-11-21): validate the whole path
+  (app → SMTP → Resend → inbox → links → verify/reset) before choosing or
+  buying a domain, and do the #41/#42 DNS work together later. Rejected:
+  buying a domain first — there are no real users yet, and the sandbox
+  covers every check that does not need a second inbox.
+- **`MAIL_FROM` stays a literal, `SMTP_URL` a secret:** the sender
+  address is not sensitive and must be reviewed in pull requests; the API
+  key must not be.
+- No SPF/DKIM/DMARC records of ours exist in this phase: Resend
+  authenticates the shared `resend.dev` domain itself, so messages pass
+  header checks at the destination. Our DNS records wait for our own
+  domain.
+
+### Runbook: send a test email in production
+
+1. In the production app, sign up (or use "forgot password") with **the
+   email address of the Resend account**.
+2. The verification (or reset) email must arrive in that inbox. Check
+   that its links point to
+   `https://nutrition-app-production-4e0504a0.up.railway.app`, then
+   complete the flow (verify → sign in; or reset → sign in).
+3. A send to any other address fails on purpose (Resend answers 403); the
+   logs show only the template and the error class, never the recipient
+   ([Email (#15)](authentication.md#email-15)).
+
+### Runbook: switch to our own domain (finishes #42)
+
+1. Choose the domain together with #41 (a subdomain such as
+   `mail.<domain>` keeps the apex free; each record is then a plain
+   CNAME/TXT).
+2. In Resend: **Domains → Add domain**, copy the records it shows (SPF
+   `TXT`, DKIM `CNAME`s, and the return-path record if offered) and add
+   them at the DNS provider. Add a `DMARC` `TXT` record at
+   `_dmarc.<domain>` starting at `p=none` with a report address; plan the
+   move to `quarantine` once reports are clean.
+3. Wait until Resend shows the domain as verified.
+4. Pull request: change `MAIL_FROM` to an address on the verified domain
+   in `.railway/railway.ts`; read the plan, merge, let it apply and
+   deploy. Set nothing by hand first — `MAIL_FROM` is a literal, not
+   `preserve()`.
+5. Acceptance (#42): sign up in production with a **Gmail** and an
+   **Outlook** address; both emails land in the inbox (not spam) and
+   their headers show SPF, DKIM and DMARC `pass`. Then close #42.
+6. Update this section and the [Variables](#variables) table in the same
+   pull request.
+
+### Runbook: rotate the Resend API key
+
+1. In Resend, create a new API key.
+2. In Railway → service `nutrition-app` → **Variables**, update
+   `SMTP_URL` with the new key and deploy from the banner — per
+   [Runbook: set the secrets](#runbook-set-the-secrets); a variable edit
+   makes an open IaC plan stale, so do it before planning a `.railway/`
+   pull request or plan again after.
+3. Delete the old key and update the password manager. No outage: the app
+   reads the variable at boot, and the key is only used for new sends.
+
+### FAQ
+
+**Only the Resend account owner receives emails in production.** Expected
+in the sandbox phase: `MAIL_FROM` is `onboarding@resend.dev` and Resend
+rejects every other recipient (403), so sign-up and password-reset flows
+only complete end to end with the owner's address. Everything else about
+the flows (templates, links, rate limits) is exercised with that inbox.
+Real recipients wait for a verified domain (runbook above).
+
+**A test email to any other address fails with a 403 / `EAUTH`.** Resend's
+restriction on the shared test domain, not a bug and not a credential
+problem. The app logs `Could not send the "<template>" email` with the
+error class only.
+
+**Do emails pass SPF/DKIM/DMARC checks in the sandbox?** Yes: Resend
+publishes those records for `resend.dev` itself. Our own records only
+exist once a domain is verified (runbook above).
+
+Sources, checked on 2026-11-21:
+[Resend docs — MCP server and API](https://resend.com/docs/mcp-server),
+[Resend guides](https://resend.com/docs) (test-domain restriction,
+domain verification and DNS records).
 
 ## Scheduled jobs
 
@@ -810,26 +917,27 @@ Pending, see #45 (end-to-end check before the first real user).
 Names only. A new variable gets a row here in the same pull request.
 "Railway" means the value lives in Railway variables, with secrets also kept
 in a password manager; non-secret Railway values are literals in
-`.railway/railway.ts` ("IaC"), secrets are `preserve()` there. Today
-`SMTP_URL` and `MAIL_FROM` are placeholder literals (#42), and `APP_ORIGIN`
-is the Railway domain (#41). The pre-deploy command sees the same variables as
-the app, except that the app's `CMD` removes `DATABASE_MIGRATION_URL`
+`.railway/railway.ts` ("IaC"), secrets are `preserve()` there. `SMTP_URL`
+is a `preserve()` secret and `MAIL_FROM` a literal (the Resend test
+address), and `APP_ORIGIN` is the Railway domain (#41). The pre-deploy
+command sees the same variables as the app, except that the app's `CMD`
+removes `DATABASE_MIGRATION_URL`
 ([Railway service](#railway-service)).
 
-| Variable                 | Purpose                                             | Used by    | Managed in        |
-| ------------------------ | --------------------------------------------------- | ---------- | ----------------- |
-| `NODE_ENV`               | `production`; turns on required variables           | App        | `Dockerfile`      |
-| `WEB_DIST_DIR`           | Path of the built web app                           | App        | `Dockerfile`      |
-| `PORT`                   | Port the API listens on: 3000                       | App        | `Dockerfile`, IaC |
-| `DATABASE_URL`           | Pooled connection, `nutri_app`; `verify-full`       | App        | Railway (secret)  |
-| `DATABASE_MIGRATION_URL` | Direct connection, owner role; `verify-full`        | Pre-deploy | Railway (secret)  |
-| `RAILWAY_TOKEN`          | Project token; applies `.railway/railway.ts`        | GitHub     | GitHub secret     |
-| `SMTP_URL`               | SMTP server with credentials                        | App        | Railway (secret)  |
-| `MAIL_FROM`              | Sender of every email, on the verified domain       | App        | Railway           |
-| `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF  | App        | Railway           |
-| `CLIENT_IP_SOURCE`       | `x-real-ip` on Railway; client IP for rate limiting | App        | Railway           |
-| `GOOGLE_CLIENT_ID`       | OAuth client for Google sign-in                     | App        | Railway           |
-| `GOOGLE_CLIENT_SECRET`   | Its secret                                          | App        | Railway (secret)  |
+| Variable                 | Purpose                                                                | Used by    | Managed in            |
+| ------------------------ | ---------------------------------------------------------------------- | ---------- | --------------------- |
+| `NODE_ENV`               | `production`; turns on required variables                              | App        | `Dockerfile`          |
+| `WEB_DIST_DIR`           | Path of the built web app                                              | App        | `Dockerfile`          |
+| `PORT`                   | Port the API listens on: 3000                                          | App        | `Dockerfile`, IaC     |
+| `DATABASE_URL`           | Pooled connection, `nutri_app`; `verify-full`                          | App        | Railway (secret)      |
+| `DATABASE_MIGRATION_URL` | Direct connection, owner role; `verify-full`                           | Pre-deploy | Railway (secret)      |
+| `RAILWAY_TOKEN`          | Project token; applies `.railway/railway.ts`                           | GitHub     | GitHub secret         |
+| `SMTP_URL`               | SMTP server with credentials                                           | App        | Railway (secret)      |
+| `MAIL_FROM`              | Sender of every email; Resend test address until #42 verifies a domain | App        | Railway (IaC literal) |
+| `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF                     | App        | Railway               |
+| `CLIENT_IP_SOURCE`       | `x-real-ip` on Railway; client IP for rate limiting                    | App        | Railway               |
+| `GOOGLE_CLIENT_ID`       | OAuth client for Google sign-in                                        | App        | Railway               |
+| `GOOGLE_CLIENT_SECRET`   | Its secret                                                             | App        | Railway (secret)      |
 
 ## Runbooks
 
@@ -979,14 +1087,17 @@ image, in a separate container with no volumes. It is not retried on failure.
 **Does the API boot with only the database variables?** No. In production it
 refuses to start without `SMTP_URL`, `MAIL_FROM`, `APP_ORIGIN`,
 `CLIENT_IP_SOURCE`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
-(`apps/api/src/config/app-config.ts`). Until #41 and #42, `.railway/railway.ts`
-sets the Railway domain and email placeholders
+(`apps/api/src/config/app-config.ts`). `.railway/railway.ts` provides them
+all: the Railway domain as `APP_ORIGIN` (#41), a `preserve()` secret for
+`SMTP_URL` and the Resend test address as `MAIL_FROM` (#42, sandbox)
 ([Railway service](#railway-service)).
 
-**Sign-up and password reset emails never arrive.** Expected until #42:
-`SMTP_URL` is a placeholder, so sending fails and the log shows only
-`Could not process a sign-up request (<error name>)` or similar. Sign in with
-Google meanwhile.
+**Sign-up or password-reset emails fail / only the owner receives them.**
+Expected in the sandbox phase: `MAIL_FROM` is `onboarding@resend.dev` and
+Resend rejects every other recipient (403, logged as
+`Could not process a sign-up request (EAUTH)` or similar). Sign in with
+Google meanwhile, or test the flows with the Resend account owner's
+address ([Runbook: send a test email in production](#runbook-send-a-test-email-in-production)).
 
 **Google sign-in answers `redirect_uri_mismatch`.** The client at Google does
 not list `${APP_ORIGIN}/api/auth/google/callback` exactly. Add it, and change it
@@ -1082,10 +1193,13 @@ passwords from another container through `host.docker.internal`.
   [Rotate credentials](#rotate-credentials).
 
 - **Temporary values until #41 and #42.** `APP_ORIGIN` is the Railway
-  domain (its Google callback is registered too), and `SMTP_URL`/`MAIL_FROM`
-  are placeholders, so no email is delivered. #41 replaces the origin and the
-  callback, #42 the mail variables (as `preserve()` for `SMTP_URL`). Recorded
-  on 2026-11-11 (#40).
+  domain (its Google callback is registered too). Email runs on Resend's
+  sandbox: `SMTP_URL` is a `preserve()` secret and `MAIL_FROM` is the
+  shared test address `onboarding@resend.dev`, which delivers only to the
+  Resend account owner. #41 adds the custom domain; #42 finishes when a
+  domain is verified and Gmail/Outlook delivery passes SPF/DKIM/DMARC
+  ([Runbook: switch to our own domain](#runbook-switch-to-our-own-domain-finishes-42)).
+  Recorded on 2026-11-11 (#40), updated on 2026-11-21 (#42 sandbox).
 - **The custom domain is postponed (#41).** The owner chose on 2026-11-13 to
   keep Railway's domain for now; HTTPS and HSTS already work on it.
   [Runbook: add the custom domain](#runbook-add-the-custom-domain) is what
