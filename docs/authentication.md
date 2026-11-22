@@ -147,8 +147,23 @@ the hash.
 - **Unicode:** `PasswordHasher` applies NFC before hashing and verifying, as
   NIST recommends, so the same password typed on another keyboard (e.g. "ñ"
   as one code point or as "n" plus a combining tilde) matches.
-- The NIST blocklist of common or compromised passwords is not checked yet
-  ([Known technical debt](architecture.md#compromised-password-blocklist)).
+- **Compromised-password blocklist (#98):** new passwords (sign-up and
+  password reset) are rejected with `400 COMPROMISED_PASSWORD` when they
+  appear, case-insensitively, in a bundled list of publicly known
+  compromised or commonly used passwords
+  (`auth/passwords/password-blocklist.ts`), per the same NIST section.
+  **Bundled, not an external API** (decision 2026-11-21): deterministic,
+  offline, no failure mode of its own and nothing leaves the server —
+  rejected over the Have I Been Pwned range API for exactly those reasons.
+  The list is SecLists "10k-most-common.txt" (MIT) plus a Spanish supplement
+  with 15+ character patterns (our minimum is 15, and the raw top-10k is
+  almost entirely shorter); regenerate the data file with
+  `node scripts/generate-password-blocklist.mjs`. The check runs in the API
+  only, never in the shared schema, so the list stays out of the web
+  bundle; at sign-up it throws synchronously from `requestSignUp`, before
+  the fire-and-forget work, so the user gets the error instead of a
+  misleading 202 — and the response never echoes the password. The web maps
+  the code to a Spanish message (`t.auth.compromisedPasswordBody`).
 
 ## Sign-up (#16)
 
