@@ -5,6 +5,8 @@ import { MailService } from '../../mail/mail.service';
 import { ClinicsService } from '../../modules/clinics/clinics.service';
 import { CredentialsRepository } from '../credentials/credentials.repository';
 import { EmailVerificationService } from '../email-verification/email-verification.service';
+import { compromisedPassword } from '../passwords/compromised-password';
+import { isCompromisedPassword } from '../passwords/password-blocklist';
 import { PasswordHasher } from '../passwords/password-hasher';
 
 @Injectable()
@@ -24,8 +26,16 @@ export class SignUpService {
    * Starts `signUp` without waiting for it, so the response takes the same
    * time whether or not the email has an account. Failures are logged
    * without the request data or the error message.
+   *
+   * The compromised-password check throws synchronously, before the async
+   * work: a 202 would leave the user believing the sign-up succeeded. It
+   * depends only on the password, so failing fast reveals nothing about
+   * whether the email already has an account.
    */
   requestSignUp(input: SignUp): void {
+    if (isCompromisedPassword(input.password)) {
+      throw compromisedPassword();
+    }
     this.signUp(input).catch((error: unknown) => {
       const name = error instanceof Error ? error.name : typeof error;
       this.logger.error(`Could not process a sign-up request (${name})`);
