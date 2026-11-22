@@ -114,6 +114,15 @@ describe('PasswordResetService', () => {
       );
     });
 
+    it('rejects a compromised password without hashing or querying', async () => {
+      await expect(
+        service.resetPassword(TOKEN, '123456789012345'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(passwordHasher.hash).not.toHaveBeenCalled();
+      expect(credentials.resetPassword).not.toHaveBeenCalled();
+    });
+
     it('rejects a malformed token without hashing or querying', async () => {
       await expect(
         service.resetPassword('not-a-token', PASSWORD),

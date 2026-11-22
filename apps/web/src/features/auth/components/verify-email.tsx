@@ -94,11 +94,11 @@ export function VerifyEmail({ token }: { token: string | null }) {
               {t.verifyEmail.failedTitle}
             </h1>
             <p role="alert" className="m-0">
-              {state.failure.kind === 'unknown'
-                ? t.verifyEmail.failedBody
-                : state.failure.minutes === null
+              {state.failure.kind === 'throttled'
+                ? state.failure.minutes === null
                   ? t.signUp.tooManyAttemptsLater
-                  : t.signUp.tooManyAttemptsBody(state.failure.minutes)}
+                  : t.signUp.tooManyAttemptsBody(state.failure.minutes)
+                : t.verifyEmail.failedBody}
             </p>
           </header>
           <Button

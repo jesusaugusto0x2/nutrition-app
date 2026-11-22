@@ -162,6 +162,14 @@ export function isInvalidLinkToken(error: unknown): boolean {
   );
 }
 
+/** The new password is in the API's bundled list of compromised passwords. */
+export function isCompromisedPassword(error: unknown): boolean {
+  return (
+    error instanceof ApiClientError &&
+    error.body?.code === 'COMPROMISED_PASSWORD'
+  );
+}
+
 export function useResetPassword() {
   const queryClient = useQueryClient();
   return useMutation({

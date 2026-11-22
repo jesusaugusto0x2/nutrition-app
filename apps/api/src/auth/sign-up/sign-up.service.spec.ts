@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq, inArray } from 'drizzle-orm';
 import type { DatabaseConnection } from '../../database/client';
@@ -243,6 +243,29 @@ describe('SignUpService', () => {
   });
 
   describe('requestSignUp', () => {
+    it('rejects a compromised password synchronously, creating nothing', async () => {
+      const email = nextEmail();
+      const clinicsBefore = await clinicCount();
+
+      let error: unknown;
+      try {
+        service.requestSignUp({
+          ...input(email),
+          password: '123456789012345',
+        });
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'COMPROMISED_PASSWORD',
+      });
+      expect(passwordHasher.hash).not.toHaveBeenCalled();
+      await expect(usersWith(email)).resolves.toHaveLength(0);
+      await expect(clinicCount()).resolves.toBe(clinicsBefore);
+    });
+
     it('logs a failure without the request data or the error message', async () => {
       const log = vi
         .spyOn(Logger.prototype, 'error')

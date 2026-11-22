@@ -11,6 +11,8 @@ import {
 } from '../tokens/opaque-token';
 import { AuthTokensRepository } from '../tokens/auth-tokens.repository';
 import { PasswordHasher } from './password-hasher';
+import { compromisedPassword } from './compromised-password';
+import { isCompromisedPassword } from './password-blocklist';
 
 /** A reset link stops working this long after it is emailed. */
 export const PASSWORD_RESET_TOKEN_LIFETIME_MS = 60 * 60 * 1000;
@@ -72,6 +74,9 @@ export class PasswordResetService {
   async resetPassword(token: string, password: string): Promise<void> {
     if (!isWellFormedOpaqueToken(token)) {
       throw invalidToken();
+    }
+    if (isCompromisedPassword(password)) {
+      throw compromisedPassword();
     }
 
     const user = await this.credentials.resetPassword({

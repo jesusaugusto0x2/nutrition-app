@@ -306,15 +306,3 @@ resolved.
 - **Resolve when:** running more than one container. Pass a shared
   `storage` (e.g. a Redis-backed `ThrottlerStorage`) in
   `createThrottlerOptions`.
-
-### Compromised password blocklist
-
-- **Status:** pending.
-- **Why:** NIST SP 800-63B-4 requires comparing new passwords against a
-  blocklist of common, expected or compromised passwords. `passwordSchema`
-  only checks length (#18).
-- **Resolve when:** before the first production sign-up (#45). Options: a
-  bundled list of the most common passwords, or the Have I Been Pwned range
-  API (k-anonymity: only the first 5 characters of the SHA-1 hash leave the
-  server). The check belongs in the API (sign-up and reset), not only in the
-  shared schema.

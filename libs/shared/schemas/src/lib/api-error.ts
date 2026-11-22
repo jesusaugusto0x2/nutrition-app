@@ -10,6 +10,8 @@ export const apiErrorCodeSchema = z.enum([
   'INVALID_TOKEN',
   /** The password was correct but the email is not verified yet. */
   'EMAIL_NOT_VERIFIED',
+  /** The new password is in the bundled list of compromised passwords. */
+  'COMPROMISED_PASSWORD',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
