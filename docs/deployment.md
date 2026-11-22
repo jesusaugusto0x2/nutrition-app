@@ -929,7 +929,50 @@ yet; #43 stays open until the log line has been checked once after #40.
 
 ## Go-live
 
-Pending, see #45 (end-to-end check before the first real user).
+**Status (#45): every check that can run without a verified email domain
+passed in production on 2026-11-21, with test accounts that were deleted
+afterwards.** The live checklist and the remaining items stay on the issue.
+
+### Verified in production (2026-11-21)
+
+- **End-to-end with test accounts:** sign-in with email + password →
+  create patient → read patient → register a consultation → sign out (the
+  session is revoked: further calls answer 401). The verification-link
+  mechanic also passes: `POST /api/auth/verify-email` with an emailed token
+  answers the verified user and starts a session.
+- **Email delivery:** the password-reset email reached the Resend account
+  owner's Gmail with SPF, DKIM and DMARC `pass`. Delivery to any inbox
+  (the Gmail + Outlook acceptance) waits for a verified domain (#42).
+- **Google sign-in** works in production (the owner's account was created
+  through it; the callback is registered).
+- **Clinic isolation:** a second clinic's session gets **404** for the
+  first clinic's patient by id — for `GET` and `PATCH` alike; a foreign
+  record behaves exactly like a missing one.
+- **Session cookie:** `__Host-session` with `Path=/; HttpOnly; Secure;
+SameSite=Lax` (observed in `Set-Cookie`).
+- **Cross-origin writes:** a `POST` with a foreign `Origin` answers **403**
+  (`CsrfGuard` sees `Origin` through Railway's edge).
+- **Rate limiting per client IP:** 20 failed sign-ins per IP per 15
+  minutes; past that the API answers **429** while `GET /api/health` stays
+  **200** — throttling one IP never blocks the app.
+- **Response hygiene:** patient payloads expose only
+  `id, firstName, lastName, birthDate, sex, phone, address, createdAt,
+updatedAt` — never `clinicId` or `deletedAt`.
+- **Logs:** no request bodies, recipients, patient data or variable values
+  in the app or HTTP logs (reviewed 2026-11-21, #40).
+- **Compromised passwords** are rejected on sign-up and reset (#98).
+- **Database hygiene:** after the test cleanup, production holds only the
+  owner's real account and clinic (`users=1, clinics=1, patients=0`) — no
+  seed or fictional data.
+- **Restore tested:** a branch restored from a past point in time (#38).
+
+### Remaining before the first real user
+
+- Verify an email domain and pass #42's acceptance: delivery to a Gmail
+  and an Outlook address with passing headers.
+- Decide the custom domain (#41) and the open debts in
+  [Open questions and debt](#open-questions-and-debt) (restore window,
+  owner password rotation).
 
 ## Variables
 
