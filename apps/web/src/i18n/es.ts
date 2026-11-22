@@ -217,6 +217,8 @@ export const es = {
       }.`,
     tooManyAttemptsLater:
       'Por seguridad pausamos el acceso con contraseña. Inténtalo de nuevo en unos minutos.',
+    compromisedPasswordBody:
+      'Esa contraseña es muy común o está comprometida. Elige una distinta.',
     createNewPassword: 'Crear una contraseña nueva ahora',
     emailNotVerifiedTitle: 'Falta verificar tu email.',
     emailNotVerifiedBody:

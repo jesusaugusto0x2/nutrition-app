@@ -271,6 +271,18 @@ describe('SignUpForm', () => {
     expect(screen.queryByText(t.checkEmail.title)).not.toBeInTheDocument();
   });
 
+  it('explains in Spanish when the API rejects a compromised password', async () => {
+    stubApi({ signUp: () => json(400, apiError(400, 'COMPROMISED_PASSWORD')) });
+    await openSignUp();
+
+    fillAndSubmit();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      t.auth.compromisedPasswordBody,
+    );
+    expect(screen.queryByText(t.checkEmail.title)).not.toBeInTheDocument();
+  });
+
   it('shows a generic error when the API fails', async () => {
     stubApi({ signUp: () => json(500, apiError(500, 'INTERNAL_ERROR')) });
     await openSignUp();
