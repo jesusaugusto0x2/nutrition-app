@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import {
   accepted,
   bodiesOf,
+  json,
   openApp,
   serverError,
   stubApi,
@@ -118,5 +119,17 @@ describe('ForgotPasswordForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       t.forgotPassword.failedBody,
     );
+  });
+
+  it('explains that recovery is unavailable when the API disables email auth', async () => {
+    const fetchMock = stubApi({
+      '/api/auth/config': () => json(200, { emailAuthEnabled: false }),
+      [FORGOT]: accepted,
+    });
+    await openForgotPassword();
+
+    expect(screen.getByText(t.forgotPassword.disabledBody)).toBeInTheDocument();
+    expect(screen.queryByLabelText(t.auth.email)).not.toBeInTheDocument();
+    expect(bodiesOf(fetchMock, FORGOT)).toEqual([]);
   });
 });

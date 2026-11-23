@@ -4,16 +4,18 @@ import {
   type SignUp,
   signUpSchema,
 } from '@nutri/schemas';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { InfoNotice } from '@/components/ui/notice';
 import { OrSeparator } from '@/components/ui/or-separator';
 import { PasswordInput } from '@/components/ui/password-input';
 import { t } from '@/i18n';
-import { useSignUp } from '../api';
+import { authConfigQueryOptions, useSignUp } from '../api';
 import { CheckEmail } from './check-email';
 import { GoogleButton } from './google-button';
 import { PasswordHint, passwordError } from './password-hint';
@@ -36,6 +38,12 @@ export function SignUpForm() {
   const [failure, setFailure] = useState<RequestFailure | null>(null);
   /** Set once the API accepted the request: the check-your-email screen. */
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const { data: authConfig } = useQuery(authConfigQueryOptions());
+  /**
+   * Until the config arrives (the route loader prefetches it) assume email
+   * auth: the safe default outside production, where it is always on.
+   */
+  const emailAuthEnabled = authConfig?.emailAuthEnabled ?? true;
   const { control, handleSubmit, formState, setFocus } = useForm({
     resolver: zodResolver(signUpSchema),
     defaultValues: { name: '', email: '', password: '', clinicName: '' },
@@ -87,120 +95,127 @@ export function SignUpForm() {
           {t.google.signUpHint}
         </p>
       </div>
-      <OrSeparator>{t.google.orWithEmail}</OrSeparator>
 
-      <form
-        noValidate
-        onSubmit={(event) => void handleSubmit(onSubmit)(event)}
-        className="flex flex-col gap-[18px]"
-      >
-        <Controller
-          name="name"
-          control={control}
-          render={({ field, fieldState }) => (
-            <FormField
-              label={t.signUp.name}
-              error={
-                fieldState.error &&
-                nameError(field.value, t.signUp.nameRequired)
-              }
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  {...field}
-                  size="lg"
-                  autoComplete="name"
-                  placeholder={t.signUp.namePlaceholder}
-                />
+      {emailAuthEnabled ? (
+        <>
+          <OrSeparator>{t.google.orWithEmail}</OrSeparator>
+
+          <form
+            noValidate
+            onSubmit={(event) => void handleSubmit(onSubmit)(event)}
+            className="flex flex-col gap-[18px]"
+          >
+            <Controller
+              name="name"
+              control={control}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label={t.signUp.name}
+                  error={
+                    fieldState.error &&
+                    nameError(field.value, t.signUp.nameRequired)
+                  }
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      {...field}
+                      size="lg"
+                      autoComplete="name"
+                      placeholder={t.signUp.namePlaceholder}
+                    />
+                  )}
+                </FormField>
               )}
-            </FormField>
-          )}
-        />
+            />
 
-        <Controller
-          name="email"
-          control={control}
-          render={({ field, fieldState }) => (
-            <FormField
-              label={t.auth.email}
-              error={
-                fieldState.error &&
-                (field.value.trim()
-                  ? t.auth.emailInvalid
-                  : t.auth.emailRequired)
-              }
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  {...field}
-                  size="lg"
-                  inputMode="email"
-                  autoComplete="email"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  placeholder={t.auth.emailPlaceholder}
-                />
+            <Controller
+              name="email"
+              control={control}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label={t.auth.email}
+                  error={
+                    fieldState.error &&
+                    (field.value.trim()
+                      ? t.auth.emailInvalid
+                      : t.auth.emailRequired)
+                  }
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      {...field}
+                      size="lg"
+                      inputMode="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      placeholder={t.auth.emailPlaceholder}
+                    />
+                  )}
+                </FormField>
               )}
-            </FormField>
-          )}
-        />
+            />
 
-        <Controller
-          name="password"
-          control={control}
-          render={({ field, fieldState }) => (
-            <FormField
-              label={t.auth.password}
-              description={<PasswordHint password={field.value} />}
-              error={fieldState.error && passwordError(field.value)}
-            >
-              {(controlProps) => (
-                <PasswordInput
-                  {...controlProps}
-                  {...field}
-                  autoComplete="new-password"
-                />
+            <Controller
+              name="password"
+              control={control}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label={t.auth.password}
+                  description={<PasswordHint password={field.value} />}
+                  error={fieldState.error && passwordError(field.value)}
+                >
+                  {(controlProps) => (
+                    <PasswordInput
+                      {...controlProps}
+                      {...field}
+                      autoComplete="new-password"
+                    />
+                  )}
+                </FormField>
               )}
-            </FormField>
-          )}
-        />
+            />
 
-        <Controller
-          name="clinicName"
-          control={control}
-          render={({ field, fieldState }) => (
-            <FormField
-              label={t.signUp.clinicName}
-              description={t.signUp.clinicNameHelp}
-              error={
-                fieldState.error &&
-                nameError(field.value, t.signUp.clinicNameRequired)
-              }
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  {...field}
-                  size="lg"
-                  autoComplete="organization"
-                  placeholder={t.signUp.clinicNamePlaceholder}
-                />
+            <Controller
+              name="clinicName"
+              control={control}
+              render={({ field, fieldState }) => (
+                <FormField
+                  label={t.signUp.clinicName}
+                  description={t.signUp.clinicNameHelp}
+                  error={
+                    fieldState.error &&
+                    nameError(field.value, t.signUp.clinicNameRequired)
+                  }
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      {...field}
+                      size="lg"
+                      autoComplete="organization"
+                      placeholder={t.signUp.clinicNamePlaceholder}
+                    />
+                  )}
+                </FormField>
               )}
-            </FormField>
-          )}
-        />
+            />
 
-        <Button
-          type="submit"
-          size="lg"
-          fullWidth
-          disabled={formState.isSubmitting}
-        >
-          {t.signUp.submit}
-        </Button>
-      </form>
+            <Button
+              type="submit"
+              size="lg"
+              fullWidth
+              disabled={formState.isSubmitting}
+            >
+              {t.signUp.submit}
+            </Button>
+          </form>
+        </>
+      ) : (
+        <InfoNotice>{t.signUp.emailDisabledBody}</InfoNotice>
+      )}
 
       <footer className="mt-auto border-t pt-5 text-center lg:mt-0">
         {t.signUp.haveAccount}{' '}

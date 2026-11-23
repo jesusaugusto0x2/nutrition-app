@@ -37,11 +37,13 @@ export const throttled = (retryAfter?: string) =>
 
 /**
  * Answers each API path with its handler, called on every request; `me`
- * answers "signed out" unless given. Any other path fails the request.
+ * answers "signed out" and `config` says email auth is on unless a test
+ * overrides it. Any other path fails the request.
  */
 export function stubApi(handlers: Record<string, () => Response>) {
   const routes: Record<string, () => Response> = {
     '/api/auth/me': signedOut,
+    '/api/auth/config': () => json(200, { emailAuthEnabled: true }),
     ...handlers,
   };
   const fetchMock = vi.fn((path: string) => {

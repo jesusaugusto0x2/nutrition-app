@@ -1,5 +1,6 @@
 import {
   type AuthMe,
+  authConfigSchema,
   authMeSchema,
   authUserSchema,
   type ForgotPassword,
@@ -31,7 +32,21 @@ export const GOOGLE_SIGN_IN_PATH = '/api/auth/google';
 
 export const authKeys = {
   me: ['auth', 'me'] as const,
+  config: ['auth', 'config'] as const,
 };
+
+/**
+ * Which sign-in methods the API offers. The API can disable email auth
+ * (EMAIL_AUTH_ENABLED=false, e.g. production while email is sandboxed), in
+ * which case the web shows Google only. Static per deploy: stale forever.
+ */
+export function authConfigQueryOptions() {
+  return queryOptions({
+    queryKey: authKeys.config,
+    queryFn: () => apiClient.get('/auth/config', authConfigSchema),
+    staleTime: Infinity,
+  });
+}
 
 /**
  * Who is signed in, or `null` for a signed-out visitor. A 401 is a normal
