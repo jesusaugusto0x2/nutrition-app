@@ -62,6 +62,18 @@ const envSchema = z
     // only allowed outside production.
     GOOGLE_CLIENT_ID: z.string().trim().min(1).optional(),
     GOOGLE_CLIENT_SECRET: z.string().trim().min(1).optional(),
+    // Email-and-password sign-up, email verification and password reset.
+    // `false` while transactional email cannot reach users (in production,
+    // until the Resend domain is verified, #42): the app goes Google-only
+    // instead of registering people who could never verify their email.
+    // Sign-in with an existing password is not gated.
+    EMAIL_AUTH_ENABLED: z
+      .string()
+      .default('true')
+      .refine((value) => value === 'true' || value === 'false', {
+        message: 'Must be "true" or "false"',
+      })
+      .transform((value) => value === 'true'),
   })
   .superRefine((env, ctx) => {
     // One without the other is a typo, not a choice to leave Google off.

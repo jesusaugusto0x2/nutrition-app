@@ -11,6 +11,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthCleanupJob } from './cleanup/auth-cleanup.job';
 import { CredentialsRepository } from './credentials/credentials.repository';
+import { EmailAuthEnabledGuard } from './email-auth-enabled.guard';
 import { EmailVerificationService } from './email-verification/email-verification.service';
 import { GoogleAuthController } from './google/google-auth.controller';
 import { GoogleAuthService } from './google/google-auth.service';
@@ -45,6 +46,7 @@ import { AuthTokensRepository } from './tokens/auth-tokens.repository';
     AuthCleanupJob,
     AuthService,
     AuthThrottlerGuard,
+    EmailAuthEnabledGuard,
     AuthTokensRepository,
     CredentialsRepository,
     EmailVerificationService,
