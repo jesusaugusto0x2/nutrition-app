@@ -63,6 +63,9 @@ function stubApi(me: AuthMe | null, patientsStatus = 200) {
     if (input === '/api/auth/me') {
       return Promise.resolve(me ? json(200, me) : json(401, null));
     }
+    if (input === '/api/auth/config') {
+      return Promise.resolve(json(200, { emailAuthEnabled: true }));
+    }
     if (input === '/api/auth/sign-out') {
       expect(init?.method).toBe('POST');
       return Promise.resolve(new Response(null, { status: 204 }));
