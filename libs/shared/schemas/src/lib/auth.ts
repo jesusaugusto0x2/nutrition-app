@@ -159,3 +159,14 @@ export type VerifyEmail = z.infer<typeof verifyEmailSchema>;
 export const resendVerificationSchema = z.object({ email: emailSchema });
 
 export type ResendVerification = z.infer<typeof resendVerificationSchema>;
+
+/**
+ * Response of `GET /api/auth/config`: which sign-in methods the web app may
+ * offer. The endpoint is public because the login page needs it before there
+ * is a session.
+ */
+export const authConfigSchema = z.object({
+  emailAuthEnabled: z.boolean(),
+});
+
+export type AuthConfig = z.infer<typeof authConfigSchema>;

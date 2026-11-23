@@ -12,6 +12,8 @@ export const apiErrorCodeSchema = z.enum([
   'EMAIL_NOT_VERIFIED',
   /** The new password is in the bundled list of compromised passwords. */
   'COMPROMISED_PASSWORD',
+  /** Email sign-up, verification and password reset are turned off. */
+  'EMAIL_AUTH_DISABLED',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
