@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { CLOCK } from '../../common/clock/clock';
 import { PatientsService } from '../patients/patients.service';
 import {
   ConsultationsRepository,
@@ -9,9 +10,11 @@ import { ConsultationsService } from './consultations.service';
 
 const CLINIC_ID = '00000000-0000-4000-8000-00000000000a';
 const PATIENT_ID = '00000000-0000-4000-8000-00000000000b';
+const CONSULTATION_ID = '00000000-0000-4000-8000-00000000000c';
+const NOW = new Date('2026-02-01T10:00:00.000Z');
 
 const row: ConsultationRow = {
-  id: '00000000-0000-4000-8000-00000000000c',
+  id: CONSULTATION_ID,
   clinicId: CLINIC_ID,
   patientId: PATIENT_ID,
   date: '2026-01-15',
@@ -29,7 +32,12 @@ const row: ConsultationRow = {
 
 describe('ConsultationsService', () => {
   let service: ConsultationsService;
-  const repository = { findByPatient: vi.fn(), create: vi.fn() };
+  const repository = {
+    findByPatient: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    softDelete: vi.fn(),
+  };
   const patientsService = { assertExists: vi.fn() };
 
   beforeEach(async () => {
@@ -39,6 +47,7 @@ describe('ConsultationsService', () => {
         ConsultationsService,
         { provide: ConsultationsRepository, useValue: repository },
         { provide: PatientsService, useValue: patientsService },
+        { provide: CLOCK, useValue: { now: () => NOW } },
       ],
     }).compile();
     service = moduleRef.get(ConsultationsService);
@@ -88,5 +97,91 @@ describe('ConsultationsService', () => {
       PATIENT_ID,
       input,
     );
+  });
+
+  it('updates the consultation and returns the mapped record', async () => {
+    patientsService.assertExists.mockResolvedValue(undefined);
+    repository.update.mockResolvedValue(row);
+    const input = { date: '2026-01-20', weightKg: 69.5 };
+
+    const result = await service.update(
+      CLINIC_ID,
+      PATIENT_ID,
+      CONSULTATION_ID,
+      input,
+    );
+
+    expect(repository.update).toHaveBeenCalledWith(
+      CLINIC_ID,
+      PATIENT_ID,
+      CONSULTATION_ID,
+      input,
+    );
+    expect(result).toEqual(
+      expect.objectContaining({ id: CONSULTATION_ID, weightKg: 70.5 }),
+    );
+    expect(result).not.toHaveProperty('clinicId');
+  });
+
+  it('answers 404 when updating a consultation outside the clinic', async () => {
+    patientsService.assertExists.mockResolvedValue(undefined);
+    repository.update.mockResolvedValue(undefined);
+
+    await expect(
+      service.update(
+        CLINIC_ID,
+        PATIENT_ID,
+        '00000000-0000-4000-8000-0000000000ff',
+        { date: '2026-01-20', weightKg: 69.5 },
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('does not update when the patient is outside the clinic', async () => {
+    patientsService.assertExists.mockRejectedValue(new NotFoundException());
+
+    await expect(
+      service.update(CLINIC_ID, PATIENT_ID, CONSULTATION_ID, {
+        date: '2026-01-20',
+        weightKg: 69.5,
+      }),
+    ).rejects.toThrow(NotFoundException);
+    expect(repository.update).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes with the clock time', async () => {
+    patientsService.assertExists.mockResolvedValue(undefined);
+    repository.softDelete.mockResolvedValue({ ...row, deletedAt: NOW });
+
+    await service.softDelete(CLINIC_ID, PATIENT_ID, CONSULTATION_ID);
+
+    expect(repository.softDelete).toHaveBeenCalledWith(
+      CLINIC_ID,
+      PATIENT_ID,
+      CONSULTATION_ID,
+      NOW,
+    );
+  });
+
+  it('answers 404 when deleting a consultation outside the clinic', async () => {
+    patientsService.assertExists.mockResolvedValue(undefined);
+    repository.softDelete.mockResolvedValue(undefined);
+
+    await expect(
+      service.softDelete(
+        CLINIC_ID,
+        PATIENT_ID,
+        '00000000-0000-4000-8000-0000000000ff',
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('does not delete when the patient is outside the clinic', async () => {
+    patientsService.assertExists.mockRejectedValue(new NotFoundException());
+
+    await expect(
+      service.softDelete(CLINIC_ID, PATIENT_ID, CONSULTATION_ID),
+    ).rejects.toThrow(NotFoundException);
+    expect(repository.softDelete).not.toHaveBeenCalled();
   });
 });

@@ -39,5 +39,13 @@ export const createConsultationSchema = z.object({
   notes: optionalTextSchema(2000),
 });
 
+/**
+ * Editing replaces the same editable fields as create with the same
+ * validations: weight stays required, so a corrected consultation always
+ * keeps at least one measurement.
+ */
+export const updateConsultationSchema = createConsultationSchema;
+
 export type Consultation = z.infer<typeof consultationSchema>;
 export type CreateConsultationInput = z.infer<typeof createConsultationSchema>;
+export type UpdateConsultationInput = z.infer<typeof updateConsultationSchema>;
