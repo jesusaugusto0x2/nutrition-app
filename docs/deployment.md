@@ -776,6 +776,12 @@ same code in every environment, Mailpit locally).
   reports as `MailDeliveryError` carrying the template name only. Links
   in the emails are built from `APP_ORIGIN` (the Railway domain until
   #41), so verification and reset links work from the owner's inbox.
+- **Production is Google-only until a domain exists** (owner,
+  2026-11-21): `EMAIL_AUTH_ENABLED=false`, so sign-up, email
+  verification and password reset answer `403 EMAIL_AUTH_DISABLED` and
+  the web (via `GET /api/auth/config`) renders only the Google button.
+  Sign-in with an existing password is not gated. Details:
+  [docs/authentication.md](authentication.md#disabling-email-auth-google-only).
 
 ### Decisions
 
@@ -826,9 +832,9 @@ same code in every environment, Mailpit locally).
    move to `quarantine` once reports are clean.
 3. Wait until Resend shows the domain as verified.
 4. Pull request: change `MAIL_FROM` to an address on the verified domain
-   in `.railway/railway.ts`; read the plan, merge, let it apply and
-   deploy. Set nothing by hand first — `MAIL_FROM` is a literal, not
-   `preserve()`.
+   **and `EMAIL_AUTH_ENABLED` to `'true'`** in `.railway/railway.ts`;
+   read the plan, merge, let it apply and deploy. Set nothing by hand
+   first — both are literals, not `preserve()`.
 5. Acceptance (#42): sign up in production with a **Gmail** and an
    **Outlook** address; both emails land in the inbox (not spam) and
    their headers show SPF, DKIM and DMARC `pass`. Then close #42.
@@ -931,7 +937,10 @@ yet; #43 stays open until the log line has been checked once after #40.
 
 **Status (#45): every check that can run without a verified email domain
 passed in production on 2026-11-21, with test accounts that were deleted
-afterwards.** The live checklist and the remaining items stay on the issue.
+afterwards.** Until a domain is verified, production runs **Google-only**:
+`EMAIL_AUTH_ENABLED=false` hides the email/password forms and rejects
+sign-up and password reset with `403 EMAIL_AUTH_DISABLED`. The live
+checklist and the remaining items stay on the issue.
 
 ### Verified in production (2026-11-21)
 
@@ -965,11 +974,19 @@ updatedAt` — never `clinicId` or `deletedAt`.
   owner's real account and clinic (`users=1, clinics=1, patients=0`) — no
   seed or fictional data.
 - **Restore tested:** a branch restored from a past point in time (#38).
+- **Google-only go-live:** with the Resend sandbox unable to reach real
+  users, `EMAIL_AUTH_ENABLED=false` was deployed on 2026-11-22: the login
+  page shows only «Continuar con Google», sign-up and password reset
+  answer `403 EMAIL_AUTH_DISABLED`, and sign-in with the existing
+  password still works.
 
 ### Remaining before the first real user
 
 - Verify an email domain and pass #42's acceptance: delivery to a Gmail
-  and an Outlook address with passing headers.
+  and an Outlook address with passing headers. The same pull request
+  flips `EMAIL_AUTH_ENABLED` back to `'true'`
+  ([runbook](#runbook-switch-to-our-own-domain-finishes-42)) and
+  re-enables the email/password forms.
 - Decide the custom domain (#41) and the open debts in
   [Open questions and debt](#open-questions-and-debt) (restore window,
   owner password rotation).
@@ -996,6 +1013,7 @@ removes `DATABASE_MIGRATION_URL`
 | `RAILWAY_TOKEN`          | Project token; applies `.railway/railway.ts`                           | GitHub     | GitHub secret         |
 | `SMTP_URL`               | SMTP server with credentials                                           | App        | Railway (secret)      |
 | `MAIL_FROM`              | Sender of every email; Resend test address until #42 verifies a domain | App        | Railway (IaC literal) |
+| `EMAIL_AUTH_ENABLED`     | `'false'`: Google-only go-live until #42 verifies a domain             | App        | Railway (IaC literal) |
 | `APP_ORIGIN`             | Public origin; builds email links, checked by CSRF                     | App        | Railway               |
 | `CLIENT_IP_SOURCE`       | `x-real-ip` on Railway; client IP for rate limiting                    | App        | Railway               |
 | `GOOGLE_CLIENT_ID`       | OAuth client for Google sign-in                                        | App        | Railway               |

@@ -15,6 +15,7 @@ describe('loadConfig', () => {
       MAIL_FROM: 'Mi consulta <no-reply@localhost>',
       APP_ORIGIN: 'http://localhost:4200',
       CLIENT_IP_SOURCE: 'socket',
+      EMAIL_AUTH_ENABLED: true,
     });
   });
 
@@ -161,6 +162,34 @@ describe('loadConfig', () => {
         message = (error as Error).message;
       }
       expect(message).not.toMatch(/secret-value/);
+    });
+  });
+
+  describe('EMAIL_AUTH_ENABLED', () => {
+    it('defaults to true', () => {
+      expect(loadConfig(validEnv).EMAIL_AUTH_ENABLED).toBe(true);
+    });
+
+    it('is false only for the exact string "false"', () => {
+      expect(
+        loadConfig({ ...validEnv, EMAIL_AUTH_ENABLED: 'false' })
+          .EMAIL_AUTH_ENABLED,
+      ).toBe(false);
+      expect(
+        loadConfig({ ...validEnv, EMAIL_AUTH_ENABLED: 'true' })
+          .EMAIL_AUTH_ENABLED,
+      ).toBe(true);
+    });
+
+    it('rejects other values without echoing them', () => {
+      let message = '';
+      try {
+        loadConfig({ ...validEnv, EMAIL_AUTH_ENABLED: 'yes-please' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/EMAIL_AUTH_ENABLED/);
+      expect(message).not.toMatch(/yes-please/);
     });
   });
 

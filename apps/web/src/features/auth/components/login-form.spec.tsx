@@ -70,7 +70,11 @@ function apiError(status: number, code: string) {
 /** What `/api/auth/sign-in` answers; `me` is what follows a success. */
 function stubApi(
   signIn: () => Response,
-  { me = staff, resend }: { me?: AuthMe; resend?: () => Response } = {},
+  {
+    me = staff,
+    resend,
+    emailAuth = true,
+  }: { me?: AuthMe; resend?: () => Response; emailAuth?: boolean } = {},
 ) {
   let signedIn = false;
   const fetchMock = vi.fn((path: string) => {
@@ -79,6 +83,8 @@ function stubApi(
         return Promise.resolve(
           signedIn ? json(200, me) : json(401, apiError(401, 'UNAUTHORIZED')),
         );
+      case '/api/auth/config':
+        return Promise.resolve(json(200, { emailAuthEnabled: emailAuth }));
       case '/api/auth/sign-in': {
         const response = signIn();
         signedIn = response.ok;
@@ -170,6 +176,24 @@ describe('LoginForm', () => {
     expect(
       screen.getByRole('link', { name: t.google.continue }),
     ).toHaveAttribute('href', '/api/auth/google');
+  });
+
+  it('shows only Google sign-in when the API disables email auth', async () => {
+    stubApi(() => json(200, user), { emailAuth: false });
+    await openLogin();
+
+    expect(
+      screen.getByRole('link', { name: t.google.continue }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(t.auth.googleOnlyBody)).toBeInTheDocument();
+    expect(screen.queryByLabelText(t.auth.email)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t.auth.password)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: t.auth.forgotPassword }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: t.auth.createAccount }),
+    ).not.toBeInTheDocument();
   });
 
   it('says nothing about Google without an error in the URL', async () => {

@@ -62,6 +62,14 @@ export default defineRailway((_ctx, project) =>
           // a domain is verified.
           SMTP_URL: preserve(),
           MAIL_FROM: 'Mi consulta <onboarding@resend.dev>',
+          // #42: Google-only go-live (owner decision, 2026-11-21). The sandbox
+          // address only delivers to the Resend account owner, so sign-up and
+          // password reset with email stay off until a domain is verified;
+          // the web reads GET /api/auth/config and shows Google only, and
+          // sign-in with an existing password keeps working. Set 'true' in
+          // the same PR that verifies the domain (runbook "Runbook: switch
+          // to our own domain").
+          EMAIL_AUTH_ENABLED: 'false',
         },
       }),
     ],

@@ -4,18 +4,21 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Post,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { AuthMe, AuthUser } from '@nutri/schemas';
+import type { AuthConfig, AuthMe, AuthUser } from '@nutri/schemas';
 import type { Request, Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { APP_CONFIG, type AppConfig } from '../config/app-config';
 import { AuthService } from './auth.service';
 import {
+  AuthConfigDto,
   AuthMeDto,
   AuthUserDto,
   ForgotPasswordDto,
@@ -25,6 +28,7 @@ import {
   SignUpDto,
   VerifyEmailDto,
 } from './dto/auth.dto';
+import { EmailAuthEnabledGuard } from './email-auth-enabled.guard';
 import { EmailVerificationService } from './email-verification/email-verification.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { OnboardingService } from './onboarding/onboarding.service';
@@ -57,7 +61,20 @@ export class AuthController {
     private readonly signUpService: SignUpService,
     private readonly onboardingService: OnboardingService,
     private readonly emailVerification: EmailVerificationService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
+
+  /**
+   * Which sign-in methods exist, so the web app renders only those. Public:
+   * the login page asks before there is a session. Email-auth writes answer
+   * `EMAIL_AUTH_DISABLED` while the config disables them.
+   */
+  @Public()
+  @Get('config')
+  @ZodSerializerDto(AuthConfigDto)
+  getConfig(): AuthConfig {
+    return { emailAuthEnabled: this.config.EMAIL_AUTH_ENABLED };
+  }
 
   /**
    * Always 202 with no body, whether or not the email has an account; the
@@ -68,7 +85,7 @@ export class AuthController {
   @Post('sign-up')
   @HttpCode(HttpStatus.ACCEPTED)
   @RateLimit(SIGN_UP_RATE_LIMITS)
-  @UseGuards(AuthThrottlerGuard)
+  @UseGuards(EmailAuthEnabledGuard, AuthThrottlerGuard)
   signUp(@Body() body: SignUpDto): void {
     this.signUpService.requestSignUp(body);
   }
@@ -97,7 +114,7 @@ export class AuthController {
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @RateLimit(VERIFY_EMAIL_RATE_LIMITS)
-  @UseGuards(AuthThrottlerGuard)
+  @UseGuards(EmailAuthEnabledGuard, AuthThrottlerGuard)
   @ZodSerializerDto(AuthUserDto)
   async verifyEmail(
     @Body() body: VerifyEmailDto,
@@ -117,7 +134,7 @@ export class AuthController {
   @Post('resend-verification')
   @HttpCode(HttpStatus.ACCEPTED)
   @RateLimit(RESEND_VERIFICATION_RATE_LIMITS)
-  @UseGuards(AuthThrottlerGuard)
+  @UseGuards(EmailAuthEnabledGuard, AuthThrottlerGuard)
   resendVerification(@Body() body: ResendVerificationDto): void {
     this.emailVerification.requestResend(body.email);
   }
@@ -165,7 +182,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.ACCEPTED)
   @RateLimit(FORGOT_PASSWORD_RATE_LIMITS)
-  @UseGuards(AuthThrottlerGuard)
+  @UseGuards(EmailAuthEnabledGuard, AuthThrottlerGuard)
   forgotPassword(@Body() body: ForgotPasswordDto): void {
     this.passwordReset.requestReset(body.email);
   }
@@ -178,7 +195,7 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RateLimit(RESET_PASSWORD_RATE_LIMITS)
-  @UseGuards(AuthThrottlerGuard)
+  @UseGuards(EmailAuthEnabledGuard, AuthThrottlerGuard)
   async resetPassword(
     @Body() body: ResetPasswordDto,
     @Res({ passthrough: true }) response: Response,

@@ -40,11 +40,18 @@ const throttled = (retryAfter?: string) =>
 function stubApi({
   signUp = accepted,
   resend = accepted,
-}: { signUp?: () => Response; resend?: () => Response } = {}) {
+  emailAuth = true,
+}: {
+  signUp?: () => Response;
+  resend?: () => Response;
+  emailAuth?: boolean;
+} = {}) {
   const fetchMock = vi.fn((path: string) => {
     switch (path) {
       case '/api/auth/me':
         return Promise.resolve(json(401, apiError(401, 'UNAUTHORIZED')));
+      case '/api/auth/config':
+        return Promise.resolve(json(200, { emailAuthEnabled: emailAuth }));
       case '/api/auth/sign-up':
         return Promise.resolve(signUp());
       case '/api/auth/resend-verification':
@@ -162,6 +169,20 @@ describe('SignUpForm', () => {
       screen.getByRole('link', { name: t.google.continue }),
     ).toHaveAttribute('href', '/api/auth/google');
     expect(screen.getByText(t.google.signUpHint)).toBeInTheDocument();
+  });
+
+  it('offers only Google when the API disables email auth', async () => {
+    const fetchMock = stubApi({ emailAuth: false });
+    await openSignUp();
+
+    expect(
+      screen.getByRole('link', { name: t.google.continue }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(t.signUp.emailDisabledBody)).toBeInTheDocument();
+    expect(screen.queryByLabelText(t.signUp.name)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t.auth.email)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(t.auth.password)).not.toBeInTheDocument();
+    expect(bodiesOf(fetchMock, '/api/auth/sign-up')).toEqual([]);
   });
 
   it('shows Spanish field errors and posts nothing when they are empty', async () => {

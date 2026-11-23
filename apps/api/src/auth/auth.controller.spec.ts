@@ -54,7 +54,16 @@ class RecordingLogger implements LoggerService {
   }
 }
 
-/** What DatabaseModule and ConfigModule provide globally in the app. */
+/** What DatabaseModule and ConfigModule provide globally in the app. Mutable:
+ * tests flip `EMAIL_AUTH_ENABLED` to exercise the guard. */
+const appConfig = {
+  NODE_ENV: 'production',
+  APP_ORIGIN: 'https://app.example.com',
+  MAIL_FROM: 'Mi consulta <no-reply@example.com>',
+  CLIENT_IP_SOURCE: 'x-real-ip',
+  EMAIL_AUTH_ENABLED: true,
+};
+
 @Module({})
 class TestInfrastructureModule {
   static forDatabase(db: Database): DynamicModule {
@@ -64,15 +73,7 @@ class TestInfrastructureModule {
       providers: [
         { provide: DATABASE, useValue: db },
         TransactionRunner,
-        {
-          provide: APP_CONFIG,
-          useValue: {
-            NODE_ENV: 'production',
-            APP_ORIGIN: 'https://app.example.com',
-            MAIL_FROM: 'Mi consulta <no-reply@example.com>',
-            CLIENT_IP_SOURCE: 'x-real-ip',
-          },
-        },
+        { provide: APP_CONFIG, useValue: appConfig },
       ],
       exports: [DATABASE, TransactionRunner, APP_CONFIG],
     };
@@ -1138,6 +1139,75 @@ describe('AuthController', () => {
 
       expect(statuses.slice(0, -1)).toEqual(new Array(ip.limit).fill(400));
       expect(statuses.at(-1)).toBe(429);
+    });
+  });
+
+  describe('GET /api/auth/config', () => {
+    it('tells the web app that email auth is enabled', async () => {
+      appConfig.EMAIL_AUTH_ENABLED = true;
+
+      const response = await fetch(`${baseUrl}/api/auth/config`);
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        emailAuthEnabled: true,
+      });
+    });
+  });
+
+  describe('with email auth disabled', () => {
+    beforeEach(() => {
+      appConfig.EMAIL_AUTH_ENABLED = false;
+    });
+
+    afterEach(() => {
+      appConfig.EMAIL_AUTH_ENABLED = true;
+    });
+
+    it('tells the web app that email auth is disabled', async () => {
+      const response = await fetch(`${baseUrl}/api/auth/config`);
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        emailAuthEnabled: false,
+      });
+    });
+
+    it('rejects every email-auth write with EMAIL_AUTH_DISABLED', async () => {
+      const responses = await Promise.all([
+        post('sign-up', {
+          name: 'Ana',
+          email: 'ana@example.com',
+          password: PASSWORD,
+          clinicName: 'Consultorio',
+        }),
+        post('verify-email', { token: 'A'.repeat(43) }),
+        post('resend-verification', { email: 'ana@example.com' }),
+        post('forgot-password', { email: 'ana@example.com' }),
+        post('reset-password', { token: 'A'.repeat(43), password: PASSWORD }),
+      ]);
+
+      expect(responses.map((response) => response.status)).toEqual([
+        403, 403, 403, 403, 403,
+      ]);
+      for (const response of responses) {
+        expect(await errorBody(response)).toMatchObject({
+          statusCode: 403,
+          code: 'EMAIL_AUTH_DISABLED',
+        });
+      }
+    });
+
+    it('still signs in a user with an existing password', async () => {
+      await insertUser(connection.db, {
+        email: 'legacy-password@example.com',
+        passwordHash,
+        emailVerifiedAt: VERIFIED_AT,
+      });
+
+      const response = await signIn('legacy-password@example.com', PASSWORD);
+
+      expect(response.status).toBe(200);
     });
   });
 

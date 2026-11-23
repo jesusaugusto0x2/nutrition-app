@@ -228,6 +228,7 @@ export const es = {
     resendFailed:
       'No pudimos reenviar el enlace. Inténtalo de nuevo en unos minutos.',
     signInFailedBody: 'No pudimos iniciar sesión. Inténtalo de nuevo.',
+    googleOnlyBody: 'Por ahora solo puedes entrar con tu cuenta de Google.',
   },
   signUp: {
     title: 'Crear cuenta',
@@ -257,6 +258,8 @@ export const es = {
       }.`,
     tooManyAttemptsLater: 'Inténtalo de nuevo en unos minutos.',
     failedBody: 'No pudimos crear tu cuenta. Inténtalo de nuevo.',
+    emailDisabledBody:
+      'El registro con email no está disponible por ahora: crea tu cuenta con Google y después te pediremos el nombre de tu consultorio.',
   },
   checkEmail: {
     title: 'Verifica tu email',
@@ -292,6 +295,8 @@ export const es = {
     googleHint:
       'Si entras con Google, no necesitas contraseña: usa «Continuar con Google» en el inicio de sesión.',
     failedBody: 'No pudimos enviar el enlace. Inténtalo de nuevo.',
+    disabledBody:
+      'La recuperación de contraseña por email no está disponible por ahora.',
   },
   resetPassword: {
     title: 'Crea una contraseña nueva',

@@ -1,8 +1,10 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ChevronLeftIcon } from 'lucide-react';
 import { useState } from 'react';
+import { InfoNotice } from '@/components/ui/notice';
 import { t } from '@/i18n';
-import { useForgotPassword } from '../api';
+import { authConfigQueryOptions, useForgotPassword } from '../api';
 import { CheckEmail } from './check-email';
 import { EmailLinkForm } from './email-link-form';
 
@@ -15,6 +17,12 @@ export function ForgotPasswordForm() {
   /** Set once the API accepted the request: the check-your-email screen. */
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [cameBack, setCameBack] = useState(false);
+  const { data: authConfig } = useQuery(authConfigQueryOptions());
+  /**
+   * Until the config arrives (the route loader prefetches it) assume email
+   * auth: the safe default outside production, where it is always on.
+   */
+  const emailAuthEnabled = authConfig?.emailAuthEnabled ?? true;
 
   if (sentTo !== null) {
     return (
@@ -50,13 +58,17 @@ export function ForgotPasswordForm() {
         <p className="m-0 text-muted-foreground">{t.forgotPassword.subtitle}</p>
       </header>
 
-      <EmailLinkForm
-        submitLabel={t.forgotPassword.submit}
-        unknownBody={t.forgotPassword.failedBody}
-        send={(email) => forgotPassword.mutateAsync({ email })}
-        onSent={setSentTo}
-        focusOnMount={cameBack}
-      />
+      {emailAuthEnabled ? (
+        <EmailLinkForm
+          submitLabel={t.forgotPassword.submit}
+          unknownBody={t.forgotPassword.failedBody}
+          send={(email) => forgotPassword.mutateAsync({ email })}
+          onSent={setSentTo}
+          focusOnMount={cameBack}
+        />
+      ) : (
+        <InfoNotice>{t.forgotPassword.disabledBody}</InfoNotice>
+      )}
 
       <p className="m-0 text-meta text-muted-foreground">
         {t.forgotPassword.googleHint}

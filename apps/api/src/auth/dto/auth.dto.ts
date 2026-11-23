@@ -1,4 +1,5 @@
 import {
+  authConfigSchema,
   authMeSchema,
   authUserSchema,
   forgotPasswordSchema,
@@ -9,6 +10,8 @@ import {
   verifyEmailSchema,
 } from '@nutri/schemas';
 import { createZodDto } from 'nestjs-zod';
+
+export class AuthConfigDto extends createZodDto(authConfigSchema) {}
 
 export class AuthUserDto extends createZodDto(authUserSchema) {}
 

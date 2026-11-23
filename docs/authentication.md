@@ -310,6 +310,27 @@ the hash.
 - Rate limited (#20): `forgot-password` 3 per email and 10 per IP,
   `reset-password` 10 per IP, per 15 minutes (see Rate limiting).
 
+## Disabling email auth (Google-only)
+
+`EMAIL_AUTH_ENABLED=false` (environment, default `true`) turns off every
+email-auth write — sign-up, email verification, resend, forgot and reset
+password — while transactional email cannot reach users (production until
+the Resend domain is verified, #42). The `EmailAuthEnabledGuard` answers
+those routes with `403 EMAIL_AUTH_DISABLED` before the throttler, so
+nobody registers an email they could never verify. Sign-in with an
+existing password is not gated: accounts that already have a password
+keep working.
+
+The web never hardcodes this. `GET /api/auth/config` (public, like the
+login page it exists for) returns `authConfigSchema`
+(`{ emailAuthEnabled }`), and the `_auth` layout prefetches it into the
+TanStack Query cache (`staleTime: Infinity`: it only changes per
+deploy). With the flag off, the login page shows only «Continuar con
+Google», and the sign-up and forgot-password pages explain the situation
+instead of rendering their forms (the emailed-link pages under `_link`
+are protected by the API's 403). Turning email auth back on is a variable
+change — no rebuild, no code.
+
 ## Google: OpenID Connect (#19)
 
 - **Authorization Code flow with PKCE, `state` and `nonce`, entirely

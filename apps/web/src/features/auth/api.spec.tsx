@@ -171,6 +171,9 @@ describe('auth api', () => {
     async function signInAtPatients() {
       stubFetch((path) => {
         if (path === '/api/auth/me') return json(200, me);
+        if (path === '/api/auth/config') {
+          return json(200, { emailAuthEnabled: true });
+        }
         if (path === '/api/auth/sign-out') {
           return new Response(null, { status: 204 });
         }

@@ -69,6 +69,7 @@ describe('AppModule', () => {
         APP_ORIGIN,
         MAIL_FROM: 'Mi consulta <no-reply@example.com>',
         CLIENT_IP_SOURCE: 'socket',
+        EMAIL_AUTH_ENABLED: true,
       })
       .overrideProvider(DATABASE_CONNECTION)
       .useValue(connection)
