@@ -5,10 +5,13 @@ behind it, and how to deploy, roll back and recover. This is the reference
 for the Deployment epic (#37). Every ticket of the epic fills in its own
 section in the same pull request as the change.
 
-**Status: nothing is deployed yet.** Sections marked "pending" point to the
-ticket that writes them; anything else describes the agreed design, not a
-running system, until its ticket closes. Runbooks are drafts until they have
-been used once in production.
+**Status: production is live and the epic is parked (owner, 2026-11-23).**
+The app has served from Railway's domain since 2026-11-13 and every go-live
+check that does not need a verified email domain passed on 2026-11-21
+([Go-live](#go-live)). #41, #42 and #45 stay open, all blocked on choosing
+a custom domain; what each one still needs and the resume trigger are in
+[Open questions and debt](#open-questions-and-debt). Runbooks marked
+"draft" have not been used yet.
 
 Never write secret values here: names only.
 
@@ -75,6 +78,11 @@ over from the old one once its healthcheck passes.
 - **No staging environment, no error tracking or log drains yet, one
   replica.** Out of the epic's scope (#37). One replica is also what the
   in-memory rate limiter assumes.
+- **Park the Deployment epic once only the domain-dependent tickets remain
+  (owner, 2026-11-23).** Production is live and verified; #41, #42 and #45
+  wait for the domain decision while other epics proceed. Resume trigger
+  and per-ticket remaining work:
+  [Open questions and debt](#open-questions-and-debt).
 
 Sources, checked on 2026-11-01:
 [Railway IaC](https://docs.railway.com/infrastructure-as-code),
@@ -930,8 +938,10 @@ Operating it:
 - **Run it now or change the time:** there is no manual trigger. Change the
   `@Cron` expression in a pull request.
 
-**Status: built and tested, not yet seen in production.** Nothing is deployed
-yet; #43 stays open until the log line has been checked once after #40.
+**Status: running in production since the first deploy (2026-11-13); #43 is
+closed.** The `AuthCleanupJob` log line (`Deleted <n> sessions and <m>
+one-time tokens`) is present in the 2026-11-18 and 2026-11-21 deployment
+logs, counts only ([Service record](#service-record)).
 
 ## Go-live
 
@@ -1260,6 +1270,26 @@ are trusted without a password (the image's `pg_hba.conf`), so test
 passwords from another container through `host.docker.internal`.
 
 ## Open questions and debt
+
+- **The Deployment epic is parked, not finished (owner, 2026-11-23).** The
+  general operation is covered: the app is live, migrations run from the
+  image, email works in Resend's sandbox and the go-live checks passed.
+  #37 stays open with three tickets, all unblocked by the same decision —
+  choosing and buying a custom domain:
+  - **#41 (custom domain):** follow
+    [Runbook: add the custom domain](#runbook-add-the-custom-domain).
+    Deciding before the first real user avoids signing everyone out later.
+  - **#42 (email DNS):** choose the mail subdomain together with #41,
+    verify it in Resend, then the pull request in
+    [Runbook: switch to our own domain](#runbook-switch-to-our-own-domain-finishes-42)
+    flips `MAIL_FROM` and `EMAIL_AUTH_ENABLED` and runs the Gmail/Outlook
+    acceptance.
+  - **#45 (go-live checklist):** re-run the email-auth flows end to end with
+    the verified domain and close the two debts below (restore window,
+    owner password rotation).
+
+  Resume the epic when the domain is chosen; until then other epics take
+  priority. This entry is the record for picking the tickets back up.
 
 - **The restore window is 6 hours (Neon Free).** For clinical data that is a
   short margin: a mistake noticed the next morning cannot be undone, and
