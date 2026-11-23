@@ -1,4 +1,7 @@
-import { createConsultationSchema } from './consultations.js';
+import {
+  createConsultationSchema,
+  updateConsultationSchema,
+} from './consultations.js';
 
 describe('createConsultationSchema', () => {
   it('requires only date and weight', () => {
@@ -28,6 +31,39 @@ describe('createConsultationSchema', () => {
   it('rejects a consultation dated in the future', () => {
     expect(
       createConsultationSchema.safeParse({ date: '2999-01-01', weightKg: 70 })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('updateConsultationSchema', () => {
+  it('keeps weight required so a measurement always stays', () => {
+    expect(
+      updateConsultationSchema.safeParse({ date: '2026-01-15' }).success,
+    ).toBe(false);
+  });
+
+  it('accepts the same shape as create', () => {
+    expect(
+      updateConsultationSchema.safeParse({
+        date: '2026-01-15',
+        weightKg: 70.5,
+        waistCm: 80,
+        notes: 'Retuvo líquidos',
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each([0, -1, 501])('rejects weight %s kg', (weightKg) => {
+    expect(
+      updateConsultationSchema.safeParse({ date: '2026-01-15', weightKg })
+        .success,
+    ).toBe(false);
+  });
+
+  it('rejects a consultation dated in the future', () => {
+    expect(
+      updateConsultationSchema.safeParse({ date: '2999-01-01', weightKg: 70 })
         .success,
     ).toBe(false);
   });
