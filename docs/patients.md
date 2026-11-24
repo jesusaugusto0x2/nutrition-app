@@ -18,6 +18,45 @@ Spanish i18n in `apps/web/src/i18n/es.ts`, every new spec component shown at
 `/dev/components`, and this doc updated in the same pull request. The
 «Próximamente» features are placeholders only — do not build them.
 
+## Patients
+
+### Patient list: search, sort and weight summary (#77)
+
+**Status: implemented.** `GET /api/clinic/patients?q=&sort=` returns
+`patientListItemSchema[]`: the patient plus `lastConsultation
+{ date, weightKg }`, `currentWeight` and `trendWeightKg` (nulls when there
+are no consultations, or fewer than two for the trend).
+
+- **Search is accent-insensitive with `translate()`, not `unaccent`.** The
+  filter folds Spanish accents (`áéíóúüñç…`) to base letters on both the
+  name (`firstName || ' ' || lastName`) and the query, then `LIKE '%q%'`.
+  `translate()` is plain SQL: it needs no `CREATE EXTENSION` (no migration,
+  no owner-role step) and behaves identically on PGlite and Neon, so the
+  repository specs test the real thing. `%`, `_` and `\` in the query are
+  escaped so they match literally. Rejected: `unaccent` + an expression
+  index and `pg_trgm` — index-friendly search matters at thousands of rows;
+  a per-clinic list is far smaller, and the fold function would need the
+  same expression index anyway. Revisit if a clinic's list grows past a few
+  thousand patients.
+- **The summary comes from correlated subqueries**, not a join: two
+  scalar subqueries fetch the two latest non-deleted consultations' weights
+  (`::float8` so the driver returns numbers) and one the latest date
+  (`::text` so it stays `YYYY-MM-DD`). Soft-deleted consultations never
+  count. Sorting repeats no logic: the query wraps the enriched selection
+  in a subquery and orders outside it.
+- **Default sort is `recent`**: latest consultation first, patients without
+  consultations last (`NULLS LAST`), ties broken by last and first name.
+  `sort=name` is the plain alphabetical order the list had before.
+- **The trend is rounded to two decimals in the mapper** — the difference
+  of two `numeric(5,2)` weights leaks float error otherwise
+  (`69.5 - 70.05 = -0.5499…`). A trend of `null` (not `0`) means «fewer
+  than two consultations», so the UI can tell «no data» apart from «no
+  change».
+- The response shape changed under the existing web list, which keeps
+  working because Zod strips unknown keys; #90 builds the real list on the
+  new fields. The default order of the current list screen changes to
+  «most recent consultation first», which is the design's order (§8).
+
 ## Consultations
 
 ### Editing and deleting a consultation (#76)
