@@ -39,7 +39,32 @@ export const updatePatientSchema = createPatientSchema
     error: 'At least one field must be provided',
   });
 
+/** Sort orders of the clinic patient list. */
+export const patientListSortSchema = z.enum(['recent', 'name']);
+
+/** Query parameters of `GET /api/clinic/patients`. */
+export const patientListQuerySchema = z.object({
+  q: z.string().trim().min(1).max(100).optional(),
+  sort: patientListSortSchema.default('recent'),
+});
+
+/**
+ * Patient list item: the patient plus the weight summary of its latest
+ * consultations. The trend is the weight difference against the previous
+ * consultation; it is null with fewer than two consultations.
+ */
+export const patientListItemSchema = patientSchema.extend({
+  lastConsultation: z
+    .object({ date: isoDateSchema, weightKg: z.number() })
+    .nullable(),
+  currentWeight: z.number().nullable(),
+  trendWeightKg: z.number().nullable(),
+});
+
 export type PatientSex = z.infer<typeof patientSexSchema>;
 export type Patient = z.infer<typeof patientSchema>;
 export type CreatePatientInput = z.infer<typeof createPatientSchema>;
 export type UpdatePatientInput = z.infer<typeof updatePatientSchema>;
+export type PatientListSort = z.infer<typeof patientListSortSchema>;
+export type PatientListQuery = z.infer<typeof patientListQuerySchema>;
+export type PatientListItem = z.infer<typeof patientListItemSchema>;
