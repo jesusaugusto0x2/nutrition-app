@@ -1,10 +1,20 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { ClinicAccess } from '../../common/decorators/clinic-access.decorator';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator';
 import {
   CreatePatientDto,
   PatientDto,
+  PatientListItemDto,
+  PatientListQueryDto,
   PatientParamsDto,
   UpdatePatientDto,
 } from './dto/patient.dto';
@@ -16,9 +26,9 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Get()
-  @ZodSerializerDto([PatientDto])
-  list(@CurrentClinic() clinicId: string) {
-    return this.patientsService.list(clinicId);
+  @ZodSerializerDto([PatientListItemDto])
+  list(@CurrentClinic() clinicId: string, @Query() query: PatientListQueryDto) {
+    return this.patientsService.list(clinicId, query);
   }
 
   @Get(':patientId')
