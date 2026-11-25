@@ -1,7 +1,8 @@
 import { calculateAge } from '@nutri/utils';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, PlusIcon } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { t } from '@/i18n';
 import { patientsQueryOptions } from '../api';
@@ -12,7 +13,13 @@ export function PatientList() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">{t.patients.listTitle}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="m-0 text-2xl font-semibold">{t.patients.listTitle}</h1>
+        <Link to="/patients/new" className={buttonVariants({ size: 'sm' })}>
+          <PlusIcon aria-hidden />
+          {t.patients.newPatient}
+        </Link>
+      </div>
       {patients.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t.patients.empty}</p>
       ) : (
