@@ -9,7 +9,11 @@ import {
 
 export const patientSexSchema = z.enum(['female', 'male']);
 
-const nameSchema = z.string().trim().min(1).max(100);
+export const PATIENT_NAME_MAX_LENGTH = 100;
+export const PATIENT_PHONE_MAX_LENGTH = 30;
+export const PATIENT_ADDRESS_MAX_LENGTH = 300;
+
+const nameSchema = z.string().trim().min(1).max(PATIENT_NAME_MAX_LENGTH);
 
 /** Patient as returned by the clinic API. */
 export const patientSchema = z
@@ -29,8 +33,8 @@ export const createPatientSchema = z.object({
   lastName: nameSchema,
   birthDate: notInFutureDateSchema,
   sex: patientSexSchema,
-  phone: optionalTextSchema(30),
-  address: optionalTextSchema(300),
+  phone: optionalTextSchema(PATIENT_PHONE_MAX_LENGTH),
+  address: optionalTextSchema(PATIENT_ADDRESS_MAX_LENGTH),
 });
 
 export const updatePatientSchema = createPatientSchema
