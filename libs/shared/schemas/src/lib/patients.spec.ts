@@ -1,4 +1,9 @@
-import { createPatientSchema, updatePatientSchema } from './patients.js';
+import {
+  createPatientSchema,
+  patientListItemSchema,
+  patientListQuerySchema,
+  updatePatientSchema,
+} from './patients.js';
 
 const validPatient = {
   firstName: 'Ana',
@@ -54,5 +59,53 @@ describe('updatePatientSchema', () => {
 
   it('rejects an empty update', () => {
     expect(updatePatientSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('patientListQuerySchema', () => {
+  it('defaults the sort to recent', () => {
+    expect(patientListQuerySchema.parse({})).toEqual({ sort: 'recent' });
+  });
+
+  it('rejects an unknown sort and a blank search', () => {
+    expect(patientListQuerySchema.safeParse({ sort: 'weight' }).success).toBe(
+      false,
+    );
+    expect(patientListQuerySchema.safeParse({ q: '   ' }).success).toBe(false);
+  });
+});
+
+describe('patientListItemSchema', () => {
+  const patient = {
+    id: '00000000-0000-4000-8000-00000000000b',
+    firstName: 'Ana',
+    lastName: 'Pérez',
+    birthDate: '1990-05-10',
+    sex: 'female',
+    phone: null,
+    address: null,
+    createdAt: '2026-01-01T10:00:00.000Z',
+    updatedAt: '2026-01-02T10:00:00.000Z',
+  };
+
+  it('accepts a patient without consultations', () => {
+    const item = {
+      ...patient,
+      lastConsultation: null,
+      currentWeight: null,
+      trendWeightKg: null,
+    };
+    expect(patientListItemSchema.parse(item)).toEqual(item);
+  });
+
+  it('rejects a last consultation without weight', () => {
+    expect(
+      patientListItemSchema.safeParse({
+        ...patient,
+        lastConsultation: { date: '2026-01-15' },
+        currentWeight: null,
+        trendWeightKg: null,
+      }).success,
+    ).toBe(false);
   });
 });

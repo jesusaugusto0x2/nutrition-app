@@ -2,18 +2,23 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreatePatientInput,
   Patient,
+  PatientListItem,
+  PatientListQuery,
   UpdatePatientInput,
 } from '@nutri/schemas';
-import { toPatient } from './patients.mapper';
+import { toPatient, toPatientListItem } from './patients.mapper';
 import { PatientsRepository } from './patients.repository';
 
 @Injectable()
 export class PatientsService {
   constructor(private readonly patientsRepository: PatientsRepository) {}
 
-  async list(clinicId: string): Promise<Patient[]> {
-    const rows = await this.patientsRepository.findAll(clinicId);
-    return rows.map(toPatient);
+  async list(
+    clinicId: string,
+    query: PatientListQuery,
+  ): Promise<PatientListItem[]> {
+    const rows = await this.patientsRepository.findList(clinicId, query);
+    return rows.map(toPatientListItem);
   }
 
   async getById(clinicId: string, patientId: string): Promise<Patient> {
