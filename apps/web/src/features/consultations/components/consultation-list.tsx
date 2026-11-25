@@ -1,7 +1,16 @@
 import type { Consultation } from '@nutri/schemas';
 import { calculateBmi, diffConsultations } from '@nutri/utils';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link } from '@tanstack/react-router';
+import { PencilIcon, PlusIcon } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { t } from '@/i18n';
 import {
   formatChange,
@@ -18,7 +27,19 @@ export function ConsultationList({ patientId }: { patientId: string }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{t.consultations.listTitle}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="m-0 text-lg font-semibold">
+          {t.consultations.listTitle}
+        </h2>
+        <Link
+          to="/patients/$patientId/nueva-consulta"
+          params={{ patientId }}
+          className={buttonVariants({ size: 'sm' })}
+        >
+          <PlusIcon aria-hidden />
+          {t.consultations.newConsultation}
+        </Link>
+      </div>
       {consultations.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t.consultations.empty}</p>
       ) : (
@@ -26,6 +47,7 @@ export function ConsultationList({ patientId }: { patientId: string }) {
           {consultations.map((consultation, index) => (
             <li key={consultation.id}>
               <ConsultationCard
+                patientId={patientId}
                 consultation={consultation}
                 // Sorted most recent first, so the previous one is next.
                 previous={consultations[index + 1]}
@@ -39,9 +61,11 @@ export function ConsultationList({ patientId }: { patientId: string }) {
 }
 
 function ConsultationCard({
+  patientId,
   consultation,
   previous,
 }: {
+  patientId: string;
   consultation: Consultation;
   previous?: Consultation;
 }) {
@@ -60,6 +84,17 @@ function ConsultationCard({
     <Card>
       <CardHeader>
         <CardTitle>{formatDate(consultation.date)}</CardTitle>
+        <CardAction>
+          <Link
+            to="/patients/$patientId/consultas/$consultationId/editar"
+            params={{ patientId, consultationId: consultation.id }}
+            aria-label={t.consultations.editOf(formatDate(consultation.date))}
+            className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          >
+            <PencilIcon aria-hidden />
+            {t.consultations.edit}
+          </Link>
+        </CardAction>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">

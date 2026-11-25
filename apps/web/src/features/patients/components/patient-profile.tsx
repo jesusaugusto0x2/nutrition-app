@@ -19,10 +19,15 @@ import { patientFullName } from '../patient-name';
 
 export function PatientProfile({ patientId }: { patientId: string }) {
   const { data: patient } = useSuspenseQuery(patientQueryOptions(patientId));
-  // Set by the create form on its way here; it lives only in this history
-  // entry, so later visits do not show it.
+  // Set by a save on its way here; it lives only in this history entry, so
+  // later visits do not show it.
   const { state } = useLocation();
-  const justCreated = Boolean(state.patientCreated);
+  const noticeText =
+    state.notice === 'patient-created'
+      ? t.patients.form.created
+      : state.notice === 'consultation-saved'
+        ? t.consultations.saved
+        : null;
 
   const details = [
     [t.patients.birthDate, formatDate(patient.birthDate)],
@@ -40,7 +45,7 @@ export function PatientProfile({ patientId }: { patientId: string }) {
         {t.patients.backToList}
       </Link>
 
-      {justCreated && <SuccessNotice>{t.patients.form.created}</SuccessNotice>}
+      {noticeText && <SuccessNotice>{noticeText}</SuccessNotice>}
 
       <Card>
         <CardHeader>

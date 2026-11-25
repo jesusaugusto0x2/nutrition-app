@@ -26,6 +26,8 @@ import { Route as ClinicPatientsIndexRouteImport } from './routes/_clinic/patien
 import { Route as ClinicPatientsNewRouteImport } from './routes/_clinic/patients/new'
 import { Route as ClinicPatientsPatientIdIndexRouteImport } from './routes/_clinic/patients/$patientId/index'
 import { Route as ClinicPatientsPatientIdEditRouteImport } from './routes/_clinic/patients/$patientId/edit'
+import { Route as ClinicPatientsPatientIdNuevaConsultaRouteImport } from './routes/_clinic/patients/$patientId/nueva-consulta'
+import { Route as ClinicPatientsPatientIdConsultasConsultationIdEditarRouteImport } from './routes/_clinic/patients/$patientId/consultas/$consultationId/editar'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -110,6 +112,18 @@ const ClinicPatientsPatientIdEditRoute =
     path: '/patients/$patientId/edit',
     getParentRoute: () => ClinicRoute,
   } as any)
+const ClinicPatientsPatientIdNuevaConsultaRoute =
+  ClinicPatientsPatientIdNuevaConsultaRouteImport.update({
+    id: '/patients/$patientId/nueva-consulta',
+    path: '/patients/$patientId/nueva-consulta',
+    getParentRoute: () => ClinicRoute,
+  } as any)
+const ClinicPatientsPatientIdConsultasConsultationIdEditarRoute =
+  ClinicPatientsPatientIdConsultasConsultationIdEditarRouteImport.update({
+    id: '/patients/$patientId/consultas/$consultationId/editar',
+    path: '/patients/$patientId/consultas/$consultationId/editar',
+    getParentRoute: () => ClinicRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,7 +138,9 @@ export interface FileRoutesByFullPath {
   '/patients/new': typeof ClinicPatientsNewRoute
   '/patients/': typeof ClinicPatientsIndexRoute
   '/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/patients/$patientId/nueva-consulta': typeof ClinicPatientsPatientIdNuevaConsultaRoute
   '/patients/$patientId/': typeof ClinicPatientsPatientIdIndexRoute
+  '/patients/$patientId/consultas/$consultationId/editar': typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,7 +155,9 @@ export interface FileRoutesByTo {
   '/patients/new': typeof ClinicPatientsNewRoute
   '/patients': typeof ClinicPatientsIndexRoute
   '/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/patients/$patientId/nueva-consulta': typeof ClinicPatientsPatientIdNuevaConsultaRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdIndexRoute
+  '/patients/$patientId/consultas/$consultationId/editar': typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -159,7 +177,9 @@ export interface FileRoutesById {
   '/_clinic/patients/new': typeof ClinicPatientsNewRoute
   '/_clinic/patients/': typeof ClinicPatientsIndexRoute
   '/_clinic/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/_clinic/patients/$patientId/nueva-consulta': typeof ClinicPatientsPatientIdNuevaConsultaRoute
   '/_clinic/patients/$patientId/': typeof ClinicPatientsPatientIdIndexRoute
+  '/_clinic/patients/$patientId/consultas/$consultationId/editar': typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -176,7 +196,9 @@ export interface FileRouteTypes {
     | '/patients/new'
     | '/patients/'
     | '/patients/$patientId/edit'
+    | '/patients/$patientId/nueva-consulta'
     | '/patients/$patientId/'
+    | '/patients/$patientId/consultas/$consultationId/editar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -191,7 +213,9 @@ export interface FileRouteTypes {
     | '/patients/new'
     | '/patients'
     | '/patients/$patientId/edit'
+    | '/patients/$patientId/nueva-consulta'
     | '/patients/$patientId'
+    | '/patients/$patientId/consultas/$consultationId/editar'
   id:
     | '__root__'
     | '/'
@@ -210,7 +234,9 @@ export interface FileRouteTypes {
     | '/_clinic/patients/new'
     | '/_clinic/patients/'
     | '/_clinic/patients/$patientId/edit'
+    | '/_clinic/patients/$patientId/nueva-consulta'
     | '/_clinic/patients/$patientId/'
+    | '/_clinic/patients/$patientId/consultas/$consultationId/editar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -344,6 +370,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClinicPatientsPatientIdEditRouteImport
       parentRoute: typeof ClinicRoute
     }
+    '/_clinic/patients/$patientId/nueva-consulta': {
+      id: '/_clinic/patients/$patientId/nueva-consulta'
+      path: '/patients/$patientId/nueva-consulta'
+      fullPath: '/patients/$patientId/nueva-consulta'
+      preLoaderRoute: typeof ClinicPatientsPatientIdNuevaConsultaRouteImport
+      parentRoute: typeof ClinicRoute
+    }
+    '/_clinic/patients/$patientId/consultas/$consultationId/editar': {
+      id: '/_clinic/patients/$patientId/consultas/$consultationId/editar'
+      path: '/patients/$patientId/consultas/$consultationId/editar'
+      fullPath: '/patients/$patientId/consultas/$consultationId/editar'
+      preLoaderRoute: typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRouteImport
+      parentRoute: typeof ClinicRoute
+    }
   }
 }
 
@@ -365,14 +405,20 @@ interface ClinicRouteChildren {
   ClinicPatientsNewRoute: typeof ClinicPatientsNewRoute
   ClinicPatientsIndexRoute: typeof ClinicPatientsIndexRoute
   ClinicPatientsPatientIdEditRoute: typeof ClinicPatientsPatientIdEditRoute
+  ClinicPatientsPatientIdNuevaConsultaRoute: typeof ClinicPatientsPatientIdNuevaConsultaRoute
   ClinicPatientsPatientIdIndexRoute: typeof ClinicPatientsPatientIdIndexRoute
+  ClinicPatientsPatientIdConsultasConsultationIdEditarRoute: typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
 }
 
 const ClinicRouteChildren: ClinicRouteChildren = {
   ClinicPatientsNewRoute: ClinicPatientsNewRoute,
   ClinicPatientsIndexRoute: ClinicPatientsIndexRoute,
   ClinicPatientsPatientIdEditRoute: ClinicPatientsPatientIdEditRoute,
+  ClinicPatientsPatientIdNuevaConsultaRoute:
+    ClinicPatientsPatientIdNuevaConsultaRoute,
   ClinicPatientsPatientIdIndexRoute: ClinicPatientsPatientIdIndexRoute,
+  ClinicPatientsPatientIdConsultasConsultationIdEditarRoute:
+    ClinicPatientsPatientIdConsultasConsultationIdEditarRoute,
 }
 
 const ClinicRouteWithChildren =

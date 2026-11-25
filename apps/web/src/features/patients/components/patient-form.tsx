@@ -92,7 +92,7 @@ export function PatientForm({ patient }: { patient?: Patient }) {
         void navigate({
           to: '/patients/$patientId',
           params: { patientId: created.id },
-          state: { patientCreated: true },
+          state: { notice: 'patient-created' },
         });
       }
     } catch {

@@ -90,6 +90,44 @@ app.
   action in the profile's `CardAction`; both are real links styled with
   `buttonVariants` (navigation stays navigation).
 
+### New and edit consultation forms (#79)
+
+**Status: implemented.** `/patients/$patientId/nueva-consulta` and
+`/patients/$patientId/consultas/$consultationId/editar`, one
+`ConsultationForm` in both modes.
+
+- **Draft state, not React Hook Form.** The ticket's UX is «save disabled
+  until valid» with live diffs per keystroke — the same pattern the inline
+  record editors (`records-table`, `record-cards`) already use with
+  `record-draft.ts`. RHF + `zodResolver` (the #78 pattern) shines with
+  per-field errors on submit; here validation is «`readConsultationFormDraft`
+  returns null», shown as the `weightRequired` message by the disabled
+  button (which the Button spec requires: a disabled button always has a
+  nearby explanation). The existing `draftFrom`/`readDraft` stay untouched
+  for the inline editors; the form gets its own helpers in the same file
+  (`emptyConsultationFormDraft`, `consultationFormDraftFrom`,
+  `readConsultationFormDraft`, `readConsultationFormMeasures`), adding
+  height (`parseHeightInput`: `162` → 1,62 m) and notes.
+- **Live diffs are `diffConsultations` on the partial parses**, computed
+  only once the draft has a usable date and weight and never for a date
+  before the previous consultation (the util throws on a negative span).
+  Rendered with `ChangeText`, so the form's «−2,0 kg» is byte-identical to
+  the records table's. Previous values ride the `FormField` `hint` slot
+  («Anterior: 70,5 kg»).
+- **In edit mode the «previous» is the consultation before the edited
+  one** (the list is most-recent-first, so the next index), and the edited
+  record comes from the cached list — there is no single-consultation GET;
+  an id missing from the list is a 404 page, like a foreign record.
+- **Both modes navigate back to the profile** with the flash notice. The
+  #78 `patientCreated` history flag became a `notice` union
+  (`'patient-created' | 'consultation-saved'`) in `app/router.tsx` — one
+  flash slot, mapped to its text in the profile.
+- **Writes invalidate `patientKeys.all`**: the consultation keys nest
+  under it, and the list's weight summary (#77) and the profile both
+  refetch, so the new record shows first without a manual refresh.
+- Entry points: «Nueva consulta» in the consultations section header and
+  «Editar» on each record card, both real links with `buttonVariants`.
+
 ## Consultations
 
 ### Editing and deleting a consultation (#76)
