@@ -57,6 +57,39 @@ are no consultations, or fewer than two for the trend).
   new fields. The default order of the current list screen changes to
   «most recent consultation first», which is the design's order (§8).
 
+### Patient create and edit forms (#78)
+
+**Status: implemented.** `/patients/new` and `/patients/$patientId/edit`,
+one `PatientForm` in both modes — the first clinical write flow of the web
+app.
+
+- **The date is typed `dd/mm/aaaa` and parsed with `lib/parse.ts`** (never
+  by hand, CLAUDE.md §5): a local extension of `createPatientSchema`
+  overrides only `birthDate` (text → refined → transformed to
+  `YYYY-MM-DD`), so the shared schema stays the single source of the rules
+  and the API receives ISO. Refine messages are codes (`invalid`,
+  `future`) the form maps to Spanish; the API re-validates the same rules.
+- **Sex uses `ChoiceField` (spec 9), extended with an optional `error`
+  prop** that renders `FieldError` and wires `aria-invalid` /
+  `aria-describedby` on the radio group — the component had no error state
+  before.
+- **After create, navigate to the profile with a history-state flag**
+  (`state: { patientCreated: true }`) that shows the success notice there:
+  a flash message with no clinical data, gone on the next navigation.
+  After edit the form stays and shows the notice inline; the next change
+  clears it (spec 31: it must never say «guardado» over unsaved data).
+- **Both mutations invalidate `patientKeys.all`**, which the detail key
+  nests under, so the list and any open profile refetch without a manual
+  refresh. API failures surface as a `FormAlert` above the form (the same
+  pattern as auth), not as field errors.
+- **Route structure:** the profile moved from `$patientId.tsx` to
+  `$patientId/index.tsx` so `$patientId/edit.tsx` is a sibling leaf, not a
+  child — as a child it rendered inside the profile (which has no
+  `<Outlet/>`) and ran the profile's loader.
+- The «Nuevo paciente» CTA lives on the list header and the «Editar»
+  action in the profile's `CardAction`; both are real links styled with
+  `buttonVariants` (navigation stays navigation).
+
 ## Consultations
 
 ### Editing and deleting a consultation (#76)

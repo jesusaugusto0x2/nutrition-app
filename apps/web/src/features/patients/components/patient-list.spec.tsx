@@ -40,8 +40,12 @@ function renderPatientList(data: Patient[]) {
     getParentRoute: () => rootRoute,
     path: '/patients/$patientId',
   });
+  const newRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/patients/new',
+  });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([listRoute, detailRoute]),
+    routeTree: rootRoute.addChildren([listRoute, detailRoute, newRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 
@@ -59,6 +63,14 @@ describe('PatientList', () => {
     const link = await screen.findByRole('link', { name: /Ana Pérez/ });
     expect(link).toHaveAttribute('href', `/patients/${patients[0].id}`);
     expect(link).toHaveTextContent(t.patients.sex.female);
+  });
+
+  it('links to the new patient page', async () => {
+    renderPatientList(patients);
+
+    expect(
+      await screen.findByRole('link', { name: t.patients.newPatient }),
+    ).toHaveAttribute('href', '/patients/new');
   });
 
   it('shows the empty state from the i18n file', async () => {

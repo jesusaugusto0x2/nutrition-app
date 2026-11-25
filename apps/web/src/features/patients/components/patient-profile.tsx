@@ -1,8 +1,16 @@
 import { calculateAge } from '@nutri/utils';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { ChevronLeft } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link, useLocation } from '@tanstack/react-router';
+import { ChevronLeft, PencilIcon } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { SuccessNotice } from '@/components/ui/notice';
 import { ConsultationList } from '@/features/consultations/components/consultation-list';
 import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
@@ -11,6 +19,10 @@ import { patientFullName } from '../patient-name';
 
 export function PatientProfile({ patientId }: { patientId: string }) {
   const { data: patient } = useSuspenseQuery(patientQueryOptions(patientId));
+  // Set by the create form on its way here; it lives only in this history
+  // entry, so later visits do not show it.
+  const { state } = useLocation();
+  const justCreated = Boolean(state.patientCreated);
 
   const details = [
     [t.patients.birthDate, formatDate(patient.birthDate)],
@@ -28,13 +40,29 @@ export function PatientProfile({ patientId }: { patientId: string }) {
         {t.patients.backToList}
       </Link>
 
+      {justCreated && <SuccessNotice>{t.patients.form.created}</SuccessNotice>}
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">{patientFullName(patient)}</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            {t.patients.age(calculateAge(patient.birthDate))} ·{' '}
-            {t.patients.sex[patient.sex]}
-          </p>
+          <div>
+            <CardTitle className="text-xl">
+              {patientFullName(patient)}
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              {t.patients.age(calculateAge(patient.birthDate))} ·{' '}
+              {t.patients.sex[patient.sex]}
+            </p>
+          </div>
+          <CardAction>
+            <Link
+              to="/patients/$patientId/edit"
+              params={{ patientId }}
+              className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+            >
+              <PencilIcon aria-hidden />
+              {t.patients.editPatient}
+            </Link>
+          </CardAction>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-3 text-sm sm:grid-cols-3">

@@ -23,7 +23,9 @@ import { Route as LinkVerifyEmailRouteImport } from './routes/_link/verify-email
 import { Route as PortalPortalRouteImport } from './routes/_portal/portal'
 import { Route as DevComponentsRouteImport } from './routes/dev/components'
 import { Route as ClinicPatientsIndexRouteImport } from './routes/_clinic/patients/index'
-import { Route as ClinicPatientsPatientIdRouteImport } from './routes/_clinic/patients/$patientId'
+import { Route as ClinicPatientsNewRouteImport } from './routes/_clinic/patients/new'
+import { Route as ClinicPatientsPatientIdIndexRouteImport } from './routes/_clinic/patients/$patientId/index'
+import { Route as ClinicPatientsPatientIdEditRouteImport } from './routes/_clinic/patients/$patientId/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -91,11 +93,23 @@ const ClinicPatientsIndexRoute = ClinicPatientsIndexRouteImport.update({
   path: '/patients/',
   getParentRoute: () => ClinicRoute,
 } as any)
-const ClinicPatientsPatientIdRoute = ClinicPatientsPatientIdRouteImport.update({
-  id: '/patients/$patientId',
-  path: '/patients/$patientId',
+const ClinicPatientsNewRoute = ClinicPatientsNewRouteImport.update({
+  id: '/patients/new',
+  path: '/patients/new',
   getParentRoute: () => ClinicRoute,
 } as any)
+const ClinicPatientsPatientIdIndexRoute =
+  ClinicPatientsPatientIdIndexRouteImport.update({
+    id: '/patients/$patientId/',
+    path: '/patients/$patientId/',
+    getParentRoute: () => ClinicRoute,
+  } as any)
+const ClinicPatientsPatientIdEditRoute =
+  ClinicPatientsPatientIdEditRouteImport.update({
+    id: '/patients/$patientId/edit',
+    path: '/patients/$patientId/edit',
+    getParentRoute: () => ClinicRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -107,8 +121,10 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof LinkVerifyEmailRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
-  '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
+  '/patients/new': typeof ClinicPatientsNewRoute
   '/patients/': typeof ClinicPatientsIndexRoute
+  '/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/patients/$patientId/': typeof ClinicPatientsPatientIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -120,8 +136,10 @@ export interface FileRoutesByTo {
   '/verify-email': typeof LinkVerifyEmailRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
-  '/patients/$patientId': typeof ClinicPatientsPatientIdRoute
+  '/patients/new': typeof ClinicPatientsNewRoute
   '/patients': typeof ClinicPatientsIndexRoute
+  '/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/patients/$patientId': typeof ClinicPatientsPatientIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -138,8 +156,10 @@ export interface FileRoutesById {
   '/_link/verify-email': typeof LinkVerifyEmailRoute
   '/_portal/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
-  '/_clinic/patients/$patientId': typeof ClinicPatientsPatientIdRoute
+  '/_clinic/patients/new': typeof ClinicPatientsNewRoute
   '/_clinic/patients/': typeof ClinicPatientsIndexRoute
+  '/_clinic/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/_clinic/patients/$patientId/': typeof ClinicPatientsPatientIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -153,8 +173,10 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/portal'
     | '/dev/components'
-    | '/patients/$patientId'
+    | '/patients/new'
     | '/patients/'
+    | '/patients/$patientId/edit'
+    | '/patients/$patientId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,8 +188,10 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/portal'
     | '/dev/components'
-    | '/patients/$patientId'
+    | '/patients/new'
     | '/patients'
+    | '/patients/$patientId/edit'
+    | '/patients/$patientId'
   id:
     | '__root__'
     | '/'
@@ -183,8 +207,10 @@ export interface FileRouteTypes {
     | '/_link/verify-email'
     | '/_portal/portal'
     | '/dev/components'
-    | '/_clinic/patients/$patientId'
+    | '/_clinic/patients/new'
     | '/_clinic/patients/'
+    | '/_clinic/patients/$patientId/edit'
+    | '/_clinic/patients/$patientId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -297,11 +323,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClinicPatientsIndexRouteImport
       parentRoute: typeof ClinicRoute
     }
-    '/_clinic/patients/$patientId': {
-      id: '/_clinic/patients/$patientId'
+    '/_clinic/patients/new': {
+      id: '/_clinic/patients/new'
+      path: '/patients/new'
+      fullPath: '/patients/new'
+      preLoaderRoute: typeof ClinicPatientsNewRouteImport
+      parentRoute: typeof ClinicRoute
+    }
+    '/_clinic/patients/$patientId/': {
+      id: '/_clinic/patients/$patientId/'
       path: '/patients/$patientId'
-      fullPath: '/patients/$patientId'
-      preLoaderRoute: typeof ClinicPatientsPatientIdRouteImport
+      fullPath: '/patients/$patientId/'
+      preLoaderRoute: typeof ClinicPatientsPatientIdIndexRouteImport
+      parentRoute: typeof ClinicRoute
+    }
+    '/_clinic/patients/$patientId/edit': {
+      id: '/_clinic/patients/$patientId/edit'
+      path: '/patients/$patientId/edit'
+      fullPath: '/patients/$patientId/edit'
+      preLoaderRoute: typeof ClinicPatientsPatientIdEditRouteImport
       parentRoute: typeof ClinicRoute
     }
   }
@@ -322,13 +362,17 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface ClinicRouteChildren {
-  ClinicPatientsPatientIdRoute: typeof ClinicPatientsPatientIdRoute
+  ClinicPatientsNewRoute: typeof ClinicPatientsNewRoute
   ClinicPatientsIndexRoute: typeof ClinicPatientsIndexRoute
+  ClinicPatientsPatientIdEditRoute: typeof ClinicPatientsPatientIdEditRoute
+  ClinicPatientsPatientIdIndexRoute: typeof ClinicPatientsPatientIdIndexRoute
 }
 
 const ClinicRouteChildren: ClinicRouteChildren = {
-  ClinicPatientsPatientIdRoute: ClinicPatientsPatientIdRoute,
+  ClinicPatientsNewRoute: ClinicPatientsNewRoute,
   ClinicPatientsIndexRoute: ClinicPatientsIndexRoute,
+  ClinicPatientsPatientIdEditRoute: ClinicPatientsPatientIdEditRoute,
+  ClinicPatientsPatientIdIndexRoute: ClinicPatientsPatientIdIndexRoute,
 }
 
 const ClinicRouteWithChildren =

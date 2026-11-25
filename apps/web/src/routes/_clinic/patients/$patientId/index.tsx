@@ -6,7 +6,7 @@ import { PatientProfile } from '@/features/patients/components/patient-profile';
 import { t } from '@/i18n';
 import { ApiClientError } from '@/lib/api-client';
 
-export const Route = createFileRoute('/_clinic/patients/$patientId')({
+export const Route = createFileRoute('/_clinic/patients/$patientId/')({
   loader: async ({ context, params }) => {
     try {
       await Promise.all([

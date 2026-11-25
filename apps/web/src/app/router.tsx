@@ -29,4 +29,9 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: ReturnType<typeof createAppRouter>;
   }
+
+  interface HistoryState {
+    /** Flash flag the create-patient form leaves for the profile notice. */
+    patientCreated?: boolean;
+  }
 }
