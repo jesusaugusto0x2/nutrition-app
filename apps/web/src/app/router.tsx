@@ -31,7 +31,7 @@ declare module '@tanstack/react-router' {
   }
 
   interface HistoryState {
-    /** Flash flag the create-patient form leaves for the profile notice. */
-    patientCreated?: boolean;
+    /** Flash notice a save leaves for the profile, shown once on arrival. */
+    notice?: 'patient-created' | 'consultation-saved';
   }
 }

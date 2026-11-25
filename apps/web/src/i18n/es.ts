@@ -180,6 +180,9 @@ export const es = {
     viewMeasurements: 'Ver control de medidas',
     weightRequired: 'Escriba al menos el peso para poder guardar.',
     saveConsultation: 'Guardar consulta',
+    today: 'Hoy',
+    notFound: 'Consulta no encontrada',
+    saveFailed: 'No pudimos guardar la consulta. Inténtalo de nuevo.',
   },
   trend: {
     down: (amount: string) => `Bajó ${amount}`,
