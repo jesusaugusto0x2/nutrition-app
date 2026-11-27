@@ -23,9 +23,13 @@ import { Route as LinkVerifyEmailRouteImport } from './routes/_link/verify-email
 import { Route as PortalPortalRouteImport } from './routes/_portal/portal'
 import { Route as DevComponentsRouteImport } from './routes/dev/components'
 import { Route as ClinicPatientsIndexRouteImport } from './routes/_clinic/patients/index'
+import { Route as ClinicPatientsPatientIdRouteImport } from './routes/_clinic/patients/$patientId'
 import { Route as ClinicPatientsNewRouteImport } from './routes/_clinic/patients/new'
 import { Route as ClinicPatientsPatientIdIndexRouteImport } from './routes/_clinic/patients/$patientId/index'
+import { Route as ClinicPatientsPatientIdControlMedidasRouteImport } from './routes/_clinic/patients/$patientId/control-medidas'
 import { Route as ClinicPatientsPatientIdEditRouteImport } from './routes/_clinic/patients/$patientId/edit'
+import { Route as ClinicPatientsPatientIdHistoriaRouteImport } from './routes/_clinic/patients/$patientId/historia'
+import { Route as ClinicPatientsPatientIdNotasRouteImport } from './routes/_clinic/patients/$patientId/notas'
 import { Route as ClinicPatientsPatientIdNuevaConsultaRouteImport } from './routes/_clinic/patients/$patientId/nueva-consulta'
 import { Route as ClinicPatientsPatientIdConsultasConsultationIdEditarRouteImport } from './routes/_clinic/patients/$patientId/consultas/$consultationId/editar'
 
@@ -95,6 +99,11 @@ const ClinicPatientsIndexRoute = ClinicPatientsIndexRouteImport.update({
   path: '/patients/',
   getParentRoute: () => ClinicRoute,
 } as any)
+const ClinicPatientsPatientIdRoute = ClinicPatientsPatientIdRouteImport.update({
+  id: '/patients/$patientId',
+  path: '/patients/$patientId',
+  getParentRoute: () => ClinicRoute,
+} as any)
 const ClinicPatientsNewRoute = ClinicPatientsNewRouteImport.update({
   id: '/patients/new',
   path: '/patients/new',
@@ -102,27 +111,45 @@ const ClinicPatientsNewRoute = ClinicPatientsNewRouteImport.update({
 } as any)
 const ClinicPatientsPatientIdIndexRoute =
   ClinicPatientsPatientIdIndexRouteImport.update({
-    id: '/patients/$patientId/',
-    path: '/patients/$patientId/',
-    getParentRoute: () => ClinicRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
+  } as any)
+const ClinicPatientsPatientIdControlMedidasRoute =
+  ClinicPatientsPatientIdControlMedidasRouteImport.update({
+    id: '/control-medidas',
+    path: '/control-medidas',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
   } as any)
 const ClinicPatientsPatientIdEditRoute =
   ClinicPatientsPatientIdEditRouteImport.update({
-    id: '/patients/$patientId/edit',
-    path: '/patients/$patientId/edit',
-    getParentRoute: () => ClinicRoute,
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
+  } as any)
+const ClinicPatientsPatientIdHistoriaRoute =
+  ClinicPatientsPatientIdHistoriaRouteImport.update({
+    id: '/historia',
+    path: '/historia',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
+  } as any)
+const ClinicPatientsPatientIdNotasRoute =
+  ClinicPatientsPatientIdNotasRouteImport.update({
+    id: '/notas',
+    path: '/notas',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
   } as any)
 const ClinicPatientsPatientIdNuevaConsultaRoute =
   ClinicPatientsPatientIdNuevaConsultaRouteImport.update({
-    id: '/patients/$patientId/nueva-consulta',
-    path: '/patients/$patientId/nueva-consulta',
-    getParentRoute: () => ClinicRoute,
+    id: '/nueva-consulta',
+    path: '/nueva-consulta',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
   } as any)
 const ClinicPatientsPatientIdConsultasConsultationIdEditarRoute =
   ClinicPatientsPatientIdConsultasConsultationIdEditarRouteImport.update({
-    id: '/patients/$patientId/consultas/$consultationId/editar',
-    path: '/patients/$patientId/consultas/$consultationId/editar',
-    getParentRoute: () => ClinicRoute,
+    id: '/consultas/$consultationId/editar',
+    path: '/consultas/$consultationId/editar',
+    getParentRoute: () => ClinicPatientsPatientIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -135,9 +162,13 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof LinkVerifyEmailRoute
   '/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
+  '/patients/$patientId': typeof ClinicPatientsPatientIdRouteWithChildren
   '/patients/new': typeof ClinicPatientsNewRoute
   '/patients/': typeof ClinicPatientsIndexRoute
+  '/patients/$patientId/control-medidas': typeof ClinicPatientsPatientIdControlMedidasRoute
   '/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/patients/$patientId/historia': typeof ClinicPatientsPatientIdHistoriaRoute
+  '/patients/$patientId/notas': typeof ClinicPatientsPatientIdNotasRoute
   '/patients/$patientId/nueva-consulta': typeof ClinicPatientsPatientIdNuevaConsultaRoute
   '/patients/$patientId/': typeof ClinicPatientsPatientIdIndexRoute
   '/patients/$patientId/consultas/$consultationId/editar': typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
@@ -154,7 +185,10 @@ export interface FileRoutesByTo {
   '/dev/components': typeof DevComponentsRoute
   '/patients/new': typeof ClinicPatientsNewRoute
   '/patients': typeof ClinicPatientsIndexRoute
+  '/patients/$patientId/control-medidas': typeof ClinicPatientsPatientIdControlMedidasRoute
   '/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/patients/$patientId/historia': typeof ClinicPatientsPatientIdHistoriaRoute
+  '/patients/$patientId/notas': typeof ClinicPatientsPatientIdNotasRoute
   '/patients/$patientId/nueva-consulta': typeof ClinicPatientsPatientIdNuevaConsultaRoute
   '/patients/$patientId': typeof ClinicPatientsPatientIdIndexRoute
   '/patients/$patientId/consultas/$consultationId/editar': typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
@@ -174,9 +208,13 @@ export interface FileRoutesById {
   '/_link/verify-email': typeof LinkVerifyEmailRoute
   '/_portal/portal': typeof PortalPortalRoute
   '/dev/components': typeof DevComponentsRoute
+  '/_clinic/patients/$patientId': typeof ClinicPatientsPatientIdRouteWithChildren
   '/_clinic/patients/new': typeof ClinicPatientsNewRoute
   '/_clinic/patients/': typeof ClinicPatientsIndexRoute
+  '/_clinic/patients/$patientId/control-medidas': typeof ClinicPatientsPatientIdControlMedidasRoute
   '/_clinic/patients/$patientId/edit': typeof ClinicPatientsPatientIdEditRoute
+  '/_clinic/patients/$patientId/historia': typeof ClinicPatientsPatientIdHistoriaRoute
+  '/_clinic/patients/$patientId/notas': typeof ClinicPatientsPatientIdNotasRoute
   '/_clinic/patients/$patientId/nueva-consulta': typeof ClinicPatientsPatientIdNuevaConsultaRoute
   '/_clinic/patients/$patientId/': typeof ClinicPatientsPatientIdIndexRoute
   '/_clinic/patients/$patientId/consultas/$consultationId/editar': typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
@@ -193,9 +231,13 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/portal'
     | '/dev/components'
+    | '/patients/$patientId'
     | '/patients/new'
     | '/patients/'
+    | '/patients/$patientId/control-medidas'
     | '/patients/$patientId/edit'
+    | '/patients/$patientId/historia'
+    | '/patients/$patientId/notas'
     | '/patients/$patientId/nueva-consulta'
     | '/patients/$patientId/'
     | '/patients/$patientId/consultas/$consultationId/editar'
@@ -212,7 +254,10 @@ export interface FileRouteTypes {
     | '/dev/components'
     | '/patients/new'
     | '/patients'
+    | '/patients/$patientId/control-medidas'
     | '/patients/$patientId/edit'
+    | '/patients/$patientId/historia'
+    | '/patients/$patientId/notas'
     | '/patients/$patientId/nueva-consulta'
     | '/patients/$patientId'
     | '/patients/$patientId/consultas/$consultationId/editar'
@@ -231,9 +276,13 @@ export interface FileRouteTypes {
     | '/_link/verify-email'
     | '/_portal/portal'
     | '/dev/components'
+    | '/_clinic/patients/$patientId'
     | '/_clinic/patients/new'
     | '/_clinic/patients/'
+    | '/_clinic/patients/$patientId/control-medidas'
     | '/_clinic/patients/$patientId/edit'
+    | '/_clinic/patients/$patientId/historia'
+    | '/_clinic/patients/$patientId/notas'
     | '/_clinic/patients/$patientId/nueva-consulta'
     | '/_clinic/patients/$patientId/'
     | '/_clinic/patients/$patientId/consultas/$consultationId/editar'
@@ -349,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClinicPatientsIndexRouteImport
       parentRoute: typeof ClinicRoute
     }
+    '/_clinic/patients/$patientId': {
+      id: '/_clinic/patients/$patientId'
+      path: '/patients/$patientId'
+      fullPath: '/patients/$patientId'
+      preLoaderRoute: typeof ClinicPatientsPatientIdRouteImport
+      parentRoute: typeof ClinicRoute
+    }
     '/_clinic/patients/new': {
       id: '/_clinic/patients/new'
       path: '/patients/new'
@@ -358,31 +414,52 @@ declare module '@tanstack/react-router' {
     }
     '/_clinic/patients/$patientId/': {
       id: '/_clinic/patients/$patientId/'
-      path: '/patients/$patientId'
+      path: '/'
       fullPath: '/patients/$patientId/'
       preLoaderRoute: typeof ClinicPatientsPatientIdIndexRouteImport
-      parentRoute: typeof ClinicRoute
+      parentRoute: typeof ClinicPatientsPatientIdRoute
+    }
+    '/_clinic/patients/$patientId/control-medidas': {
+      id: '/_clinic/patients/$patientId/control-medidas'
+      path: '/control-medidas'
+      fullPath: '/patients/$patientId/control-medidas'
+      preLoaderRoute: typeof ClinicPatientsPatientIdControlMedidasRouteImport
+      parentRoute: typeof ClinicPatientsPatientIdRoute
     }
     '/_clinic/patients/$patientId/edit': {
       id: '/_clinic/patients/$patientId/edit'
-      path: '/patients/$patientId/edit'
+      path: '/edit'
       fullPath: '/patients/$patientId/edit'
       preLoaderRoute: typeof ClinicPatientsPatientIdEditRouteImport
-      parentRoute: typeof ClinicRoute
+      parentRoute: typeof ClinicPatientsPatientIdRoute
+    }
+    '/_clinic/patients/$patientId/historia': {
+      id: '/_clinic/patients/$patientId/historia'
+      path: '/historia'
+      fullPath: '/patients/$patientId/historia'
+      preLoaderRoute: typeof ClinicPatientsPatientIdHistoriaRouteImport
+      parentRoute: typeof ClinicPatientsPatientIdRoute
+    }
+    '/_clinic/patients/$patientId/notas': {
+      id: '/_clinic/patients/$patientId/notas'
+      path: '/notas'
+      fullPath: '/patients/$patientId/notas'
+      preLoaderRoute: typeof ClinicPatientsPatientIdNotasRouteImport
+      parentRoute: typeof ClinicPatientsPatientIdRoute
     }
     '/_clinic/patients/$patientId/nueva-consulta': {
       id: '/_clinic/patients/$patientId/nueva-consulta'
-      path: '/patients/$patientId/nueva-consulta'
+      path: '/nueva-consulta'
       fullPath: '/patients/$patientId/nueva-consulta'
       preLoaderRoute: typeof ClinicPatientsPatientIdNuevaConsultaRouteImport
-      parentRoute: typeof ClinicRoute
+      parentRoute: typeof ClinicPatientsPatientIdRoute
     }
     '/_clinic/patients/$patientId/consultas/$consultationId/editar': {
       id: '/_clinic/patients/$patientId/consultas/$consultationId/editar'
-      path: '/patients/$patientId/consultas/$consultationId/editar'
+      path: '/consultas/$consultationId/editar'
       fullPath: '/patients/$patientId/consultas/$consultationId/editar'
       preLoaderRoute: typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRouteImport
-      parentRoute: typeof ClinicRoute
+      parentRoute: typeof ClinicPatientsPatientIdRoute
     }
   }
 }
@@ -401,24 +478,45 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
-interface ClinicRouteChildren {
-  ClinicPatientsNewRoute: typeof ClinicPatientsNewRoute
-  ClinicPatientsIndexRoute: typeof ClinicPatientsIndexRoute
+interface ClinicPatientsPatientIdRouteChildren {
+  ClinicPatientsPatientIdControlMedidasRoute: typeof ClinicPatientsPatientIdControlMedidasRoute
   ClinicPatientsPatientIdEditRoute: typeof ClinicPatientsPatientIdEditRoute
+  ClinicPatientsPatientIdHistoriaRoute: typeof ClinicPatientsPatientIdHistoriaRoute
+  ClinicPatientsPatientIdNotasRoute: typeof ClinicPatientsPatientIdNotasRoute
   ClinicPatientsPatientIdNuevaConsultaRoute: typeof ClinicPatientsPatientIdNuevaConsultaRoute
   ClinicPatientsPatientIdIndexRoute: typeof ClinicPatientsPatientIdIndexRoute
   ClinicPatientsPatientIdConsultasConsultationIdEditarRoute: typeof ClinicPatientsPatientIdConsultasConsultationIdEditarRoute
 }
 
+const ClinicPatientsPatientIdRouteChildren: ClinicPatientsPatientIdRouteChildren =
+  {
+    ClinicPatientsPatientIdControlMedidasRoute:
+      ClinicPatientsPatientIdControlMedidasRoute,
+    ClinicPatientsPatientIdEditRoute: ClinicPatientsPatientIdEditRoute,
+    ClinicPatientsPatientIdHistoriaRoute: ClinicPatientsPatientIdHistoriaRoute,
+    ClinicPatientsPatientIdNotasRoute: ClinicPatientsPatientIdNotasRoute,
+    ClinicPatientsPatientIdNuevaConsultaRoute:
+      ClinicPatientsPatientIdNuevaConsultaRoute,
+    ClinicPatientsPatientIdIndexRoute: ClinicPatientsPatientIdIndexRoute,
+    ClinicPatientsPatientIdConsultasConsultationIdEditarRoute:
+      ClinicPatientsPatientIdConsultasConsultationIdEditarRoute,
+  }
+
+const ClinicPatientsPatientIdRouteWithChildren =
+  ClinicPatientsPatientIdRoute._addFileChildren(
+    ClinicPatientsPatientIdRouteChildren,
+  )
+
+interface ClinicRouteChildren {
+  ClinicPatientsPatientIdRoute: typeof ClinicPatientsPatientIdRouteWithChildren
+  ClinicPatientsNewRoute: typeof ClinicPatientsNewRoute
+  ClinicPatientsIndexRoute: typeof ClinicPatientsIndexRoute
+}
+
 const ClinicRouteChildren: ClinicRouteChildren = {
+  ClinicPatientsPatientIdRoute: ClinicPatientsPatientIdRouteWithChildren,
   ClinicPatientsNewRoute: ClinicPatientsNewRoute,
   ClinicPatientsIndexRoute: ClinicPatientsIndexRoute,
-  ClinicPatientsPatientIdEditRoute: ClinicPatientsPatientIdEditRoute,
-  ClinicPatientsPatientIdNuevaConsultaRoute:
-    ClinicPatientsPatientIdNuevaConsultaRoute,
-  ClinicPatientsPatientIdIndexRoute: ClinicPatientsPatientIdIndexRoute,
-  ClinicPatientsPatientIdConsultasConsultationIdEditarRoute:
-    ClinicPatientsPatientIdConsultasConsultationIdEditarRoute,
 }
 
 const ClinicRouteWithChildren =
