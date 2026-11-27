@@ -128,6 +128,34 @@ app.
 - Entry points: «Nueva consulta» in the consultations section header and
   «Editar» on each record card, both real links with `buttonVariants`.
 
+## Notes
+
+### Internal patient notes (#80)
+
+**Status: implemented (API + table).** `GET`/`POST`
+`/api/clinic/patients/:patientId/notes` and `DELETE .../notes/:noteId`.
+The web tab arrives with #84.
+
+- **Notes are nutritionist-only.** They live under `/api/clinic` like the
+  rest of the staff API and are never exposed to the portal — the portal
+  reads through its own read-only endpoints, which do not include them.
+- **Own module (`modules/notes`), not inside patients.** One Nest module
+  per domain (CLAUDE.md §5); notes will grow (the #84 tab), and the module
+  mirrors consultations: controller → service → repository, patient
+  existence asserted through `PatientsService`, 404 identical for missing,
+  foreign and soft-deleted records.
+- **Table `patient_notes`** with the same composite foreign key as
+  consultations (`(patient_id, clinic_id) → patients(id, clinic_id)`, so a
+  note's patient must belong to its clinic) and soft delete.
+  `created_by → users` is stored for audit but **not exposed by the API
+  yet**: a bare user uuid means nothing to the UI, and the design's notes
+  screen does not show an author; when one is wanted, the response gains a
+  display name through a join, not the raw id.
+- **Body rules in the shared schema:** trimmed, 1–2000 characters
+  (`NOTE_BODY_MAX_LENGTH`, exported for the #84 form).
+- The seed truncates `patient_notes` (its FK to `patients` requires it)
+  and leaves two fictional notes on the first patient for local dev.
+
 ## Consultations
 
 ### Editing and deleting a consultation (#76)
