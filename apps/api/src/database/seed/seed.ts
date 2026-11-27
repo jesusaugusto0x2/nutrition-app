@@ -9,6 +9,7 @@ import {
   consultations,
   memberships,
   patientAccess,
+  patientNotes,
   patients,
   users,
 } from '../schema';
@@ -45,6 +46,8 @@ interface PatientProfile {
   armCm: MeasurementTrend;
   legCm: MeasurementTrend;
   notes: string[];
+  /** Internal patient notes (nutritionist-only), a couple for local dev. */
+  internalNotes?: string[];
   /** The seed portal user is this patient's guardian. */
   portalGuardian?: true;
 }
@@ -65,6 +68,10 @@ const PATIENTS: PatientProfile[] = [
     armCm: { start: 31, deltaPerVisit: -0.3 },
     legCm: { start: 60, deltaPerVisit: -0.5 },
     notes: ['Primera consulta. Objetivo: reducir peso.', 'Buena adherencia.'],
+    internalNotes: [
+      'Prefiere citas por la mañana.',
+      'Alergia al maní: revisar suplementos.',
+    ],
   },
   {
     firstName: 'Carlos Andrés',
@@ -176,7 +183,7 @@ async function seed(db: Database): Promise<void> {
 
   await db.transaction(async (tx) => {
     await tx.execute(
-      sql`TRUNCATE sessions, auth_accounts, auth_tokens, consultations, patient_access, patients, memberships, clinics, users`,
+      sql`TRUNCATE sessions, auth_accounts, auth_tokens, patient_notes, consultations, patient_access, patients, memberships, clinics, users`,
     );
 
     await tx.insert(clinics).values({
@@ -231,6 +238,17 @@ async function seed(db: Database): Promise<void> {
         notes: profile.notes[visit] ?? null,
       }));
       await tx.insert(consultations).values(rows);
+
+      if (profile.internalNotes?.length) {
+        await tx.insert(patientNotes).values(
+          profile.internalNotes.map((body) => ({
+            patientId: patient.id,
+            clinicId: SEED_CLINIC_ID,
+            createdBy: SEED_OWNER_USER_ID,
+            body,
+          })),
+        );
+      }
 
       if (profile.portalGuardian) {
         await tx.insert(patientAccess).values({

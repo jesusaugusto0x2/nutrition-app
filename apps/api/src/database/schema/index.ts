@@ -9,6 +9,7 @@ export * from './auth';
 export * from './clinics';
 export * from './consultations';
 export * from './memberships';
+export * from './notes';
 export * from './patient-access';
 export * from './patients';
 export * from './users';
