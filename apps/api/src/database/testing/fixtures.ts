@@ -6,6 +6,7 @@ import {
   consultations,
   memberships,
   patientAccess,
+  patientNotes,
   patients,
   sessions,
   users,
@@ -98,6 +99,26 @@ export async function insertConsultation(
     })
     .returning();
   return consultation;
+}
+
+export async function insertNote(
+  db: Database,
+  clinicId: string,
+  patientId: string,
+  createdBy: string,
+  overrides: Partial<typeof patientNotes.$inferInsert> = {},
+) {
+  const [note] = await db
+    .insert(patientNotes)
+    .values({
+      clinicId,
+      patientId,
+      createdBy,
+      body: 'Test note',
+      ...overrides,
+    })
+    .returning();
+  return note;
 }
 
 let sessionCount = 0;

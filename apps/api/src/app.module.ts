@@ -17,6 +17,7 @@ import { MailModule } from './mail/mail.module';
 import { ClinicsModule } from './modules/clinics/clinics.module';
 import { ConsultationsModule } from './modules/consultations/consultations.module';
 import { NutritionHistoryModule } from './modules/nutrition-history/nutrition-history.module';
+import { NotesModule } from './modules/notes/notes.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { PortalModule } from './modules/portal/portal.module';
 
@@ -40,6 +41,7 @@ import { PortalModule } from './modules/portal/portal.module';
     ClinicsModule,
     PatientsModule,
     ConsultationsModule,
+    NotesModule,
     NutritionHistoryModule,
     PortalModule,
   ],
