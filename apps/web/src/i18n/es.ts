@@ -76,6 +76,13 @@ export const es = {
     history: 'Historia nutricional',
     measurements: 'Control de medidas',
     notes: 'Notas',
+    /** What a not-yet-wired tab will show; the badge says «Próximamente». */
+    comingSoon: {
+      history: 'Sus antecedentes y hábitos, en la ficha de anamnesis.',
+      measurements: 'La evolución de peso y medidas, consulta a consulta.',
+      notes:
+        'Anotaciones internas sobre el paciente, solo para el consultorio.',
+    },
   },
   pagination: {
     label: (items: string) => `Páginas de ${items}`,

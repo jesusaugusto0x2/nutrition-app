@@ -128,6 +128,33 @@ app.
 - Entry points: «Nueva consulta» in the consultations section header and
   «Editar» on each record card, both real links with `buttonVariants`.
 
+### Patient profile tabs (#81)
+
+**Status: implemented.** The profile is a tabbed route (spec 5):
+`/patients/$patientId` is Resumen (default, the consultations list) with
+nested siblings `/historia`, `/control-medidas` and `/notas`.
+
+- **`$patientId.tsx` is a layout route with only `<Outlet/>` and a
+  validation loader.** It preloads the patient detail and turns 404/400
+  into the profile's not-found page, so a deep link to any tab of an
+  unknown, foreign or malformed id 404s exactly like the profile always
+  did. Form routes (`edit`, `nueva-consulta`) stay plain children of this
+  layout: they render outside the profile frame — this is the same
+  child-route trap #78 documented, now solved by an actual `<Outlet/>`
+  instead of demoting the profile to `index.tsx`.
+- **The shared frame (`PatientShell`) wraps only the four tabs**: back
+  link, flash notice, patient card and the tab bar around the tab's own
+  content. The active tab is a prop of the route rendering it, never
+  derived from the URL by hand — deep-linking and tab clicks are the same
+  code path, and the tab bar (`SectionTabs`, spec 5) navigates on change.
+- **Not-yet-wired tabs land with `ComingSoonCard` (spec 35)**, not blank
+  screens: Historia (#87), Control de medidas (#83) and Notas (#84) each
+  say what arrives and when. Resumen renders the existing consultation
+  list, now without its patient loader — the layout owns patient
+  validation, the index route only adds `consultationsQueryOptions`.
+- Pacientes stays `aria-current` in the navigation on every tab for free:
+  the nav links match by route prefix, and the tabs are nested paths.
+
 ## Notes
 
 ### Internal patient notes (#80)

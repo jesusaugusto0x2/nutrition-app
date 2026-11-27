@@ -1,0 +1,103 @@
+import { calculateAge } from '@nutri/utils';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { Link, useLocation } from '@tanstack/react-router';
+import { ChevronLeft, PencilIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { SuccessNotice } from '@/components/ui/notice';
+import { t } from '@/i18n';
+import { formatDate } from '@/lib/format';
+import { patientQueryOptions } from '../api';
+import { patientFullName } from '../patient-name';
+import { PatientTabs, type ProfileTab } from './patient-tabs';
+
+/**
+ * Shared frame of the four profile tabs (spec 5): back link, flash
+ * notice, patient card and the tab bar around the tab's own content.
+ * Form screens (edit, new consultation) stay outside this frame.
+ */
+export function PatientShell({
+  patientId,
+  active,
+  children,
+}: {
+  patientId: string;
+  active: ProfileTab;
+  children: ReactNode;
+}) {
+  const { data: patient } = useSuspenseQuery(patientQueryOptions(patientId));
+  // Set by a save on its way here; it lives only in this history entry, so
+  // later visits do not show it.
+  const { state } = useLocation();
+  const noticeText =
+    state.notice === 'patient-created'
+      ? t.patients.form.created
+      : state.notice === 'consultation-saved'
+        ? t.consultations.saved
+        : null;
+
+  const details = [
+    [t.patients.birthDate, formatDate(patient.birthDate)],
+    [t.patients.phone, patient.phone ?? t.common.notAvailable],
+    [t.patients.address, patient.address ?? t.common.notAvailable],
+  ] as const;
+
+  return (
+    <div className="space-y-6">
+      <Link
+        to="/patients"
+        className="text-muted-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <ChevronLeft aria-hidden className="size-4" />
+        {t.patients.backToList}
+      </Link>
+
+      {noticeText && <SuccessNotice>{noticeText}</SuccessNotice>}
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle className="text-xl">
+              {patientFullName(patient)}
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              {t.patients.age(calculateAge(patient.birthDate))} ·{' '}
+              {t.patients.sex[patient.sex]}
+            </p>
+          </div>
+          <CardAction>
+            <Link
+              to="/patients/$patientId/edit"
+              params={{ patientId }}
+              className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+            >
+              <PencilIcon aria-hidden />
+              {t.patients.editPatient}
+            </Link>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            {details.map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+
+      <PatientTabs patientId={patientId} active={active} />
+
+      {children}
+    </div>
+  );
+}
