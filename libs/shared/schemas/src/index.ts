@@ -3,4 +3,5 @@ export * from './lib/auth.js';
 export * from './lib/common.js';
 export * from './lib/consultations.js';
 export * from './lib/health.js';
+export * from './lib/notes.js';
 export * from './lib/patients.js';
